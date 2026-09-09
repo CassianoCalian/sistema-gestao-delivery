@@ -1,26 +1,529 @@
 @import "tailwindcss";
 
+/* =========================================================
+   DEPÓSITO DO ZÉ — DESIGN SYSTEM
+   ========================================================= */
+
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  --background: #09090b;
+  --foreground: #fafafa;
+
+  --surface: #111113;
+  --surface-soft: #18181b;
+  --surface-elevated: #202024;
+
+  --border: rgba(255, 255, 255, 0.08);
+  --border-strong: rgba(255, 255, 255, 0.14);
+
+  --muted: #a1a1aa;
+  --muted-dark: #71717a;
+
+  --brand: #fbbf24;
+  --brand-strong: #f59e0b;
+  --brand-dark: #d97706;
+
+  --brand-soft: rgba(251, 191, 36, 0.12);
+  --brand-glow: rgba(251, 191, 36, 0.24);
+
+  --success: #22c55e;
+  --danger: #ef4444;
+
+  --shadow-soft: 0 10px 40px rgba(0, 0, 0, 0.28);
+
+  --shadow-card: 0 16px 50px rgba(0, 0, 0, 0.35);
+
+  --shadow-brand: 0 10px 35px rgba(245, 158, 11, 0.22);
 }
 
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
+
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
+
+  --color-brand: var(--brand);
+  --color-brand-strong: var(--brand-strong);
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+/* =========================================================
+   BASE
+   ========================================================= */
+
+html {
+  scroll-behavior: smooth;
+  background: var(--background);
 }
 
 body {
-  background: var(--background);
+  min-height: 100vh;
+  overflow-x: hidden;
+
+  background:
+    radial-gradient(
+      circle at 10% 0%,
+      rgba(245, 158, 11, 0.08),
+      transparent 30%
+    ),
+    radial-gradient(
+      circle at 90% 25%,
+      rgba(251, 191, 36, 0.045),
+      transparent 28%
+    ),
+    var(--background);
+
   color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+
+  font-family:
+    var(--font-geist-sans),
+    system-ui,
+    -apple-system,
+    BlinkMacSystemFont,
+    "Segoe UI",
+    sans-serif;
+
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+
+  text-rendering: optimizeLegibility;
+}
+
+/* =========================================================
+   SELEÇÃO
+   ========================================================= */
+
+::selection {
+  background: var(--brand);
+  color: #09090b;
+}
+
+/* =========================================================
+   SCROLLBAR
+   ========================================================= */
+
+* {
+  scrollbar-width: thin;
+  scrollbar-color: #3f3f46 #09090b;
+}
+
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: #09090b;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #3f3f46;
+  border-radius: 999px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #52525b;
+}
+
+/* =========================================================
+   LINKS / BOTÕES / ELEMENTOS INTERATIVOS
+   ========================================================= */
+
+button,
+a,
+input,
+select,
+textarea {
+  -webkit-tap-highlight-color: transparent;
+}
+
+button,
+a {
+  touch-action: manipulation;
+}
+
+button {
+  cursor: pointer;
+}
+
+/* =========================================================
+   FOCUS PROFISSIONAL
+   ========================================================= */
+
+input,
+textarea,
+select,
+button,
+a {
+  outline: none;
+}
+
+input:focus-visible,
+textarea:focus-visible,
+select:focus-visible,
+button:focus-visible,
+a:focus-visible {
+  outline: 2px solid var(--brand);
+  outline-offset: 3px;
+}
+
+/* =========================================================
+   GLASSMORPHISM
+   ========================================================= */
+
+.glass {
+  background: rgba(24, 24, 27, 0.72);
+  border: 1px solid var(--border);
+
+  backdrop-filter: blur(18px);
+  -webkit-backdrop-filter: blur(18px);
+}
+
+/* =========================================================
+   CARD PREMIUM
+   ========================================================= */
+
+.premium-card {
+  position: relative;
+
+  border: 1px solid var(--border);
+
+  background:
+    linear-gradient(
+      145deg,
+      rgba(255, 255, 255, 0.035),
+      rgba(255, 255, 255, 0.01)
+    ),
+    var(--surface);
+
+  box-shadow: var(--shadow-soft);
+
+  transition:
+    transform 300ms cubic-bezier(0.22, 1, 0.36, 1),
+    border-color 300ms ease,
+    box-shadow 300ms ease,
+    background 300ms ease;
+}
+
+/* =========================================================
+   BOTÃO PREMIUM
+   ========================================================= */
+
+.brand-button {
+  position: relative;
+  overflow: hidden;
+
+  background: linear-gradient(135deg, #fbbf24 0%, #f59e0b 55%, #d97706 100%);
+
+  color: #09090b;
+
+  box-shadow: var(--shadow-brand);
+
+  transition:
+    transform 180ms ease,
+    box-shadow 250ms ease,
+    filter 250ms ease;
+}
+
+.brand-button::before {
+  content: "";
+
+  position: absolute;
+  inset: 0;
+
+  background: linear-gradient(
+    110deg,
+    transparent 20%,
+    rgba(255, 255, 255, 0.38) 45%,
+    transparent 70%
+  );
+
+  transform: translateX(-140%);
+}
+
+.brand-button:hover::before {
+  animation: button-shine 700ms ease;
+}
+
+.brand-button:active {
+  transform: scale(0.965);
+}
+
+/* =========================================================
+   MICROINTERAÇÃO — PRESS
+   ========================================================= */
+
+.pressable {
+  transition:
+    transform 180ms cubic-bezier(0.22, 1, 0.36, 1),
+    opacity 180ms ease;
+}
+
+.pressable:active {
+  transform: scale(0.96);
+}
+
+/* =========================================================
+   MICROINTERAÇÃO — CARD
+   ========================================================= */
+
+.interactive-card {
+  transition:
+    transform 280ms cubic-bezier(0.22, 1, 0.36, 1),
+    border-color 280ms ease,
+    box-shadow 280ms ease;
+}
+
+.interactive-card:active {
+  transform: scale(0.985);
+}
+
+/* =========================================================
+   GLOW
+   ========================================================= */
+
+.brand-glow {
+  box-shadow:
+    0 0 0 1px rgba(251, 191, 36, 0.08),
+    0 12px 40px rgba(245, 158, 11, 0.16);
+}
+
+/* =========================================================
+   TEXTO COM GRADIENTE
+   ========================================================= */
+
+.brand-gradient-text {
+  background: linear-gradient(135deg, #fde68a, #fbbf24 45%, #f59e0b);
+
+  background-clip: text;
+  -webkit-background-clip: text;
+
+  color: transparent;
+}
+
+/* =========================================================
+   DIVISOR
+   ========================================================= */
+
+.section-divider {
+  height: 1px;
+
+  background: linear-gradient(
+    90deg,
+    transparent,
+    rgba(251, 191, 36, 0.22),
+    rgba(255, 255, 255, 0.08),
+    transparent
+  );
+}
+
+/* =========================================================
+   ANIMAÇÕES
+   ========================================================= */
+
+.animate-fade-in {
+  animation: fade-in 550ms cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+.animate-slide-up {
+  animation: slide-up 650ms cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+.animate-scale-in {
+  animation: scale-in 450ms cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+.animate-float {
+  animation: float-soft 4s ease-in-out infinite;
+}
+
+.animate-pulse-glow {
+  animation: pulse-glow 2.6s ease-in-out infinite;
+}
+
+/* =========================================================
+   STAGGER
+   ========================================================= */
+
+.delay-1 {
+  animation-delay: 80ms;
+}
+
+.delay-2 {
+  animation-delay: 160ms;
+}
+
+.delay-3 {
+  animation-delay: 240ms;
+}
+
+.delay-4 {
+  animation-delay: 320ms;
+}
+
+.delay-5 {
+  animation-delay: 400ms;
+}
+
+.delay-6 {
+  animation-delay: 480ms;
+}
+
+/* =========================================================
+   SKELETON / SHIMMER
+   ========================================================= */
+
+.shimmer {
+  position: relative;
+  overflow: hidden;
+}
+
+.shimmer::after {
+  content: "";
+
+  position: absolute;
+  inset: 0;
+
+  transform: translateX(-100%);
+
+  background: linear-gradient(
+    90deg,
+    transparent,
+    rgba(255, 255, 255, 0.08),
+    transparent
+  );
+
+  animation: shimmer 1.8s infinite;
+}
+
+/* =========================================================
+   MOBILE SAFE AREA
+   ========================================================= */
+
+.safe-bottom {
+  padding-bottom: max(env(safe-area-inset-bottom), 12px);
+}
+
+/* =========================================================
+   HOVER — APENAS DISPOSITIVOS COM MOUSE
+   ========================================================= */
+
+@media (hover: hover) {
+  .premium-card:hover {
+    transform: translateY(-5px);
+
+    border-color: rgba(251, 191, 36, 0.22);
+
+    box-shadow:
+      0 22px 60px rgba(0, 0, 0, 0.42),
+      0 0 35px rgba(245, 158, 11, 0.06);
+  }
+
+  .interactive-card:hover {
+    transform: translateY(-4px);
+  }
+
+  .brand-button:hover {
+    transform: translateY(-2px);
+
+    filter: brightness(1.04);
+
+    box-shadow: 0 15px 45px rgba(245, 158, 11, 0.3);
+  }
+}
+
+/* =========================================================
+   KEYFRAMES
+   ========================================================= */
+
+@keyframes fade-in {
+  from {
+    opacity: 0;
+  }
+
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes slide-up {
+  from {
+    opacity: 0;
+    transform: translateY(22px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes scale-in {
+  from {
+    opacity: 0;
+    transform: scale(0.94);
+  }
+
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+@keyframes float-soft {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+
+  50% {
+    transform: translateY(-7px);
+  }
+}
+
+@keyframes pulse-glow {
+  0%,
+  100% {
+    box-shadow: 0 0 0 rgba(251, 191, 36, 0);
+  }
+
+  50% {
+    box-shadow: 0 0 32px rgba(251, 191, 36, 0.16);
+  }
+}
+
+@keyframes shimmer {
+  100% {
+    transform: translateX(100%);
+  }
+}
+
+@keyframes button-shine {
+  from {
+    transform: translateX(-140%);
+  }
+
+  to {
+    transform: translateX(140%);
+  }
+}
+
+/* =========================================================
+   ACESSIBILIDADE
+   ========================================================= */
+
+@media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto;
+  }
+
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+
+    transition-duration: 0.01ms !important;
+
+    scroll-behavior: auto !important;
+  }
 }

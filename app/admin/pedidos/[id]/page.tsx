@@ -191,58 +191,302 @@ export default async function AdminPedidoDetalhe({
       <div className="mx-auto max-w-5xl">
         <Link
           href="/admin/pedidos"
-          className="text-sm font-bold text-amber-400"
+          className="group/voltar inline-flex items-center gap-2 rounded-full border border-white/[0.06] bg-white/[0.025] px-4 py-2 text-[9px] font-black uppercase tracking-[0.1em] text-zinc-500 transition duration-300 hover:border-amber-400/25 hover:bg-amber-400/[0.05] hover:text-amber-400"
         >
-          ← Voltar para pedidos
+          <span className="transition duration-300 group-hover/voltar:-translate-x-1">
+            ←
+          </span>
+          Voltar para pedidos
         </Link>
 
-        <div className="mt-8 rounded-3xl border border-zinc-800 bg-zinc-900 p-8">
-          <div className="flex flex-col gap-5 md:flex-row md:items-start md:justify-between">
-            <div>
-              <p className="text-sm font-black uppercase tracking-widest text-amber-400">
-                Pedido #{pedido.id}
-              </p>
+        <div className="group/detalhe relative mt-6 overflow-hidden rounded-[32px] border border-white/[0.07] bg-white/[0.025] p-6 shadow-[0_30px_100px_rgba(0,0,0,0.25)] sm:p-8">
+          {/* GLOWS */}
+          <div
+            aria-hidden="true"
+            className="pointer-events-none absolute -left-28 -top-32 h-80 w-80 rounded-full bg-amber-400/[0.055] blur-[120px]"
+          />
 
-              <h1 className="mt-2 text-4xl font-black">
+          <div
+            aria-hidden="true"
+            className="pointer-events-none absolute -bottom-36 -right-28 h-80 w-80 rounded-full bg-orange-500/[0.035] blur-[130px]"
+          />
+
+          {/* GRID DECORATIVO */}
+          <div
+            aria-hidden="true"
+            className="pointer-events-none absolute inset-0 opacity-[0.02]"
+            style={{
+              backgroundImage:
+                "linear-gradient(rgba(255,255,255,.5) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,.5) 1px, transparent 1px)",
+              backgroundSize: "44px 44px",
+            }}
+          />
+
+          {/* CABEÇALHO */}
+          <div className="relative flex flex-col gap-7 lg:flex-row lg:items-start lg:justify-between">
+            <div>
+              <div className="flex flex-wrap items-center gap-3">
+                <span className="h-px w-8 bg-amber-400" />
+
+                <p className="text-[9px] font-black uppercase tracking-[0.2em] text-amber-400">
+                  Pedido #{pedido.id}
+                </p>
+
+                <span className="h-1 w-1 rounded-full bg-zinc-700" />
+
+                <span className="text-[8px] font-black uppercase tracking-[0.12em] text-zinc-700">
+                  Detalhes da operação
+                </span>
+              </div>
+
+              <h1 className="mt-4 max-w-2xl text-4xl font-black tracking-[-0.055em] text-white sm:text-5xl">
                 {pedido.nome_cliente}
               </h1>
 
-              <p className="mt-2 text-zinc-400">
-                {formatarStatus(pedido.status)}
+              <div className="mt-4 flex flex-wrap items-center gap-2">
+                {/* STATUS */}
+                <span
+                  className={`rounded-full border px-3 py-2 text-[8px] font-black uppercase tracking-[0.08em] ${
+                    pedido.status === "recebido"
+                      ? "border-amber-400/15 bg-amber-400/[0.07] text-amber-400"
+                      : pedido.status === "em_preparacao"
+                        ? "border-orange-400/15 bg-orange-400/[0.07] text-orange-400"
+                        : pedido.status === "saiu_entrega"
+                          ? "border-blue-400/15 bg-blue-400/[0.07] text-blue-400"
+                          : pedido.status === "entregue"
+                            ? "border-emerald-400/15 bg-emerald-400/[0.07] text-emerald-400"
+                            : pedido.status === "cancelado"
+                              ? "border-red-400/15 bg-red-400/[0.07] text-red-400"
+                              : "border-white/[0.07] bg-white/[0.03] text-zinc-400"
+                  }`}
+                >
+                  {formatarStatus(pedido.status)}
+                </span>
+
+                {/* HORÁRIO */}
+                <span className="flex items-center gap-2 rounded-full border border-white/[0.05] bg-black/20 px-3 py-2 text-[8px] font-black uppercase tracking-[0.08em] text-zinc-600">
+                  <span>◷</span>
+                  {formatarDataHora(pedido.created_at)}
+                </span>
+              </div>
+
+              <p className="mt-4 max-w-xl text-sm leading-6 text-zinc-500">
+                Acompanhe informações do cliente, pagamento, entrega, itens e
+                andamento operacional deste pedido.
               </p>
             </div>
 
-            <div className="md:text-right">
-              <p className="text-sm text-zinc-500">Total do pedido</p>
+            {/* TOTAL */}
+            <div className="relative min-w-[220px] overflow-hidden rounded-[24px] border border-amber-400/15 bg-amber-400/[0.045] p-5 lg:text-right">
+              <div
+                aria-hidden="true"
+                className="pointer-events-none absolute -right-12 -top-12 h-32 w-32 rounded-full bg-amber-400/[0.09] blur-3xl"
+              />
 
-              <p className="text-3xl font-black text-amber-400">
-                {formatarPreco(Number(pedido.total))}
-              </p>
+              <div className="relative">
+                <div className="flex items-center justify-between gap-3 lg:justify-end">
+                  <p className="text-[8px] font-black uppercase tracking-[0.14em] text-amber-400/70">
+                    Total do pedido
+                  </p>
+
+                  <span className="flex h-8 w-8 items-center justify-center rounded-xl border border-amber-400/15 bg-amber-400/[0.07] text-sm">
+                    💰
+                  </span>
+                </div>
+
+                <p className="mt-3 text-3xl font-black tracking-[-0.05em] text-white">
+                  {formatarPreco(Number(pedido.total))}
+                </p>
+
+                <div className="mt-4 flex items-center gap-2 border-t border-amber-400/[0.08] pt-3 lg:justify-end">
+                  <span className="relative flex h-1.5 w-1.5">
+                    <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-40" />
+                    <span className="relative inline-flex h-1.5 w-1.5 rounded-full bg-emerald-400" />
+                  </span>
+
+                  <span className="text-[7px] font-black uppercase tracking-[0.12em] text-zinc-600">
+                    Pedido carregado
+                  </span>
+                </div>
+              </div>
             </div>
           </div>
 
-          <div className="mt-8 grid gap-4 md:grid-cols-2">
-            <div className="rounded-2xl bg-zinc-950 p-5">
-              <p className="text-sm text-zinc-500">Telefone</p>
+          {/* DIVISOR */}
+          <div className="relative mt-7 h-px w-full bg-linear-to-r from-amber-400/20 via-white/[0.05] to-transparent" />
 
-              <p className="mt-1 font-bold">{pedido.telefone}</p>
+          <div className="relative mt-8 grid gap-4 md:grid-cols-2">
+            {/* CONTATO */}
+            <div className="group/contato relative overflow-hidden rounded-[24px] border border-emerald-400/10 bg-emerald-400/[0.025] p-5 transition duration-500 hover:-translate-y-0.5 hover:border-emerald-400/25 hover:shadow-[0_20px_60px_rgba(52,211,153,0.06)] sm:p-6">
+              <div
+                aria-hidden="true"
+                className="pointer-events-none absolute -right-12 -top-12 h-36 w-36 rounded-full bg-emerald-400/[0.06] blur-3xl transition duration-500 group-hover/contato:bg-emerald-400/[0.1]"
+              />
 
-              <a
-                href={linkWhatsApp}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="mt-4 inline-block rounded-lg bg-green-500 px-4 py-2 text-sm font-black text-white transition hover:bg-green-400"
-              >
-                💬 Chamar no WhatsApp
-              </a>
+              <div className="relative">
+                <div className="flex items-start justify-between gap-4">
+                  <div className="flex h-11 w-11 items-center justify-center rounded-[16px] border border-emerald-400/15 bg-emerald-400/[0.07] text-lg transition duration-300 group-hover/contato:scale-110">
+                    ☎
+                  </div>
+
+                  <span className="rounded-full border border-emerald-400/10 bg-emerald-400/[0.05] px-2.5 py-1 text-[7px] font-black uppercase tracking-[0.1em] text-emerald-400">
+                    Contato
+                  </span>
+                </div>
+
+                <p className="mt-5 text-[8px] font-black uppercase tracking-[0.14em] text-zinc-600">
+                  Telefone do cliente
+                </p>
+
+                <p className="mt-1 text-xl font-black tracking-[-0.025em] text-white">
+                  {pedido.telefone}
+                </p>
+
+                <a
+                  href={linkWhatsApp}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="group/whatsapp relative mt-5 flex min-h-12 w-full items-center justify-center gap-3 overflow-hidden rounded-[16px] border border-emerald-300/20 bg-emerald-500 px-5 py-3 text-sm font-black text-white shadow-[0_12px_35px_rgba(16,185,129,0.12)] transition duration-300 hover:-translate-y-0.5 hover:bg-emerald-400 hover:shadow-[0_16px_45px_rgba(16,185,129,0.2)] sm:w-fit"
+                >
+                  <span className="absolute -left-1/2 top-0 h-full w-1/3 skew-x-[-20deg] bg-white/20 transition-all duration-700 group-hover/whatsapp:left-[120%]" />
+
+                  <span className="relative text-base">💬</span>
+
+                  <span className="relative">Chamar no WhatsApp</span>
+
+                  <span className="relative transition duration-300 group-hover/whatsapp:translate-x-1">
+                    →
+                  </span>
+                </a>
+
+                <div className="mt-4 flex items-center gap-2 border-t border-emerald-400/[0.07] pt-3">
+                  <span className="h-1.5 w-1.5 rounded-full bg-emerald-400" />
+
+                  <span className="text-[7px] font-black uppercase tracking-[0.12em] text-zinc-700">
+                    Comunicação direta com o cliente
+                  </span>
+                </div>
+              </div>
             </div>
 
-            <div className="rounded-2xl bg-zinc-950 p-5">
-              <p className="text-sm text-zinc-500">Pagamento</p>
+            {/* PAGAMENTO */}
+            <div
+              className={`group/pagamento relative overflow-hidden rounded-[24px] border p-5 transition duration-500 hover:-translate-y-0.5 sm:p-6 ${
+                pedido.forma_pagamento === "pix"
+                  ? pedido.pagamento_confirmado
+                    ? "border-emerald-400/10 bg-emerald-400/[0.025] hover:border-emerald-400/25"
+                    : "border-amber-400/15 bg-amber-400/[0.03] hover:border-amber-400/30"
+                  : "border-cyan-400/10 bg-cyan-400/[0.025] hover:border-cyan-400/25"
+              }`}
+            >
+              <div
+                aria-hidden="true"
+                className={`pointer-events-none absolute -right-12 -top-12 h-36 w-36 rounded-full blur-3xl transition duration-500 ${
+                  pedido.forma_pagamento === "pix"
+                    ? pedido.pagamento_confirmado
+                      ? "bg-emerald-400/[0.06] group-hover/pagamento:bg-emerald-400/[0.1]"
+                      : "bg-amber-400/[0.07] group-hover/pagamento:bg-amber-400/[0.11]"
+                    : "bg-cyan-400/[0.05] group-hover/pagamento:bg-cyan-400/[0.09]"
+                }`}
+              />
 
-              <p className="mt-1 font-bold">
-                {formatarPagamento(pedido.forma_pagamento)}
-              </p>
+              <div className="relative">
+                <div className="flex items-start justify-between gap-4">
+                  <div
+                    className={`flex h-11 w-11 items-center justify-center rounded-[16px] border text-lg transition duration-300 group-hover/pagamento:scale-110 ${
+                      pedido.forma_pagamento === "pix"
+                        ? pedido.pagamento_confirmado
+                          ? "border-emerald-400/15 bg-emerald-400/[0.07]"
+                          : "border-amber-400/15 bg-amber-400/[0.07]"
+                        : "border-cyan-400/15 bg-cyan-400/[0.06]"
+                    }`}
+                  >
+                    {pedido.forma_pagamento === "pix"
+                      ? "◆"
+                      : pedido.forma_pagamento === "cartao_entrega"
+                        ? "💳"
+                        : "💵"}
+                  </div>
+
+                  <span
+                    className={`rounded-full border px-2.5 py-1 text-[7px] font-black uppercase tracking-[0.1em] ${
+                      pedido.forma_pagamento === "pix"
+                        ? pedido.pagamento_confirmado
+                          ? "border-emerald-400/10 bg-emerald-400/[0.05] text-emerald-400"
+                          : "border-amber-400/10 bg-amber-400/[0.05] text-amber-400"
+                        : "border-cyan-400/10 bg-cyan-400/[0.05] text-cyan-400"
+                    }`}
+                  >
+                    {pedido.forma_pagamento === "pix"
+                      ? pedido.pagamento_confirmado
+                        ? "Confirmado"
+                        : "Pendente"
+                      : "Na entrega"}
+                  </span>
+                </div>
+
+                <p className="mt-5 text-[8px] font-black uppercase tracking-[0.14em] text-zinc-600">
+                  Forma de pagamento
+                </p>
+
+                <p className="mt-1 text-xl font-black tracking-[-0.025em] text-white">
+                  {formatarPagamento(pedido.forma_pagamento)}
+                </p>
+
+                {pedido.forma_pagamento === "pix" && (
+                  <div
+                    className={`mt-5 flex items-center gap-3 rounded-[16px] border px-4 py-3 ${
+                      pedido.pagamento_confirmado
+                        ? "border-emerald-400/10 bg-emerald-400/[0.04]"
+                        : "border-amber-400/10 bg-amber-400/[0.04]"
+                    }`}
+                  >
+                    <span
+                      className={`relative flex h-2 w-2 ${
+                        pedido.pagamento_confirmado ? "" : "animate-pulse"
+                      }`}
+                    >
+                      <span
+                        className={`relative inline-flex h-2 w-2 rounded-full ${
+                          pedido.pagamento_confirmado
+                            ? "bg-emerald-400"
+                            : "bg-amber-400"
+                        }`}
+                      />
+                    </span>
+
+                    <div>
+                      <p
+                        className={`text-[8px] font-black uppercase tracking-[0.1em] ${
+                          pedido.pagamento_confirmado
+                            ? "text-emerald-400"
+                            : "text-amber-400"
+                        }`}
+                      >
+                        {pedido.pagamento_confirmado
+                          ? "PIX confirmado"
+                          : "Aguardando confirmação do PIX"}
+                      </p>
+
+                      <p className="mt-1 text-[8px] text-zinc-700">
+                        {pedido.pagamento_confirmado
+                          ? "Pagamento registrado no sistema."
+                          : "Confirme o pagamento antes de avançar o pedido."}
+                      </p>
+                    </div>
+                  </div>
+                )}
+
+                {pedido.forma_pagamento !== "pix" && (
+                  <div className="mt-5 flex items-center gap-2 border-t border-white/[0.05] pt-3">
+                    <span className="h-1.5 w-1.5 rounded-full bg-cyan-400" />
+
+                    <span className="text-[7px] font-black uppercase tracking-[0.12em] text-zinc-700">
+                      Pagamento realizado na entrega
+                    </span>
+                  </div>
+                )}
+              </div>
             </div>
           </div>
 

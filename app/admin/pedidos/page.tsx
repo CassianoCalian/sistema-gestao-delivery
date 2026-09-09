@@ -253,67 +253,224 @@ export default async function AdminPedidosPage({
       <div className="mx-auto max-w-6xl">
         <AdminNavigation />
         <AdminAutoRefresh ultimoPedidoId={ultimoPedidoId} />
-        <div>
-          <h1 className="text-4xl font-black">Pedidos</h1>
-
-          <p className="mt-2 text-zinc-400">
-            Acompanhe e gerencie os pedidos recebidos pela loja.
-          </p>
-        </div>
-        <form
-          method="GET"
-          className="mt-8 grid gap-3 rounded-2xl border border-zinc-800 bg-zinc-900 p-4 lg:grid-cols-[1fr_220px_240px_auto]"
-        >
-          <input
-            type="text"
-            name="busca"
-            defaultValue={busca}
-            placeholder="🔎 Cliente ou nº do pedido..."
-            className="rounded-xl border border-zinc-700 bg-zinc-950 px-4 py-3 outline-none transition focus:border-amber-400"
+        <section className="animate-slide-up relative overflow-hidden rounded-[30px] border border-white/[0.07] bg-white/[0.025] p-6 shadow-[0_30px_100px_rgba(0,0,0,0.22)] sm:p-7">
+          {/* GLOW */}
+          <div
+            aria-hidden="true"
+            className="pointer-events-none absolute -left-24 -top-28 h-72 w-72 rounded-full bg-amber-400/[0.055] blur-[110px]"
           />
 
-          <select
-            name="status"
-            defaultValue={statusSelecionado}
-            className="rounded-xl border border-zinc-700 bg-zinc-950 px-4 py-3 outline-none transition focus:border-amber-400"
-          >
-            <option value="">Todos os status</option>
+          <div
+            aria-hidden="true"
+            className="pointer-events-none absolute -bottom-28 -right-20 h-72 w-72 rounded-full bg-orange-500/[0.035] blur-[120px]"
+          />
 
-            <option value="recebido">🟡 Recebidos</option>
+          {/* GRID DECORATIVO */}
+          <div
+            aria-hidden="true"
+            className="pointer-events-none absolute inset-0 opacity-[0.02]"
+            style={{
+              backgroundImage:
+                "linear-gradient(rgba(255,255,255,.5) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,.5) 1px, transparent 1px)",
+              backgroundSize: "42px 42px",
+            }}
+          />
 
-            <option value="em_preparacao">🟠 Em preparação</option>
+          <div className="relative flex flex-col gap-6 lg:flex-row lg:items-end lg:justify-between">
+            {/* TÍTULO */}
+            <div>
+              <div className="flex items-center gap-3">
+                <span className="h-px w-8 bg-amber-400" />
 
-            <option value="saiu_entrega">🔵 Saiu para entrega</option>
+                <p className="text-[9px] font-black uppercase tracking-[0.2em] text-amber-400">
+                  Operação de pedidos
+                </p>
 
-            <option value="entregue">🟢 Entregues</option>
+                <span className="hidden h-1 w-1 rounded-full bg-zinc-700 sm:block" />
 
-            <option value="cancelado">🔴 Cancelados</option>
-          </select>
+                <span className="hidden text-[8px] font-black uppercase tracking-[0.12em] text-zinc-700 sm:block">
+                  Gestão em tempo real
+                </span>
+              </div>
 
-          <select
-            name="pagamento"
-            defaultValue={pagamentoSelecionado}
-            className="rounded-xl border border-zinc-700 bg-zinc-950 px-4 py-3 outline-none transition focus:border-amber-400"
-          >
-            <option value="">Todos os pagamentos</option>
+              <h1 className="mt-3 text-4xl font-black tracking-[-0.05em] text-white sm:text-5xl">
+                Central de <span className="brand-gradient-text">pedidos.</span>
+              </h1>
 
-            <option value="pix">PIX</option>
+              <p className="mt-3 max-w-2xl text-sm leading-6 text-zinc-500">
+                Acompanhe novos pedidos, pagamentos e etapas da operação em um
+                único lugar.
+              </p>
+            </div>
 
-            <option value="pix_pendente">⏳ PIX aguardando pagamento</option>
+            {/* STATUS */}
+            <div className="flex flex-wrap gap-2">
+              <div className="flex items-center gap-2 rounded-full border border-emerald-400/10 bg-emerald-400/[0.04] px-3 py-2">
+                <span className="relative flex h-2 w-2">
+                  <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-40" />
+                  <span className="relative inline-flex h-2 w-2 rounded-full bg-emerald-400" />
+                </span>
 
-            <option value="pix_pago">✅ PIX pago</option>
+                <span className="text-[8px] font-black uppercase tracking-[0.1em] text-emerald-400">
+                  Operação online
+                </span>
+              </div>
 
-            <option value="cartao_entrega">💳 Cartão na entrega</option>
+              <div className="flex items-center gap-2 rounded-full border border-white/[0.06] bg-white/[0.025] px-3 py-2">
+                <span className="text-[10px]">↻</span>
 
-            <option value="dinheiro">💵 Dinheiro na entrega</option>
-          </select>
+                <span className="text-[8px] font-black uppercase tracking-[0.1em] text-zinc-500">
+                  Atualização automática
+                </span>
+              </div>
 
-          <button
-            type="submit"
-            className="rounded-xl bg-amber-400 px-6 py-3 font-black text-zinc-950 transition hover:bg-amber-300"
-          >
-            Filtrar
-          </button>
+              <div className="flex items-center gap-2 rounded-full border border-amber-400/10 bg-amber-400/[0.04] px-3 py-2">
+                <span className="text-[10px]">📦</span>
+
+                <span className="text-[8px] font-black uppercase tracking-[0.1em] text-amber-400">
+                  Fluxo operacional
+                </span>
+              </div>
+            </div>
+          </div>
+
+          {/* LINHA INFERIOR */}
+          <div className="relative mt-7 h-px w-full bg-linear-to-r from-amber-400/25 via-white/[0.05] to-transparent" />
+        </section>
+        <form
+          method="GET"
+          className="group/filtros relative mt-8 overflow-hidden rounded-[26px] border border-white/[0.07] bg-white/[0.025] p-5 shadow-[0_20px_70px_rgba(0,0,0,0.16)]"
+        >
+          {/* GLOW */}
+          <div
+            aria-hidden="true"
+            className="pointer-events-none absolute -right-20 -top-24 h-56 w-56 rounded-full bg-amber-400/[0.045] blur-[100px] transition duration-700 group-hover/filtros:bg-amber-400/[0.07]"
+          />
+
+          {/* CABEÇALHO */}
+          <div className="relative mb-5 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <div>
+              <div className="flex items-center gap-2">
+                <span className="h-px w-6 bg-amber-400" />
+
+                <p className="text-[8px] font-black uppercase tracking-[0.18em] text-amber-400">
+                  Consulta operacional
+                </p>
+              </div>
+
+              <h2 className="mt-1 text-lg font-black tracking-[-0.025em] text-white">
+                Localizar pedidos
+              </h2>
+            </div>
+
+            <div className="flex items-center gap-2 rounded-full border border-white/[0.05] bg-black/20 px-3 py-1.5">
+              <span className="text-[10px]">⌕</span>
+
+              <span className="text-[7px] font-black uppercase tracking-[0.12em] text-zinc-600">
+                Busca e filtros
+              </span>
+            </div>
+          </div>
+
+          {/* CAMPOS */}
+          <div className="relative grid gap-3 lg:grid-cols-[minmax(280px,1fr)_220px_260px_auto] lg:items-end">
+            {/* BUSCA */}
+            <label className="group/campo block">
+              <span className="mb-2 block text-[8px] font-black uppercase tracking-[0.12em] text-zinc-600">
+                Cliente ou pedido
+              </span>
+
+              <div className="relative">
+                <span className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-sm text-zinc-600 transition group-focus-within/campo:text-amber-400">
+                  🔎
+                </span>
+
+                <input
+                  type="text"
+                  name="busca"
+                  defaultValue={busca}
+                  placeholder="Nome do cliente ou nº..."
+                  className="h-13 w-full rounded-[16px] border border-white/[0.08] bg-black/25 py-3 pl-11 pr-4 text-sm font-bold text-white outline-none transition duration-300 placeholder:font-normal placeholder:text-zinc-700 hover:border-white/[0.13] focus:border-amber-400/50 focus:bg-amber-400/[0.025] focus:shadow-[0_0_0_3px_rgba(245,158,11,0.05)]"
+                />
+              </div>
+            </label>
+
+            {/* STATUS */}
+            <label className="group/campo block">
+              <span className="mb-2 block text-[8px] font-black uppercase tracking-[0.12em] text-zinc-600">
+                Status
+              </span>
+
+              <div className="relative">
+                <select
+                  name="status"
+                  defaultValue={statusSelecionado}
+                  className="h-13 w-full cursor-pointer appearance-none rounded-[16px] border border-white/[0.08] bg-black/25 px-4 pr-10 text-sm font-bold text-white outline-none transition duration-300 hover:border-white/[0.13] focus:border-amber-400/50 focus:bg-amber-400/[0.025] focus:shadow-[0_0_0_3px_rgba(245,158,11,0.05)]"
+                >
+                  <option value="">Todos os status</option>
+                  <option value="recebido">🟡 Recebidos</option>
+                  <option value="em_preparacao">🟠 Em preparação</option>
+                  <option value="saiu_entrega">🔵 Saiu para entrega</option>
+                  <option value="entregue">🟢 Entregues</option>
+                  <option value="cancelado">🔴 Cancelados</option>
+                </select>
+
+                <span className="pointer-events-none absolute right-4 top-1/2 -translate-y-1/2 text-[10px] text-zinc-600">
+                  ▼
+                </span>
+              </div>
+            </label>
+
+            {/* PAGAMENTO */}
+            <label className="group/campo block">
+              <span className="mb-2 block text-[8px] font-black uppercase tracking-[0.12em] text-zinc-600">
+                Pagamento
+              </span>
+
+              <div className="relative">
+                <select
+                  name="pagamento"
+                  defaultValue={pagamentoSelecionado}
+                  className="h-13 w-full cursor-pointer appearance-none rounded-[16px] border border-white/[0.08] bg-black/25 px-4 pr-10 text-sm font-bold text-white outline-none transition duration-300 hover:border-white/[0.13] focus:border-amber-400/50 focus:bg-amber-400/[0.025] focus:shadow-[0_0_0_3px_rgba(245,158,11,0.05)]"
+                >
+                  <option value="">Todos os pagamentos</option>
+                  <option value="pix">PIX</option>
+                  <option value="pix_pendente">
+                    ⏳ PIX aguardando pagamento
+                  </option>
+                  <option value="pix_pago">✅ PIX pago</option>
+                  <option value="cartao_entrega">💳 Cartão na entrega</option>
+                  <option value="dinheiro">💵 Dinheiro na entrega</option>
+                </select>
+
+                <span className="pointer-events-none absolute right-4 top-1/2 -translate-y-1/2 text-[10px] text-zinc-600">
+                  ▼
+                </span>
+              </div>
+            </label>
+
+            {/* BOTÃO */}
+            <button
+              type="submit"
+              className="group/botao relative h-13 overflow-hidden rounded-[16px] border border-amber-300/30 bg-amber-400 px-7 text-sm font-black text-zinc-950 shadow-[0_12px_35px_rgba(245,158,11,0.12)] transition duration-300 hover:-translate-y-0.5 hover:bg-amber-300 hover:shadow-[0_16px_45px_rgba(245,158,11,0.2)]"
+            >
+              <span className="absolute -left-1/2 top-0 h-full w-1/3 skew-x-[-20deg] bg-white/25 transition-all duration-700 group-hover/botao:left-[120%]" />
+
+              <span className="relative flex items-center justify-center gap-2">
+                <span>⌕</span>
+                Filtrar
+              </span>
+            </button>
+          </div>
+
+          {/* RODAPÉ */}
+          <div className="relative mt-4 flex items-center gap-3 border-t border-white/[0.04] pt-3">
+            <span className="h-1.5 w-1.5 rounded-full bg-cyan-400" />
+
+            <p className="text-[7px] font-black uppercase tracking-[0.12em] text-zinc-700">
+              Combine os campos para refinar a consulta
+            </p>
+          </div>
         </form>
 
         {(busca || statusSelecionado || pagamentoSelecionado) && (
@@ -327,190 +484,620 @@ export default async function AdminPedidosPage({
           </div>
         )}
         <div className="mt-8 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+          {/* NOVOS PEDIDOS */}
           <Link
             href="/admin/pedidos?status=recebido"
-            className="rounded-2xl border border-amber-900/60 bg-amber-950/20 p-5 transition hover:border-amber-400"
+            className="group/card relative overflow-hidden rounded-[24px] border border-amber-400/20 bg-amber-400/[0.045] p-5 shadow-[0_18px_55px_rgba(245,158,11,0.05)] transition duration-500 hover:-translate-y-1 hover:border-amber-400/40 hover:shadow-[0_22px_70px_rgba(245,158,11,0.11)]"
           >
-            <p className="text-sm font-black text-amber-400">
-              🟡 Novos pedidos
-            </p>
+            <div
+              aria-hidden="true"
+              className="pointer-events-none absolute -right-12 -top-12 h-32 w-32 rounded-full bg-amber-400/[0.09] blur-3xl transition duration-500 group-hover/card:bg-amber-400/[0.15]"
+            />
 
-            <p className="mt-2 text-3xl font-black">{quantidadeRecebidos}</p>
+            <div className="relative">
+              <div className="flex items-start justify-between gap-3">
+                <div className="relative flex h-11 w-11 items-center justify-center rounded-[16px] border border-amber-400/20 bg-amber-400/[0.09] text-xl transition duration-300 group-hover/card:scale-110">
+                  🔔
+                  {quantidadeRecebidos > 0 && (
+                    <span className="absolute -right-1 -top-1 flex h-2.5 w-2.5">
+                      <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-amber-400 opacity-50" />
+                      <span className="relative inline-flex h-2.5 w-2.5 rounded-full bg-amber-400" />
+                    </span>
+                  )}
+                </div>
 
-            <p className="mt-1 text-sm text-zinc-400">aguardando atendimento</p>
+                <span className="rounded-full bg-amber-400 px-2.5 py-1 text-[7px] font-black uppercase tracking-[0.1em] text-zinc-950">
+                  Atenção
+                </span>
+              </div>
+
+              <p className="mt-5 text-[9px] font-black uppercase tracking-[0.13em] text-amber-400">
+                Novos pedidos
+              </p>
+
+              <div className="mt-1 flex items-end justify-between gap-4">
+                <p className="text-4xl font-black tracking-[-0.06em] text-white">
+                  {quantidadeRecebidos}
+                </p>
+
+                <span className="mb-1 text-lg font-black text-amber-400 transition duration-300 group-hover/card:translate-x-1">
+                  →
+                </span>
+              </div>
+
+              <p className="mt-2 text-[9px] text-zinc-600">
+                aguardando atendimento
+              </p>
+
+              <div className="mt-4 h-1 overflow-hidden rounded-full bg-black/30">
+                <div
+                  className={`h-full rounded-full bg-linear-to-r from-amber-500 to-amber-300 ${
+                    quantidadeRecebidos > 0 ? "w-full" : "w-0"
+                  }`}
+                />
+              </div>
+            </div>
           </Link>
 
+          {/* EM PREPARAÇÃO */}
           <Link
             href="/admin/pedidos?status=em_preparacao"
-            className="rounded-2xl border border-orange-900/60 bg-orange-950/20 p-5 transition hover:border-orange-400"
+            className="group/card relative overflow-hidden rounded-[24px] border border-orange-400/20 bg-orange-400/[0.04] p-5 shadow-[0_18px_55px_rgba(251,146,60,0.04)] transition duration-500 hover:-translate-y-1 hover:border-orange-400/40 hover:shadow-[0_22px_70px_rgba(251,146,60,0.1)]"
           >
-            <p className="text-sm font-black text-orange-400">
-              🟠 Em preparação
-            </p>
+            <div
+              aria-hidden="true"
+              className="pointer-events-none absolute -right-12 -top-12 h-32 w-32 rounded-full bg-orange-400/[0.08] blur-3xl transition duration-500 group-hover/card:bg-orange-400/[0.14]"
+            />
 
-            <p className="mt-2 text-3xl font-black">{quantidadePreparacao}</p>
+            <div className="relative">
+              <div className="flex items-start justify-between gap-3">
+                <div className="flex h-11 w-11 items-center justify-center rounded-[16px] border border-orange-400/20 bg-orange-400/[0.08] text-xl transition duration-300 group-hover/card:scale-110 group-hover/card:rotate-3">
+                  🔥
+                </div>
 
-            <p className="mt-1 text-sm text-zinc-400">
-              pedidos sendo preparados
-            </p>
+                <span className="rounded-full border border-orange-400/15 bg-orange-400/[0.07] px-2.5 py-1 text-[7px] font-black uppercase tracking-[0.1em] text-orange-400">
+                  Produção
+                </span>
+              </div>
+
+              <p className="mt-5 text-[9px] font-black uppercase tracking-[0.13em] text-orange-400">
+                Em preparação
+              </p>
+
+              <div className="mt-1 flex items-end justify-between gap-4">
+                <p className="text-4xl font-black tracking-[-0.06em] text-white">
+                  {quantidadePreparacao}
+                </p>
+
+                <span className="mb-1 text-lg font-black text-orange-400 transition duration-300 group-hover/card:translate-x-1">
+                  →
+                </span>
+              </div>
+
+              <p className="mt-2 text-[9px] text-zinc-600">
+                pedidos sendo preparados
+              </p>
+
+              <div className="mt-4 h-1 overflow-hidden rounded-full bg-black/30">
+                <div
+                  className={`h-full rounded-full bg-linear-to-r from-orange-600 to-orange-300 ${
+                    quantidadePreparacao > 0 ? "w-2/3" : "w-0"
+                  }`}
+                />
+              </div>
+            </div>
           </Link>
 
+          {/* SAIU PARA ENTREGA */}
           <Link
             href="/admin/pedidos?status=saiu_entrega"
-            className="rounded-2xl border border-blue-900/60 bg-blue-950/20 p-5 transition hover:border-blue-400"
+            className="group/card relative overflow-hidden rounded-[24px] border border-blue-400/20 bg-blue-400/[0.04] p-5 shadow-[0_18px_55px_rgba(96,165,250,0.04)] transition duration-500 hover:-translate-y-1 hover:border-blue-400/40 hover:shadow-[0_22px_70px_rgba(96,165,250,0.1)]"
           >
-            <p className="text-sm font-black text-blue-400">
-              🔵 Saiu para entrega
-            </p>
+            <div
+              aria-hidden="true"
+              className="pointer-events-none absolute -right-12 -top-12 h-32 w-32 rounded-full bg-blue-400/[0.08] blur-3xl transition duration-500 group-hover/card:bg-blue-400/[0.14]"
+            />
 
-            <p className="mt-2 text-3xl font-black">{quantidadeSaiuEntrega}</p>
+            <div className="relative">
+              <div className="flex items-start justify-between gap-3">
+                <div className="flex h-11 w-11 items-center justify-center rounded-[16px] border border-blue-400/20 bg-blue-400/[0.08] text-xl transition duration-300 group-hover/card:scale-110 group-hover/card:-rotate-3">
+                  🚚
+                </div>
 
-            <p className="mt-1 text-sm text-zinc-400">pedidos a caminho</p>
+                <span className="rounded-full border border-blue-400/15 bg-blue-400/[0.07] px-2.5 py-1 text-[7px] font-black uppercase tracking-[0.1em] text-blue-400">
+                  Entrega
+                </span>
+              </div>
+
+              <p className="mt-5 text-[9px] font-black uppercase tracking-[0.13em] text-blue-400">
+                Saiu para entrega
+              </p>
+
+              <div className="mt-1 flex items-end justify-between gap-4">
+                <p className="text-4xl font-black tracking-[-0.06em] text-white">
+                  {quantidadeSaiuEntrega}
+                </p>
+
+                <span className="mb-1 text-lg font-black text-blue-400 transition duration-300 group-hover/card:translate-x-1">
+                  →
+                </span>
+              </div>
+
+              <p className="mt-2 text-[9px] text-zinc-600">pedidos a caminho</p>
+
+              <div className="mt-4 h-1 overflow-hidden rounded-full bg-black/30">
+                <div
+                  className={`h-full rounded-full bg-linear-to-r from-blue-600 to-cyan-300 ${
+                    quantidadeSaiuEntrega > 0 ? "w-1/2" : "w-0"
+                  }`}
+                />
+              </div>
+            </div>
           </Link>
 
-          <div className="rounded-2xl border border-green-900/60 bg-green-950/20 p-5">
-            <p className="text-sm font-black text-green-400">
-              💰 Faturamento de hoje
-            </p>
+          {/* FATURAMENTO DE HOJE */}
+          <div className="group/card relative overflow-hidden rounded-[24px] border border-emerald-400/20 bg-emerald-400/[0.04] p-5 shadow-[0_18px_55px_rgba(52,211,153,0.04)] transition duration-500 hover:-translate-y-1 hover:border-emerald-400/35 hover:shadow-[0_22px_70px_rgba(52,211,153,0.09)]">
+            <div
+              aria-hidden="true"
+              className="pointer-events-none absolute -right-12 -top-12 h-32 w-32 rounded-full bg-emerald-400/[0.08] blur-3xl transition duration-500 group-hover/card:bg-emerald-400/[0.14]"
+            />
 
-            <p className="mt-2 text-3xl font-black">
-              {formatarPreco(faturamentoHoje)}
-            </p>
+            <div className="relative">
+              <div className="flex items-start justify-between gap-3">
+                <div className="flex h-11 w-11 items-center justify-center rounded-[16px] border border-emerald-400/20 bg-emerald-400/[0.08] text-xl transition duration-300 group-hover/card:scale-110">
+                  💰
+                </div>
 
-            <p className="mt-1 text-sm text-zinc-400">
-              desconsiderando cancelados
-            </p>
+                <span className="rounded-full border border-emerald-400/15 bg-emerald-400/[0.07] px-2.5 py-1 text-[7px] font-black uppercase tracking-[0.1em] text-emerald-400">
+                  Hoje
+                </span>
+              </div>
+
+              <p className="mt-5 text-[9px] font-black uppercase tracking-[0.13em] text-emerald-400">
+                Faturamento
+              </p>
+
+              <p className="mt-1 truncate text-3xl font-black tracking-[-0.055em] text-white">
+                {formatarPreco(faturamentoHoje)}
+              </p>
+
+              <p className="mt-2 text-[9px] text-zinc-600">
+                desconsiderando cancelados
+              </p>
+
+              <div className="mt-4 flex items-center gap-2 border-t border-emerald-400/[0.08] pt-3">
+                <span className="relative flex h-1.5 w-1.5">
+                  <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-40" />
+                  <span className="relative inline-flex h-1.5 w-1.5 rounded-full bg-emerald-400" />
+                </span>
+
+                <span className="text-[7px] font-black uppercase tracking-[0.12em] text-emerald-400/60">
+                  Receita acumulada do dia
+                </span>
+              </div>
+            </div>
           </div>
         </div>
 
-        <div className="mt-10">
-          <p className="text-sm text-zinc-400">
-            {totalPedidos ?? 0}{" "}
-            {totalPedidos === 1 ? "pedido encontrado" : "pedidos encontrados"}
-          </p>
+        <div className="relative mt-10 overflow-hidden rounded-[24px] border border-white/[0.06] bg-white/[0.02] px-5 py-4">
+          {/* GLOW */}
+          <div
+            aria-hidden="true"
+            className="pointer-events-none absolute -left-20 -top-20 h-48 w-48 rounded-full bg-amber-400/[0.035] blur-[90px]"
+          />
 
-          {(totalPedidos ?? 0) > 0 && (
-            <p className="mt-1 text-xs text-zinc-500">
-              Mostrando {inicioPagina + 1}–
-              {Math.min(fimPagina + 1, totalPedidos ?? 0)} de {totalPedidos}
-            </p>
-          )}
+          <div className="relative flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+            {/* TÍTULO */}
+            <div>
+              <div className="flex items-center gap-2">
+                <span className="h-px w-6 bg-amber-400" />
+
+                <p className="text-[8px] font-black uppercase tracking-[0.18em] text-amber-400">
+                  Fila operacional
+                </p>
+              </div>
+
+              <div className="mt-1 flex flex-wrap items-end gap-3">
+                <h2 className="text-xl font-black tracking-[-0.03em] text-white">
+                  Pedidos encontrados
+                </h2>
+
+                <span className="mb-0.5 rounded-full border border-amber-400/15 bg-amber-400/[0.06] px-2.5 py-1 text-[8px] font-black uppercase tracking-[0.1em] text-amber-400">
+                  {totalPedidos ?? 0}{" "}
+                  {totalPedidos === 1 ? "pedido" : "pedidos"}
+                </span>
+              </div>
+            </div>
+
+            {/* PAGINAÇÃO RESUMIDA */}
+            {(totalPedidos ?? 0) > 0 && (
+              <div className="flex items-center gap-3 rounded-full border border-white/[0.05] bg-black/20 px-4 py-2">
+                <span className="h-1.5 w-1.5 rounded-full bg-cyan-400" />
+
+                <p className="text-[8px] font-black uppercase tracking-[0.1em] text-zinc-600">
+                  Mostrando{" "}
+                  <span className="text-zinc-300">
+                    {inicioPagina + 1}–
+                    {Math.min(fimPagina + 1, totalPedidos ?? 0)}
+                  </span>{" "}
+                  de <span className="text-white">{totalPedidos}</span>
+                </p>
+              </div>
+            )}
+          </div>
+
+          <div className="relative mt-4 h-px w-full bg-linear-to-r from-amber-400/15 via-white/[0.04] to-transparent" />
         </div>
 
         {!pedidos || pedidos.length === 0 ? (
-          <div className="mt-6 rounded-2xl border border-zinc-800 bg-zinc-900 p-8 text-center">
-            <p className="text-xl font-black">Nenhum pedido recebido ainda.</p>
-          </div>
+          <section className="relative mt-6 overflow-hidden rounded-[28px] border border-white/[0.06] bg-white/[0.02] px-6 py-12 text-center shadow-[0_20px_70px_rgba(0,0,0,0.18)]">
+            <div
+              aria-hidden="true"
+              className="pointer-events-none absolute left-1/2 top-0 h-56 w-56 -translate-x-1/2 rounded-full bg-amber-400/[0.04] blur-[100px]"
+            />
+
+            <div className="relative mx-auto flex max-w-md flex-col items-center">
+              <div className="flex h-16 w-16 items-center justify-center rounded-[22px] border border-amber-400/15 bg-amber-400/[0.06] text-3xl">
+                📭
+              </div>
+
+              <p className="mt-5 text-[9px] font-black uppercase tracking-[0.18em] text-amber-400">
+                Nenhum resultado
+              </p>
+
+              <h2 className="mt-2 text-2xl font-black tracking-[-0.04em] text-white">
+                Nenhum pedido encontrado.
+              </h2>
+
+              <p className="mt-3 text-sm leading-6 text-zinc-500">
+                Não encontramos pedidos com os critérios informados. Tente
+                alterar a busca ou limpar os filtros.
+              </p>
+
+              {(busca || statusSelecionado || pagamentoSelecionado) && (
+                <Link
+                  href="/admin/pedidos"
+                  className="mt-6 inline-flex min-h-11 items-center justify-center gap-2 rounded-[15px] border border-amber-300/20 bg-amber-400 px-5 py-2.5 text-sm font-black text-zinc-950 transition duration-300 hover:-translate-y-0.5 hover:bg-amber-300"
+                >
+                  <span>✕</span>
+                  Limpar filtros
+                </Link>
+              )}
+            </div>
+          </section>
         ) : (
-          <div className="mt-6 grid gap-5">
-            {pedidos.map((pedido) => (
-              <div
-                key={pedido.id}
-                className={`rounded-2xl border p-6 transition ${
-                  pedido.status === "recebido"
-                    ? "border-amber-400/60 bg-amber-400/5"
-                    : "border-zinc-800 bg-zinc-900"
-                }`}
-              >
-                <div className="flex flex-col gap-5 md:flex-row md:items-center md:justify-between">
-                  <div>
-                    <p className="text-sm font-bold text-amber-400">
-                      PEDIDO #{pedido.id}
-                    </p>
+          <div className="mt-6 grid gap-4">
+            {pedidos.map((pedido) => {
+              const recebido = pedido.status === "recebido";
+              const preparando = pedido.status === "em_preparacao";
+              const saiuEntrega = pedido.status === "saiu_entrega";
+              const entregue = pedido.status === "entregue";
+              const cancelado = pedido.status === "cancelado";
 
-                    {pedido.status === "recebido" && (
-                      <span className="mt-2 inline-block rounded-full bg-amber-400 px-3 py-1 text-xs font-black uppercase tracking-wide text-zinc-950">
-                        Novo pedido
-                      </span>
-                    )}
+              const estiloCard = recebido
+                ? "border-amber-400/25 bg-amber-400/[0.04] hover:border-amber-400/45 hover:shadow-[0_25px_80px_rgba(245,158,11,0.08)]"
+                : preparando
+                  ? "border-orange-400/20 bg-orange-400/[0.035] hover:border-orange-400/40 hover:shadow-[0_25px_80px_rgba(251,146,60,0.07)]"
+                  : saiuEntrega
+                    ? "border-blue-400/20 bg-blue-400/[0.035] hover:border-blue-400/40 hover:shadow-[0_25px_80px_rgba(96,165,250,0.07)]"
+                    : entregue
+                      ? "border-emerald-400/15 bg-emerald-400/[0.025] hover:border-emerald-400/30 hover:shadow-[0_25px_80px_rgba(52,211,153,0.06)]"
+                      : cancelado
+                        ? "border-red-400/15 bg-red-400/[0.025] hover:border-red-400/25"
+                        : "border-white/[0.07] bg-white/[0.025]";
 
-                    <h2 className="mt-1 text-2xl font-black">
-                      {pedido.nome_cliente}
-                    </h2>
-                    <div className="mt-2">
-                      <p className="text-sm text-zinc-400">
-                        {formatarPagamento(pedido.forma_pagamento)}
-                      </p>
+              const estiloNumero = recebido
+                ? "border-amber-400/20 bg-amber-400/[0.08] text-amber-400"
+                : preparando
+                  ? "border-orange-400/20 bg-orange-400/[0.08] text-orange-400"
+                  : saiuEntrega
+                    ? "border-blue-400/20 bg-blue-400/[0.08] text-blue-400"
+                    : entregue
+                      ? "border-emerald-400/20 bg-emerald-400/[0.08] text-emerald-400"
+                      : cancelado
+                        ? "border-red-400/20 bg-red-400/[0.07] text-red-400"
+                        : "border-white/[0.07] bg-white/[0.03] text-zinc-400";
 
-                      {pedido.forma_pagamento === "pix" && (
-                        <span
-                          className={`mt-2 inline-block rounded-full px-3 py-1 text-xs font-black ${
-                            pedido.pagamento_confirmado
-                              ? "bg-green-500/20 text-green-400"
-                              : "bg-amber-400/10 text-amber-400"
-                          }`}
+              const estiloStatus = recebido
+                ? "border-amber-400/15 bg-amber-400/[0.07] text-amber-400"
+                : preparando
+                  ? "border-orange-400/15 bg-orange-400/[0.07] text-orange-400"
+                  : saiuEntrega
+                    ? "border-blue-400/15 bg-blue-400/[0.07] text-blue-400"
+                    : entregue
+                      ? "border-emerald-400/15 bg-emerald-400/[0.07] text-emerald-400"
+                      : cancelado
+                        ? "border-red-400/15 bg-red-400/[0.07] text-red-400"
+                        : "border-white/[0.07] bg-white/[0.03] text-zinc-400";
+
+              const glow = recebido
+                ? "bg-amber-400/[0.07]"
+                : preparando
+                  ? "bg-orange-400/[0.06]"
+                  : saiuEntrega
+                    ? "bg-blue-400/[0.06]"
+                    : entregue
+                      ? "bg-emerald-400/[0.05]"
+                      : cancelado
+                        ? "bg-red-400/[0.04]"
+                        : "bg-white/[0.025]";
+
+              return (
+                <article
+                  key={pedido.id}
+                  className={`group/pedido relative overflow-hidden rounded-[28px] border p-5 transition duration-500 hover:-translate-y-0.5 sm:p-6 ${estiloCard}`}
+                >
+                  {/* GLOW */}
+                  <div
+                    aria-hidden="true"
+                    className={`pointer-events-none absolute -right-20 -top-24 h-64 w-64 rounded-full blur-[110px] transition duration-700 ${glow}`}
+                  />
+
+                  {/* LINHA DE STATUS À ESQUERDA */}
+                  <div
+                    className={`absolute bottom-8 left-0 top-8 w-[2px] rounded-full ${
+                      recebido
+                        ? "bg-amber-400"
+                        : preparando
+                          ? "bg-orange-400"
+                          : saiuEntrega
+                            ? "bg-blue-400"
+                            : entregue
+                              ? "bg-emerald-400"
+                              : cancelado
+                                ? "bg-red-400/60"
+                                : "bg-zinc-700"
+                    }`}
+                  />
+
+                  <div className="relative">
+                    {/* TOPO */}
+                    <div className="flex flex-col gap-5 lg:flex-row lg:items-start lg:justify-between">
+                      <div className="flex min-w-0 items-start gap-4">
+                        {/* NÚMERO DO PEDIDO */}
+                        <div
+                          className={`flex h-14 min-w-14 shrink-0 items-center justify-center rounded-[19px] border px-3 text-base font-black transition duration-300 group-hover/pedido:scale-105 ${estiloNumero}`}
                         >
-                          {pedido.pagamento_confirmado
-                            ? "✅ PIX pago"
-                            : "⏳ Aguardando PIX"}
+                          #{pedido.id}
+                        </div>
+
+                        {/* CLIENTE */}
+                        <div className="min-w-0">
+                          <div className="flex flex-wrap items-center gap-2">
+                            <p className="text-[8px] font-black uppercase tracking-[0.15em] text-zinc-600">
+                              Cliente
+                            </p>
+
+                            {recebido && (
+                              <span className="relative flex items-center gap-1.5 rounded-full bg-amber-400 px-2.5 py-1 text-[7px] font-black uppercase tracking-[0.08em] text-zinc-950">
+                                <span className="relative flex h-1.5 w-1.5">
+                                  <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-zinc-950 opacity-30" />
+                                  <span className="relative inline-flex h-1.5 w-1.5 rounded-full bg-zinc-950" />
+                                </span>
+                                Novo
+                              </span>
+                            )}
+                          </div>
+
+                          <h2 className="mt-1 truncate text-xl font-black tracking-[-0.035em] text-white sm:text-2xl">
+                            {pedido.nome_cliente}
+                          </h2>
+
+                          <div className="mt-3 flex flex-wrap items-center gap-2">
+                            <div className="flex items-center gap-2 rounded-full border border-white/[0.06] bg-black/20 px-3 py-1.5">
+                              <span className="text-[10px]">
+                                {pedido.forma_pagamento === "pix"
+                                  ? "◆"
+                                  : pedido.forma_pagamento === "cartao_entrega"
+                                    ? "💳"
+                                    : "💵"}
+                              </span>
+
+                              <span className="text-[8px] font-black uppercase tracking-[0.09em] text-zinc-500">
+                                {formatarPagamento(pedido.forma_pagamento)}
+                              </span>
+                            </div>
+
+                            {pedido.forma_pagamento === "pix" && (
+                              <span
+                                className={`rounded-full border px-3 py-1.5 text-[8px] font-black uppercase tracking-[0.08em] ${
+                                  pedido.pagamento_confirmado
+                                    ? "border-emerald-400/15 bg-emerald-400/[0.07] text-emerald-400"
+                                    : "border-amber-400/15 bg-amber-400/[0.07] text-amber-400"
+                                }`}
+                              >
+                                {pedido.pagamento_confirmado
+                                  ? "✓ PIX pago"
+                                  : "⏳ PIX pendente"}
+                              </span>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* TOTAL + STATUS */}
+                      <div className="flex shrink-0 items-end justify-between gap-6 lg:flex-col lg:items-end">
+                        <div className="lg:text-right">
+                          <p className="text-[8px] font-black uppercase tracking-[0.13em] text-zinc-700">
+                            Total do pedido
+                          </p>
+
+                          <p className="mt-1 text-2xl font-black tracking-[-0.045em] text-white">
+                            {formatarPreco(Number(pedido.total))}
+                          </p>
+                        </div>
+
+                        <div
+                          className={`rounded-full border px-3 py-1.5 text-[8px] font-black uppercase tracking-[0.08em] ${estiloStatus}`}
+                        >
+                          {formatarStatus(pedido.status)}
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* DIVISOR */}
+                    <div className="my-5 h-px w-full bg-linear-to-r from-white/[0.07] via-white/[0.04] to-transparent" />
+
+                    {/* ÁREA OPERACIONAL */}
+                    <div className="flex flex-col gap-5 xl:flex-row xl:items-end xl:justify-between">
+                      <div className="min-w-0 flex-1">
+                        <div className="mb-3 flex items-center gap-2">
+                          <span
+                            className={`h-1.5 w-1.5 rounded-full ${
+                              recebido
+                                ? "bg-amber-400"
+                                : preparando
+                                  ? "bg-orange-400"
+                                  : saiuEntrega
+                                    ? "bg-blue-400"
+                                    : entregue
+                                      ? "bg-emerald-400"
+                                      : cancelado
+                                        ? "bg-red-400"
+                                        : "bg-zinc-600"
+                            }`}
+                          />
+
+                          <p className="text-[8px] font-black uppercase tracking-[0.14em] text-zinc-600">
+                            Controle operacional
+                          </p>
+                        </div>
+
+                        <OrderStatusButtons
+                          pedidoId={pedido.id}
+                          codigoAcesso={pedido.codigo_acesso}
+                          statusAtual={pedido.status}
+                          telefone={pedido.telefone}
+                          formaPagamento={pedido.forma_pagamento}
+                          pagamentoConfirmado={pedido.pagamento_confirmado}
+                        />
+                      </div>
+
+                      {/* DETALHES */}
+                      <Link
+                        href={`/admin/pedidos/${pedido.id}`}
+                        className="group/detalhes flex min-h-11 shrink-0 items-center justify-center gap-3 rounded-[15px] border border-white/[0.08] bg-white/[0.025] px-5 py-2.5 text-sm font-black text-zinc-300 transition duration-300 hover:-translate-y-0.5 hover:border-amber-400/30 hover:bg-amber-400/[0.05] hover:text-amber-400"
+                      >
+                        <span>Ver detalhes</span>
+
+                        <span className="transition duration-300 group-hover/detalhes:translate-x-1">
+                          →
                         </span>
-                      )}
+                      </Link>
                     </div>
                   </div>
 
-                  <div className="md:text-right">
-                    <p className="text-sm text-zinc-500">Total</p>
-
-                    <p className="text-2xl font-black text-amber-400">
-                      {formatarPreco(Number(pedido.total))}
-                    </p>
-
-                    <p className="mt-2 font-bold">
-                      {formatarStatus(pedido.status)}
-                    </p>
-                    <OrderStatusButtons
-                      pedidoId={pedido.id}
-                      codigoAcesso={pedido.codigo_acesso}
-                      statusAtual={pedido.status}
-                      telefone={pedido.telefone}
-                      formaPagamento={pedido.forma_pagamento}
-                      pagamentoConfirmado={pedido.pagamento_confirmado}
-                    />
-                    <Link
-                      href={`/admin/pedidos/${pedido.id}`}
-                      className="mt-4 inline-block rounded-lg border border-zinc-700 bg-zinc-950 px-4 py-2 text-sm font-bold text-white transition hover:border-amber-400 hover:text-amber-400"
-                    >
-                      Ver detalhes
-                    </Link>
-                  </div>
-                </div>
-              </div>
-            ))}
+                  {/* LINHA INFERIOR */}
+                  <div
+                    className={`absolute bottom-0 left-1/2 h-px -translate-x-1/2 bg-linear-to-r from-transparent to-transparent transition-all duration-700 group-hover/pedido:w-4/5 ${
+                      recebido
+                        ? "w-2/3 via-amber-400/60"
+                        : preparando
+                          ? "w-1/2 via-orange-400/50"
+                          : saiuEntrega
+                            ? "w-1/2 via-blue-400/50"
+                            : entregue
+                              ? "w-1/3 via-emerald-400/40"
+                              : cancelado
+                                ? "w-1/4 via-red-400/30"
+                                : "w-0 via-white/20"
+                    }`}
+                  />
+                </article>
+              );
+            })}
           </div>
         )}
         {totalPaginas > 1 && (
-          <div className="mt-8 flex flex-col items-center justify-between gap-4 rounded-2xl border border-zinc-800 bg-zinc-900 p-4 sm:flex-row">
-            {paginaAtual > 1 ? (
-              <Link
-                href={criarUrlPagina(paginaAtual - 1)}
-                className="rounded-xl border border-zinc-700 bg-zinc-950 px-5 py-3 text-sm font-black transition hover:border-amber-400 hover:text-amber-400"
-              >
-                ← Anterior
-              </Link>
-            ) : (
-              <span className="cursor-not-allowed rounded-xl border border-zinc-800 bg-zinc-950 px-5 py-3 text-sm font-black text-zinc-600">
-                ← Anterior
-              </span>
-            )}
+          <section className="relative mt-8 overflow-hidden rounded-[24px] border border-white/[0.06] bg-white/[0.02] p-4 sm:p-5">
+            {/* GLOW */}
+            <div
+              aria-hidden="true"
+              className="pointer-events-none absolute -bottom-20 -right-20 h-48 w-48 rounded-full bg-amber-400/[0.035] blur-[90px]"
+            />
 
-            <p className="text-sm font-bold text-zinc-400">
-              Página <span className="text-white">{paginaAtual}</span> de{" "}
-              <span className="text-white">{totalPaginas}</span>
+            <div className="relative flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+              {/* ANTERIOR */}
+              {paginaAtual > 1 ? (
+                <Link
+                  href={criarUrlPagina(paginaAtual - 1)}
+                  className="group/anterior flex min-h-11 items-center justify-center gap-2 rounded-[15px] border border-white/[0.08] bg-black/20 px-5 py-2.5 text-sm font-black text-zinc-400 transition duration-300 hover:-translate-y-0.5 hover:border-amber-400/30 hover:bg-amber-400/[0.05] hover:text-amber-400"
+                >
+                  <span className="transition duration-300 group-hover/anterior:-translate-x-1">
+                    ←
+                  </span>
+
+                  <span>Anterior</span>
+                </Link>
+              ) : (
+                <span className="flex min-h-11 cursor-not-allowed items-center justify-center gap-2 rounded-[15px] border border-white/[0.04] bg-black/10 px-5 py-2.5 text-sm font-black text-zinc-800">
+                  ← Anterior
+                </span>
+              )}
+
+              {/* CENTRO */}
+              <div className="flex flex-col items-center gap-2">
+                <div className="flex items-center gap-2">
+                  <span className="h-px w-5 bg-amber-400/50" />
+
+                  <p className="text-[8px] font-black uppercase tracking-[0.14em] text-zinc-600">
+                    Navegação
+                  </p>
+
+                  <span className="h-px w-5 bg-amber-400/50" />
+                </div>
+
+                <div className="flex items-center gap-2">
+                  <span className="rounded-full border border-amber-400/15 bg-amber-400/[0.07] px-3 py-1.5 text-[9px] font-black uppercase tracking-[0.08em] text-amber-400">
+                    Página {paginaAtual}
+                  </span>
+
+                  <span className="text-[9px] font-black uppercase tracking-[0.08em] text-zinc-700">
+                    de
+                  </span>
+
+                  <span className="rounded-full border border-white/[0.06] bg-white/[0.025] px-3 py-1.5 text-[9px] font-black uppercase tracking-[0.08em] text-zinc-300">
+                    {totalPaginas}
+                  </span>
+                </div>
+              </div>
+
+              {/* PRÓXIMA */}
+              {paginaAtual < totalPaginas ? (
+                <Link
+                  href={criarUrlPagina(paginaAtual + 1)}
+                  className="group/proxima flex min-h-11 items-center justify-center gap-2 rounded-[15px] border border-amber-300/20 bg-amber-400 px-5 py-2.5 text-sm font-black text-zinc-950 shadow-[0_12px_35px_rgba(245,158,11,0.10)] transition duration-300 hover:-translate-y-0.5 hover:bg-amber-300 hover:shadow-[0_16px_45px_rgba(245,158,11,0.16)]"
+                >
+                  <span>Próxima</span>
+
+                  <span className="transition duration-300 group-hover/proxima:translate-x-1">
+                    →
+                  </span>
+                </Link>
+              ) : (
+                <span className="flex min-h-11 cursor-not-allowed items-center justify-center gap-2 rounded-[15px] border border-white/[0.04] bg-black/10 px-5 py-2.5 text-sm font-black text-zinc-800">
+                  Próxima →
+                </span>
+              )}
+            </div>
+
+            {/* PROGRESSO */}
+            <div className="relative mt-4 overflow-hidden rounded-full bg-black/30">
+              <div
+                className="h-1 rounded-full bg-linear-to-r from-amber-500 to-amber-300 transition-all duration-500"
+                style={{
+                  width: `${Math.min(
+                    100,
+                    Math.max(0, (paginaAtual / totalPaginas) * 100),
+                  )}%`,
+                }}
+              />
+            </div>
+
+            <p className="relative mt-2 text-center text-[7px] font-black uppercase tracking-[0.12em] text-zinc-800">
+              progresso da listagem
             </p>
-
-            {paginaAtual < totalPaginas ? (
-              <Link
-                href={criarUrlPagina(paginaAtual + 1)}
-                className="rounded-xl border border-zinc-700 bg-zinc-950 px-5 py-3 text-sm font-black transition hover:border-amber-400 hover:text-amber-400"
-              >
-                Próxima →
-              </Link>
-            ) : (
-              <span className="cursor-not-allowed rounded-xl border border-zinc-800 bg-zinc-950 px-5 py-3 text-sm font-black text-zinc-600">
-                Próxima →
-              </span>
-            )}
-          </div>
+          </section>
         )}
       </div>
     </main>

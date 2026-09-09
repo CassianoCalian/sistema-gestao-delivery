@@ -26,21 +26,34 @@ export default async function Home({ searchParams }: HomeProps) {
 
       <div className="mx-auto max-w-7xl px-6">
         {/* BUSCA MOBILE */}
-        <form action="/#produtos" method="GET" className="mt-6 flex md:hidden">
-          <input
-            type="text"
-            name="busca"
-            defaultValue={busca}
-            placeholder="O que você está procurando?"
-            className="w-full rounded-l-xl border border-r-0 border-zinc-700 bg-zinc-900 px-4 py-3 text-sm text-white outline-none focus:border-amber-400"
-          />
+        <form
+          action="/#produtos"
+          method="GET"
+          className="animate-slide-up relative mt-5 md:hidden"
+        >
+          <div className="group relative flex overflow-hidden rounded-[20px] border border-white/[0.08] bg-white/[0.035] shadow-[0_12px_35px_rgba(0,0,0,0.2)] backdrop-blur-xl transition duration-300 focus-within:border-amber-400/35 focus-within:bg-white/[0.05] focus-within:shadow-[0_0_0_4px_rgba(251,191,36,0.04)]">
+            <div className="flex items-center pl-4 text-zinc-600 transition group-focus-within:text-amber-400">
+              <span className="text-lg">⌕</span>
+            </div>
 
-          <button
-            type="submit"
-            className="rounded-r-xl bg-amber-400 px-5 font-black text-zinc-950"
-          >
-            🔎
-          </button>
+            <input
+              type="text"
+              name="busca"
+              defaultValue={busca}
+              placeholder="O que você está procurando?"
+              className="min-w-0 flex-1 bg-transparent px-3 py-4 text-[13px] font-medium text-white placeholder:text-zinc-600"
+            />
+
+            <button
+              type="submit"
+              aria-label="Buscar produtos"
+              className="pressable m-1.5 flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-gradient-to-br from-amber-300 via-amber-400 to-orange-500 text-base font-black text-zinc-950 shadow-[0_8px_24px_rgba(245,158,11,0.2)]"
+            >
+              →
+            </button>
+          </div>
+
+          <div className="pointer-events-none absolute -bottom-px left-[15%] right-[15%] h-px bg-gradient-to-r from-transparent via-amber-400/15 to-transparent" />
         </form>
 
         <HeroBanner />
