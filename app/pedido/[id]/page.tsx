@@ -184,6 +184,7 @@ export default async function PedidoPage({ params }: PedidoPageProps) {
         troco_para,
         subtotal,
         taxa_entrega,
+        taxa_cartao,
         total,
         pagamento_confirmado,
         status
@@ -264,9 +265,16 @@ export default async function PedidoPage({ params }: PedidoPageProps) {
     itensMensagem,
     ``,
     `💳 Pagamento: ${formatarPagamento(pedido.forma_pagamento)}`,
+
+    pedido.forma_pagamento === "cartao_entrega" &&
+    Number(pedido.taxa_cartao ?? 0) > 0
+      ? `💳 Taxa do cartão: ${formatarPreco(Number(pedido.taxa_cartao ?? 0))}`
+      : "",
+
     pedido.forma_pagamento === "dinheiro" && pedido.troco_para
       ? `💵 Troco para: ${formatarPreco(Number(pedido.troco_para))}`
       : "",
+
     `💰 Total: ${formatarPreco(Number(pedido.total))}`,
     ``,
     `📍 Entrega:`,
@@ -314,6 +322,7 @@ export default async function PedidoPage({ params }: PedidoPageProps) {
   ];
 
   const taxaEntregaNumero = Number(pedido.taxa_entrega);
+  const taxaCartaoNumero = Number(pedido.taxa_cartao ?? 0);
 
   return (
     <main className="relative min-h-screen overflow-hidden bg-zinc-950 text-white">
@@ -831,6 +840,15 @@ export default async function PedidoPage({ params }: PedidoPageProps) {
           <p className="text-[9px] font-black uppercase tracking-[0.15em] text-amber-400">
             Valores
           </p>
+          {taxaCartaoNumero > 0 && (
+            <div className="flex justify-between gap-4">
+              <span className="text-zinc-500">Taxa do cartão</span>
+
+              <span className="font-black text-amber-400">
+                {formatarPreco(taxaCartaoNumero)}
+              </span>
+            </div>
+          )}
 
           <div className="mt-5 space-y-3 text-sm">
             <div className="flex justify-between gap-4">
