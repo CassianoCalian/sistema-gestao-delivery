@@ -43,6 +43,7 @@ export default async function EditarProdutoPage({
       ativo,
       destaque,
       em_promocao,
+      permite_abaixo_minimo,
        categoria_id
     `,
     )
@@ -107,6 +108,7 @@ export default async function EditarProdutoPage({
             imagem_url: produto.imagem_url,
             destaque: produto.destaque,
             em_promocao: produto.em_promocao,
+            permite_abaixo_minimo: produto.permite_abaixo_minimo,
 
             categoria_id:
               produto.categoria_id !== null

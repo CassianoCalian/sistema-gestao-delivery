@@ -25,6 +25,7 @@ export async function POST(request: Request) {
       imagem_url,
       ativo,
       em_promocao,
+      permite_abaixo_minimo,
     } = body;
 
     const categoriaIdNumero = Number(categoria_id);
@@ -188,8 +189,8 @@ export async function POST(request: Request) {
             : null,
 
         ativo: Boolean(ativo),
-
         em_promocao: Boolean(em_promocao),
+        permite_abaixo_minimo: permite_abaixo_minimo === true,
       })
       .select(
         `
@@ -204,7 +205,8 @@ export async function POST(request: Request) {
         estoque_minimo,
         imagem_url,
         ativo,
-        em_promocao
+        em_promocao,
+        permite_abaixo_minimo
       `,
       )
       .single();

@@ -8,6 +8,7 @@ export type ProdutoCarrinho = {
   preco: number;
   imagem_url?: string | null;
   estoque: number;
+  permite_abaixo_minimo?: boolean;
 };
 
 export type ItemCarrinho = ProdutoCarrinho & {

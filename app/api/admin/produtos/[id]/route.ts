@@ -38,6 +38,7 @@ export async function PATCH(request: Request, { params }: RouteProps) {
       ativo,
       destaque,
       em_promocao,
+      permite_abaixo_minimo,
       categoria_id,
     } = body;
 
@@ -149,6 +150,7 @@ export async function PATCH(request: Request, { params }: RouteProps) {
       p_ativo: Boolean(ativo),
       p_destaque: Boolean(destaque),
       p_em_promocao: Boolean(em_promocao),
+      p_permite_abaixo_minimo: permite_abaixo_minimo === true,
     });
 
     if (error) {

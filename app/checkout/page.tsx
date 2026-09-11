@@ -21,6 +21,9 @@ const inputClassName =
 const labelClassName =
   "mb-2 block text-[11px] font-black uppercase tracking-[0.08em] text-zinc-400";
 
+const PEDIDO_MINIMO = 30;
+const TAXA_CARTAO = 2;
+
 export default function CheckoutPage() {
   const router = useRouter();
 
@@ -35,10 +38,83 @@ export default function CheckoutPage() {
   const [pedidoConcluido, setPedidoConcluido] = useState(false);
 
   const [bairroSelecionado, setBairroSelecionado] = useState("");
+  const [cep, setCep] = useState("");
+  const [rua, setRua] = useState("");
+  const [cidade, setCidade] = useState("");
+  const [uf, setUf] = useState("");
+  const [consultandoCep, setConsultandoCep] = useState(false);
+  const [erroCep, setErroCep] = useState("");
 
   const chaveIdempotenciaRef = useRef<string | null>(null);
 
   const envioEmAndamentoRef = useRef(false);
+  const taxaCartao = formaPagamento === "cartao_entrega" ? TAXA_CARTAO : 0;
+
+  const totalPedido = valorTotal + taxaCartao;
+
+  const possuiExcecaoMinimo = itens.some(
+    (item) => item.permite_abaixo_minimo === true,
+  );
+
+  const valorFaltanteMinimo = possuiExcecaoMinimo
+    ? 0
+    : Math.max(PEDIDO_MINIMO - valorTotal, 0);
+
+  async function consultarCep() {
+    const cepLimpo = cep.replace(/\D/g, "");
+
+    if (cepLimpo.length !== 8) {
+      setErroCep("Informe um CEP válido com 8 números.");
+      return;
+    }
+
+    setConsultandoCep(true);
+    setErroCep("");
+
+    try {
+      const resposta = await fetch(`/api/cep/${cepLimpo}`);
+
+      const dados = await resposta.json();
+
+      if (!resposta.ok) {
+        throw new Error(dados.erro ?? "Não foi possível consultar o CEP.");
+      }
+
+      setRua(dados.rua ?? "");
+      setCidade(dados.cidade ?? "");
+      setUf(dados.uf ?? "");
+
+      const bairroRecebido = (dados.bairro ?? "").trim();
+
+      const bairroNormalizado = bairroRecebido
+        .normalize("NFD")
+        .replace(/[\u0300-\u036f]/g, "")
+        .toLowerCase();
+
+      if (bairroNormalizado === "jardim pernambuco") {
+        setBairroSelecionado("Jardim Pernambuco");
+      } else if (bairroNormalizado === "jardim nova era") {
+        setBairroSelecionado("Jardim Nova Era");
+      } else if (bairroRecebido) {
+        setBairroSelecionado("outro");
+      } else {
+        setBairroSelecionado("");
+      }
+    } catch (error) {
+      setRua("");
+      setCidade("");
+      setUf("");
+      setBairroSelecionado("");
+
+      setErroCep(
+        error instanceof Error
+          ? error.message
+          : "Não foi possível consultar o CEP.",
+      );
+    } finally {
+      setConsultandoCep(false);
+    }
+  }
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -412,9 +488,29 @@ export default function CheckoutPage() {
                       inputMode="numeric"
                       autoComplete="postal-code"
                       placeholder="00000-000"
+                      value={cep}
+                      onChange={(event) => setCep(event.target.value)}
+                      onBlur={consultarCep}
                       className={inputClassName}
                     />
                   </div>
+                  {consultandoCep && (
+                    <p className="mt-2 text-[10px] font-bold text-amber-400">
+                      Consultando CEP...
+                    </p>
+                  )}
+
+                  {erroCep && (
+                    <p className="mt-2 text-[10px] font-bold text-red-400">
+                      {erroCep}
+                    </p>
+                  )}
+
+                  {!consultandoCep && !erroCep && cidade && uf && (
+                    <p className="mt-2 text-[10px] font-bold text-emerald-400">
+                      ✓ Endereço encontrado — {cidade}/{uf}
+                    </p>
+                  )}
 
                   <div className="md:col-span-2">
                     <label className={labelClassName}>Bairro</label>
@@ -429,9 +525,7 @@ export default function CheckoutPage() {
                       {/* JARDIM PERNAMBUCO */}
                       <button
                         type="button"
-                        onClick={() =>
-                          setBairroSelecionado("Jardim Pernambuco")
-                        }
+                        disabled
                         className={`pressable relative flex min-h-[82px] items-center gap-3 rounded-2xl border p-3.5 text-left transition duration-300 ${
                           bairroSelecionado === "Jardim Pernambuco"
                             ? "border-emerald-400/30 bg-emerald-400/[0.07] shadow-[0_10px_30px_rgba(34,197,94,0.06)]"
@@ -468,7 +562,7 @@ export default function CheckoutPage() {
                       {/* JARDIM NOVA ERA */}
                       <button
                         type="button"
-                        onClick={() => setBairroSelecionado("Jardim Nova Era")}
+                        disabled
                         className={`pressable relative flex min-h-[82px] items-center gap-3 rounded-2xl border p-3.5 text-left transition duration-300 ${
                           bairroSelecionado === "Jardim Nova Era"
                             ? "border-emerald-400/30 bg-emerald-400/[0.07] shadow-[0_10px_30px_rgba(34,197,94,0.06)]"
@@ -505,7 +599,7 @@ export default function CheckoutPage() {
                       {/* OUTRO BAIRRO */}
                       <button
                         type="button"
-                        onClick={() => setBairroSelecionado("outro")}
+                        disabled
                         className={`pressable relative flex min-h-[82px] items-center gap-3 rounded-2xl border p-3.5 text-left transition duration-300 ${
                           bairroSelecionado === "outro"
                             ? "border-amber-400/30 bg-amber-400/[0.07] shadow-[0_10px_30px_rgba(245,158,11,0.06)]"
@@ -622,6 +716,8 @@ export default function CheckoutPage() {
                       required
                       autoComplete="street-address"
                       placeholder="Nome da rua"
+                      value={rua}
+                      onChange={(event) => setRua(event.target.value)}
                       className={inputClassName}
                     />
                   </div>
@@ -785,6 +881,9 @@ export default function CheckoutPage() {
 
                       <p className="mt-1 text-xs text-zinc-500">
                         Débito ou crédito na maquininha
+                      </p>
+                      <p className="mt-1 text-[10px] font-black text-amber-400">
+                        + R$ 2,00 de taxa
                       </p>
                     </div>
 
@@ -965,6 +1064,18 @@ export default function CheckoutPage() {
                     {formatarPreco(valorTotal)}
                   </span>
                 </div>
+                {valorFaltanteMinimo > 0 && (
+                  <div className="rounded-2xl border border-amber-400/20 bg-amber-400/[0.06] p-3">
+                    <p className="text-[10px] font-black uppercase tracking-[0.08em] text-amber-400">
+                      Pedido mínimo: R$ 30,00
+                    </p>
+
+                    <p className="mt-1 text-xs text-zinc-400">
+                      Faltam {formatarPreco(valorFaltanteMinimo)} em produtos
+                      para atingir o valor mínimo da entrega.
+                    </p>
+                  </div>
+                )}
 
                 <div className="flex justify-between gap-4">
                   <span className="text-zinc-500">Taxa de entrega</span>
@@ -987,6 +1098,16 @@ export default function CheckoutPage() {
                 </div>
               </div>
 
+              {taxaCartao > 0 && (
+                <div className="flex justify-between gap-4">
+                  <span className="text-zinc-500">Taxa do cartão</span>
+
+                  <span className="font-black text-amber-400">
+                    {formatarPreco(taxaCartao)}
+                  </span>
+                </div>
+              )}
+
               <div className="section-divider my-5" />
 
               <div className="flex items-end justify-between gap-4">
@@ -996,12 +1117,12 @@ export default function CheckoutPage() {
                   </p>
 
                   <p className="mt-1 text-[10px] text-zinc-600">
-                    Valor dos produtos
+                    Valor final do pedido
                   </p>
                 </div>
 
                 <span className="text-3xl font-black tracking-[-0.05em] text-amber-400">
-                  {formatarPreco(valorTotal)}
+                  {formatarPreco(totalPedido)}
                 </span>
               </div>
 

@@ -11,6 +11,7 @@ type AddToCartButtonProps = {
     preco: number;
     imagem_url: string | null;
     estoque: number;
+    permite_abaixo_minimo: boolean;
   };
 
   indisponivel?: boolean;

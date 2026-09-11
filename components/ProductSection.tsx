@@ -14,6 +14,8 @@ type Produto = {
   estoque: number;
   destaque: boolean;
   em_promocao: boolean;
+  permite_abaixo_minimo: boolean;
+
   categoria:
     | {
         nome: string;
@@ -97,6 +99,7 @@ export default async function ProductSection({
       destaque,
       em_promocao,
       categoria_id,
+       permite_abaixo_minimo,
       categoria:categorias (
         nome
       )
@@ -415,6 +418,7 @@ export default async function ProductSection({
                           : Number(produto.preco),
                         imagem_url: produto.imagem_url,
                         estoque: produto.estoque,
+                        permite_abaixo_minimo: produto.permite_abaixo_minimo,
                       }}
                     />
                   </div>

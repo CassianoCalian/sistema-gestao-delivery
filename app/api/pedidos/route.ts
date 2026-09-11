@@ -25,6 +25,23 @@ type PedidoRecebido = {
   itens: ItemRecebido[];
 };
 
+type ViaCepResponse = {
+  cep?: string;
+  logradouro?: string;
+  bairro?: string;
+  localidade?: string;
+  uf?: string;
+  erro?: boolean;
+};
+
+function normalizarTexto(valor: string) {
+  return valor
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .trim()
+    .toLowerCase();
+}
+
 export async function POST(request: Request) {
   try {
     const body = (await request.json()) as PedidoRecebido;
@@ -82,20 +99,104 @@ export async function POST(request: Request) {
       );
     }
 
-    const bairrosPermitidos = ["jardim pernambuco", "jardim nova era"];
+    const cepLimpo = cep.replace(/\D/g, "");
 
-    const bairroNormalizado = bairro.trim().toLowerCase();
-
-    if (!bairrosPermitidos.includes(bairroNormalizado)) {
+    if (cepLimpo.length !== 8) {
       return NextResponse.json(
         {
-          erro: "Para outros bairros, realizamos entregas somente via Uber Flash. Fale conosco pelo WhatsApp para consultar o valor da entrega.",
+          erro: "Informe um CEP válido com 8 números.",
         },
         {
           status: 400,
         },
       );
     }
+
+    let enderecoCep: ViaCepResponse;
+
+    try {
+      const respostaCep = await fetch(
+        `https://viacep.com.br/ws/${cepLimpo}/json/`,
+        {
+          cache: "no-store",
+        },
+      );
+
+      if (!respostaCep.ok) {
+        return NextResponse.json(
+          {
+            erro: "Não foi possível validar o CEP informado.",
+          },
+          {
+            status: 502,
+          },
+        );
+      }
+
+      enderecoCep = (await respostaCep.json()) as ViaCepResponse;
+    } catch (error) {
+      console.error("Erro ao validar CEP no pedido:", error);
+
+      return NextResponse.json(
+        {
+          erro: "Não foi possível validar o endereço neste momento.",
+        },
+        {
+          status: 502,
+        },
+      );
+    }
+
+    if (enderecoCep.erro) {
+      return NextResponse.json(
+        {
+          erro: "CEP não encontrado.",
+        },
+        {
+          status: 400,
+        },
+      );
+    }
+
+    const bairroCep = enderecoCep.bairro?.trim() ?? "";
+    const cidadeCep = enderecoCep.localidade?.trim() ?? "";
+    const ufCep = enderecoCep.uf?.trim().toUpperCase() ?? "";
+
+    if (!bairroCep) {
+      return NextResponse.json(
+        {
+          erro: "Não foi possível identificar o bairro deste CEP.",
+        },
+        {
+          status: 400,
+        },
+      );
+    }
+
+    const bairrosPermitidos = ["jardim pernambuco", "jardim nova era"];
+
+    const bairroCepNormalizado = normalizarTexto(bairroCep);
+    const cidadeCepNormalizada = normalizarTexto(cidadeCep);
+
+    const enderecoDentroDaArea =
+      cidadeCepNormalizada === "nova iguacu" &&
+      ufCep === "RJ" &&
+      bairrosPermitidos.includes(bairroCepNormalizado);
+
+    if (!enderecoDentroDaArea) {
+      return NextResponse.json(
+        {
+          erro: "Este endereço está fora da nossa área de entrega grátis. Para outros bairros, realizamos entregas via Uber Flash. Consulte o valor pelo WhatsApp.",
+        },
+        {
+          status: 400,
+        },
+      );
+    }
+
+    const bairroConfirmado = bairroCep;
+
+    const ruaConfirmada = enderecoCep.logradouro?.trim() || rua.trim();
 
     const formasPermitidas = ["pix", "cartao_entrega", "dinheiro"];
 
@@ -156,7 +257,7 @@ export async function POST(request: Request) {
         p_rua: rua.trim(),
         p_numero: numero.trim(),
         p_complemento: complemento?.trim() || null,
-        p_bairro: bairro.trim(),
+        p_bairro: bairroConfirmado,
         p_referencia: referencia?.trim() || null,
         p_forma_pagamento: forma_pagamento,
         p_troco_para: trocoParaNumero,
@@ -219,6 +320,15 @@ export async function POST(request: Request) {
               nomeProduto && estoqueDisponivel
                 ? `Estoque insuficiente para ${nomeProduto}. Disponível: ${estoqueDisponivel}.`
                 : "Estoque insuficiente para um dos produtos.",
+          },
+          { status: 400 },
+        );
+      }
+
+      if (mensagem.includes("PEDIDO_MINIMO:")) {
+        return NextResponse.json(
+          {
+            erro: "O pedido mínimo para entrega é de R$ 30,00. Adicione mais produtos ao carrinho para continuar.",
           },
           { status: 400 },
         );

@@ -186,6 +186,7 @@ export default function NewProductForm({ categorias }: NewProductFormProps) {
         ativo: formData.get("ativo") === "on",
 
         em_promocao: formData.get("em_promocao") === "on",
+        permite_abaixo_minimo: formData.get("permite_abaixo_minimo") === "on",
         categoria_id: formData.get("categoria_id")?.toString() ?? "",
       };
 
@@ -462,6 +463,23 @@ export default function NewProductForm({ categorias }: NewProductFormProps) {
           </div>
 
           <input type="checkbox" name="em_promocao" className="h-5 w-5" />
+        </label>
+        <label className="flex cursor-pointer items-center justify-between rounded-xl border border-zinc-700 bg-zinc-950 p-4 md:col-span-2">
+          <div>
+            <p className="font-black">Permitir pedido abaixo do mínimo</p>
+
+            <p className="text-sm text-zinc-500">
+              Permite vender este produto mesmo quando o pedido for menor que R$
+              30,00. Use apenas para produtos especiais, como o galão de água 20
+              L.
+            </p>
+          </div>
+
+          <input
+            type="checkbox"
+            name="permite_abaixo_minimo"
+            className="h-5 w-5"
+          />
         </label>
       </div>
 

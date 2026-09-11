@@ -23,6 +23,7 @@ type EditProductFormProps = {
     ativo: boolean;
     destaque: boolean;
     em_promocao: boolean;
+    permite_abaixo_minimo: boolean;
     categoria_id: number | null;
   };
 };
@@ -128,6 +129,7 @@ export default function EditProductForm({
         destaque: formData.get("destaque") === "on",
 
         em_promocao: formData.get("em_promocao") === "on",
+        permite_abaixo_minimo: formData.get("permite_abaixo_minimo") === "on",
         categoria_id: formData.get("categoria_id")?.toString() ?? "",
       };
 
@@ -343,6 +345,24 @@ export default function EditProductForm({
             type="checkbox"
             name="destaque"
             defaultChecked={produto.destaque}
+            className="h-5 w-5"
+          />
+        </label>
+        <label className="flex cursor-pointer items-center justify-between rounded-xl border border-zinc-700 bg-zinc-950 p-4 md:col-span-3">
+          <div>
+            <p className="font-black">Permitir pedido abaixo do mínimo</p>
+
+            <p className="text-sm text-zinc-500">
+              Permite vender este produto mesmo quando o pedido for menor que R$
+              30,00. Use apenas para produtos especiais, como o galão de água 20
+              L.
+            </p>
+          </div>
+
+          <input
+            type="checkbox"
+            name="permite_abaixo_minimo"
+            defaultChecked={produto.permite_abaixo_minimo}
             className="h-5 w-5"
           />
         </label>
