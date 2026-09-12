@@ -21,6 +21,7 @@ type PedidoRecebido = {
   forma_pagamento: string;
   troco_para?: number | null;
   chave_idempotencia: string;
+  pontos_fidelidade?: number;
 
   itens: ItemRecebido[];
 };
@@ -50,6 +51,7 @@ export async function POST(request: Request) {
       nome,
       telefone,
       chave_idempotencia,
+      pontos_fidelidade,
       cep,
       rua,
       numero,
@@ -244,6 +246,33 @@ export async function POST(request: Request) {
         );
       }
     }
+
+    const pontosFidelidadeNumero = Number(pontos_fidelidade ?? 0);
+
+    if (
+      !Number.isInteger(pontosFidelidadeNumero) ||
+      pontosFidelidadeNumero < 0
+    ) {
+      return NextResponse.json(
+        {
+          erro: "Quantidade de pontos de fidelidade inválida.",
+        },
+        {
+          status: 400,
+        },
+      );
+    }
+
+    if (pontosFidelidadeNumero % 500 !== 0) {
+      return NextResponse.json(
+        {
+          erro: "Os pontos devem ser utilizados em blocos de 500.",
+        },
+        {
+          status: 400,
+        },
+      );
+    }
     // A partir daqui, criação do pedido, cálculo dos preços,
     // gravação dos itens e baixa de estoque acontecem
     // dentro de uma única transação no PostgreSQL.
@@ -266,6 +295,9 @@ export async function POST(request: Request) {
           id: item.id,
           quantidade: item.quantidade,
         })),
+
+        p_pontos_fidelidade: pontosFidelidadeNumero,
+
         p_chave_idempotencia: chave_idempotencia,
       },
     );
@@ -340,6 +372,61 @@ export async function POST(request: Request) {
             erro: "O valor para troco não pode ser menor que o total do pedido.",
           },
           { status: 400 },
+        );
+      }
+
+      if (mensagem.includes("PONTOS_FIDELIDADE_INVALIDOS")) {
+        return NextResponse.json(
+          {
+            erro: "A quantidade de pontos informada é inválida.",
+          },
+          {
+            status: 400,
+          },
+        );
+      }
+
+      if (mensagem.includes("PONTOS_FIDELIDADE_DEVE_SER_MULTIPLO_DE_500")) {
+        return NextResponse.json(
+          {
+            erro: "Os pontos devem ser utilizados em blocos de 500.",
+          },
+          {
+            status: 400,
+          },
+        );
+      }
+
+      if (mensagem.includes("SALDO_PONTOS_INSUFICIENTE")) {
+        return NextResponse.json(
+          {
+            erro: "Seu saldo de pontos mudou e não é mais suficiente para este desconto. Consulte novamente seus pontos.",
+          },
+          {
+            status: 400,
+          },
+        );
+      }
+
+      if (mensagem.includes("DESCONTO_FIDELIDADE_SUPERA_SUBTOTAL")) {
+        return NextResponse.json(
+          {
+            erro: "O desconto de fidelidade selecionado é maior que o valor dos produtos.",
+          },
+          {
+            status: 400,
+          },
+        );
+      }
+
+      if (mensagem.includes("CLIENTE_NAO_ENCONTRADO")) {
+        return NextResponse.json(
+          {
+            erro: "Não foi possível localizar o cadastro do cliente para aplicar a fidelidade.",
+          },
+          {
+            status: 400,
+          },
         );
       }
 

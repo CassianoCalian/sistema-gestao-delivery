@@ -183,10 +183,12 @@ export default async function PedidoPage({ params }: PedidoPageProps) {
         forma_pagamento,
         troco_para,
         subtotal,
-        taxa_entrega,
-        taxa_cartao,
-        total,
-        pagamento_confirmado,
+taxa_entrega,
+taxa_cartao,
+desconto_fidelidade,
+pontos_fidelidade_usados,
+total,
+pagamento_confirmado,
         status
       `,
     )
@@ -245,6 +247,12 @@ export default async function PedidoPage({ params }: PedidoPageProps) {
   const horarioPreparacao = obterHorarioStatus("em_preparacao");
   const horarioSaiuEntrega = obterHorarioStatus("saiu_entrega");
   const horarioEntregue = obterHorarioStatus("entregue");
+  const taxaEntregaNumero = Number(pedido.taxa_entrega ?? 0);
+  const taxaCartaoNumero = Number(pedido.taxa_cartao ?? 0);
+
+  const descontoFidelidadeNumero = Number(pedido.desconto_fidelidade ?? 0);
+
+  const pontosFidelidadeUsados = Number(pedido.pontos_fidelidade_usados ?? 0);
   const itensMensagem =
     itens
       ?.map(
@@ -266,13 +274,18 @@ export default async function PedidoPage({ params }: PedidoPageProps) {
     ``,
     `💳 Pagamento: ${formatarPagamento(pedido.forma_pagamento)}`,
 
-    pedido.forma_pagamento === "cartao_entrega" &&
-    Number(pedido.taxa_cartao ?? 0) > 0
-      ? `💳 Taxa do cartão: ${formatarPreco(Number(pedido.taxa_cartao ?? 0))}`
+    taxaCartaoNumero > 0
+      ? `💳 Taxa do cartão: ${formatarPreco(taxaCartaoNumero)}`
       : "",
 
     pedido.forma_pagamento === "dinheiro" && pedido.troco_para
       ? `💵 Troco para: ${formatarPreco(Number(pedido.troco_para))}`
+      : "",
+
+    descontoFidelidadeNumero > 0
+      ? `⭐ Fidelidade: -${formatarPreco(
+          descontoFidelidadeNumero,
+        )} (${pontosFidelidadeUsados} pontos)`
       : "",
 
     `💰 Total: ${formatarPreco(Number(pedido.total))}`,
@@ -320,9 +333,6 @@ export default async function PedidoPage({ params }: PedidoPageProps) {
       icone: "✓",
     },
   ];
-
-  const taxaEntregaNumero = Number(pedido.taxa_entrega);
-  const taxaCartaoNumero = Number(pedido.taxa_cartao ?? 0);
 
   return (
     <main className="relative min-h-screen overflow-hidden bg-zinc-950 text-white">
@@ -536,6 +546,18 @@ export default async function PedidoPage({ params }: PedidoPageProps) {
                   O pedido não seguirá para preparação ou entrega. Caso precise
                   de ajuda, entre em contato com o Depósito do Zé.
                 </p>
+                {pontosFidelidadeUsados > 0 && (
+                  <div className="mt-4 rounded-2xl border border-emerald-400/15 bg-emerald-400/[0.06] p-4">
+                    <p className="text-xs font-black text-emerald-400">
+                      ✓ Seus {pontosFidelidadeUsados} pontos foram devolvidos
+                    </p>
+
+                    <p className="mt-1 text-[10px] leading-5 text-zinc-500">
+                      Como o pedido foi cancelado, os pontos usados no desconto
+                      retornaram para o seu saldo de fidelidade.
+                    </p>
+                  </div>
+                )}
               </div>
             </div>
           </section>
@@ -840,15 +862,6 @@ export default async function PedidoPage({ params }: PedidoPageProps) {
           <p className="text-[9px] font-black uppercase tracking-[0.15em] text-amber-400">
             Valores
           </p>
-          {taxaCartaoNumero > 0 && (
-            <div className="flex justify-between gap-4">
-              <span className="text-zinc-500">Taxa do cartão</span>
-
-              <span className="font-black text-amber-400">
-                {formatarPreco(taxaCartaoNumero)}
-              </span>
-            </div>
-          )}
 
           <div className="mt-5 space-y-3 text-sm">
             <div className="flex justify-between gap-4">
@@ -872,6 +885,41 @@ export default async function PedidoPage({ params }: PedidoPageProps) {
                   : formatarPreco(taxaEntregaNumero)}
               </span>
             </div>
+
+            {taxaCartaoNumero > 0 && (
+              <div className="flex justify-between gap-4">
+                <span className="text-zinc-500">Taxa do cartão</span>
+
+                <span className="font-black text-amber-400">
+                  {formatarPreco(taxaCartaoNumero)}
+                </span>
+              </div>
+            )}
+
+            {descontoFidelidadeNumero > 0 && (
+              <div className="rounded-2xl border border-emerald-400/10 bg-emerald-400/[0.045] p-4">
+                <div className="flex items-center justify-between gap-4">
+                  <div>
+                    <p className="font-black text-emerald-400">
+                      Desconto fidelidade
+                    </p>
+
+                    {pontosFidelidadeUsados > 0 && (
+                      <p className="mt-1 text-[10px] text-zinc-500">
+                        {pontosFidelidadeUsados} pontos utilizados
+                        {pedido.status === "cancelado"
+                          ? " • pontos devolvidos"
+                          : ""}
+                      </p>
+                    )}
+                  </div>
+
+                  <span className="font-black text-emerald-400">
+                    - {formatarPreco(descontoFidelidadeNumero)}
+                  </span>
+                </div>
+              </div>
+            )}
           </div>
 
           <div className="section-divider my-5" />

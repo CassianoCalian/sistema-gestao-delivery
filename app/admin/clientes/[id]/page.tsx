@@ -169,12 +169,14 @@ export default async function AdminClienteDetalhe({
     .from("clientes")
     .select(
       `
-          id,
-          created_at,
-          nome,
-          telefone,
-          telefone_normalizado
-        `,
+    id,
+    created_at,
+    nome,
+    telefone,
+    telefone_normalizado,
+    pontos_saldo,
+    fidelidade_progresso_centavos
+  `,
     )
     .eq("id", clienteId)
     .single();
@@ -238,6 +240,27 @@ export default async function AdminClienteDetalhe({
   const primeiraCompra = pedidosValidosOrdenados[0]?.created_at ?? null;
 
   const segmento = classificarCliente(quantidadePedidos, ultimaCompra);
+
+  // =========================================================
+  // FIDELIDADE
+  // =========================================================
+
+  const pontosSaldo = Number(cliente.pontos_saldo ?? 0);
+
+  const progressoCentavos = Number(cliente.fidelidade_progresso_centavos ?? 0);
+
+  const valorFaltanteProximoPonto = (500 - progressoCentavos) / 100;
+
+  const percentualProximoPonto = Math.min(100, (progressoCentavos / 500) * 100);
+
+  const descontosDisponiveis = Math.floor(pontosSaldo / 500);
+
+  const valorDescontoDisponivel = descontosDisponiveis * 5;
+
+  const pontosAteProximoDesconto =
+    pontosSaldo % 500 === 0 ? 500 : 500 - (pontosSaldo % 500);
+
+  const percentualDesconto = ((pontosSaldo % 500) / 500) * 100;
 
   // =========================================================
   // PRODUTOS MAIS COMPRADOS
@@ -435,6 +458,153 @@ export default async function AdminClienteDetalhe({
             <p className="mt-2 text-[9px] text-zinc-600">
               classificação automática
             </p>
+          </div>
+        </section>
+
+        {/* FIDELIDADE */}
+        <section className="relative mt-6 overflow-hidden rounded-[28px] border border-amber-400/15 bg-amber-400/[0.025] p-6 sm:p-7">
+          <div
+            aria-hidden="true"
+            className="pointer-events-none absolute -right-24 -top-24 h-64 w-64 rounded-full bg-amber-400/[0.07] blur-[100px]"
+          />
+
+          <div className="relative">
+            <div className="flex flex-col gap-5 lg:flex-row lg:items-start lg:justify-between">
+              <div>
+                <div className="flex items-center gap-2">
+                  <span className="h-px w-7 bg-amber-400" />
+
+                  <p className="text-[8px] font-black uppercase tracking-[0.18em] text-amber-400">
+                    Programa de fidelidade
+                  </p>
+                </div>
+
+                <h2 className="mt-2 text-2xl font-black tracking-[-0.035em] text-white">
+                  Pontos do cliente
+                </h2>
+
+                <p className="mt-2 text-sm text-zinc-500">
+                  A cada R$ 5,00 em produtos, o cliente recebe 1 ponto. A cada
+                  500 pontos, ganha R$ 5,00 de desconto.
+                </p>
+              </div>
+
+              <div className="rounded-[20px] border border-amber-400/15 bg-amber-400/[0.06] px-5 py-4 text-center">
+                <p className="text-[8px] font-black uppercase tracking-[0.12em] text-amber-400">
+                  Saldo atual
+                </p>
+
+                <p className="mt-1 text-4xl font-black tracking-[-0.06em] text-white">
+                  {pontosSaldo}
+                </p>
+
+                <p className="text-[8px] font-black uppercase tracking-[0.1em] text-zinc-600">
+                  pontos
+                </p>
+              </div>
+            </div>
+
+            <div className="mt-7 grid gap-4 lg:grid-cols-3">
+              {/* PRÓXIMO PONTO */}
+              <div className="rounded-[22px] border border-white/[0.06] bg-black/20 p-5">
+                <p className="text-[8px] font-black uppercase tracking-[0.12em] text-zinc-600">
+                  Próximo ponto
+                </p>
+
+                <p className="mt-2 text-xl font-black text-white">
+                  Faltam {formatarPreco(valorFaltanteProximoPonto)}
+                </p>
+
+                <p className="mt-1 text-[9px] text-zinc-600">
+                  em compras para gerar +1 ponto
+                </p>
+
+                <div className="mt-4 h-1.5 overflow-hidden rounded-full bg-zinc-900">
+                  <div
+                    className="h-full rounded-full bg-amber-400 transition-all duration-500"
+                    style={{
+                      width: `${percentualProximoPonto}%`,
+                    }}
+                  />
+                </div>
+
+                <p className="mt-2 text-[8px] font-bold text-zinc-700">
+                  R$ {(progressoCentavos / 100).toFixed(2).replace(".", ",")} de
+                  R$ 5,00 acumulados
+                </p>
+              </div>
+
+              {/* PRÓXIMO DESCONTO */}
+              <div className="rounded-[22px] border border-violet-400/10 bg-violet-400/[0.025] p-5">
+                <p className="text-[8px] font-black uppercase tracking-[0.12em] text-violet-300">
+                  Próximo benefício
+                </p>
+
+                <p className="mt-2 text-xl font-black text-white">
+                  {pontosAteProximoDesconto} pontos
+                </p>
+
+                <p className="mt-1 text-[9px] text-zinc-600">
+                  até mais R$ 5,00 de desconto
+                </p>
+
+                <div className="mt-4 h-1.5 overflow-hidden rounded-full bg-zinc-900">
+                  <div
+                    className="h-full rounded-full bg-violet-400 transition-all duration-500"
+                    style={{
+                      width: `${percentualDesconto}%`,
+                    }}
+                  />
+                </div>
+
+                <p className="mt-2 text-[8px] font-bold text-zinc-700">
+                  {pontosSaldo % 500} de 500 pontos
+                </p>
+              </div>
+
+              {/* DESCONTO DISPONÍVEL */}
+              <div
+                className={`rounded-[22px] border p-5 ${
+                  valorDescontoDisponivel > 0
+                    ? "border-emerald-400/20 bg-emerald-400/[0.05]"
+                    : "border-white/[0.06] bg-black/20"
+                }`}
+              >
+                <p
+                  className={`text-[8px] font-black uppercase tracking-[0.12em] ${
+                    valorDescontoDisponivel > 0
+                      ? "text-emerald-400"
+                      : "text-zinc-600"
+                  }`}
+                >
+                  Desconto disponível
+                </p>
+
+                <p
+                  className={`mt-2 text-2xl font-black ${
+                    valorDescontoDisponivel > 0
+                      ? "text-emerald-400"
+                      : "text-white"
+                  }`}
+                >
+                  {formatarPreco(valorDescontoDisponivel)}
+                </p>
+
+                <p className="mt-1 text-[9px] text-zinc-600">
+                  {valorDescontoDisponivel > 0
+                    ? "benefício disponível para resgate"
+                    : "nenhum benefício disponível ainda"}
+                </p>
+              </div>
+            </div>
+
+            <div className="mt-5 flex items-center gap-2 border-t border-amber-400/[0.08] pt-4">
+              <span className="h-1.5 w-1.5 rounded-full bg-amber-400" />
+
+              <p className="text-[7px] font-black uppercase tracking-[0.12em] text-zinc-700">
+                Pontos creditados somente quando o pedido é entregue
+              </p>
+            </div>
           </div>
         </section>
 

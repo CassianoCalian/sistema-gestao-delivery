@@ -23,6 +23,10 @@ type PedidoImpressao = {
   subtotal: number;
   taxa_entrega: number;
   taxa_cartao: number | null;
+
+  desconto_fidelidade?: number | null;
+  pontos_fidelidade_usados?: number | null;
+
   total: number;
 };
 
@@ -40,7 +44,9 @@ function formatarPreco(valor: number) {
 
 function formatarPagamento(forma: string) {
   if (forma === "pix") return "PIX";
+
   if (forma === "cartao_entrega") return "Cartão na entrega";
+
   if (forma === "dinheiro") return "Dinheiro na entrega";
 
   return forma;
@@ -73,7 +79,13 @@ export default function PrintableOrderReceipt({
 }: PrintableOrderReceiptProps) {
   const taxaCartao = Number(pedido.taxa_cartao ?? 0);
   const taxaEntrega = Number(pedido.taxa_entrega ?? 0);
+
+  const descontoFidelidade = Number(pedido.desconto_fidelidade ?? 0);
+
+  const pontosFidelidadeUsados = Number(pedido.pontos_fidelidade_usados ?? 0);
+
   const whatsapp = process.env.NEXT_PUBLIC_WHATSAPP_NUMBER ?? "21973209746";
+
   const statusPagamento =
     pedido.forma_pagamento === "pix"
       ? pedido.pagamento_confirmado
@@ -99,6 +111,8 @@ export default function PrintableOrderReceipt({
           </p>
 
           <p className="mt-2 font-black">Pedido #{pedido.id}</p>
+
+          <p className="mt-1 text-[10px]">{formatarData(pedido.created_at)}</p>
         </div>
 
         {/* STATUS DO PAGAMENTO */}
@@ -119,7 +133,8 @@ export default function PrintableOrderReceipt({
           <p className="font-black uppercase">Cliente</p>
 
           <p className="mt-1">{pedido.nome_cliente}</p>
-          <p>{pedido.telefone}</p>
+
+          <p>{formatarTelefone(pedido.telefone)}</p>
         </div>
 
         {/* ENDEREÇO */}
@@ -131,6 +146,7 @@ export default function PrintableOrderReceipt({
           </p>
 
           <p>{pedido.bairro}</p>
+
           <p>CEP: {pedido.cep}</p>
 
           {pedido.complemento && <p>Complemento: {pedido.complemento}</p>}
@@ -167,6 +183,7 @@ export default function PrintableOrderReceipt({
         <div className="border-b border-dashed border-black py-3">
           <div className="flex justify-between">
             <span>Subtotal</span>
+
             <span>{formatarPreco(Number(pedido.subtotal))}</span>
           </div>
 
@@ -181,12 +198,32 @@ export default function PrintableOrderReceipt({
           {taxaCartao > 0 && (
             <div className="mt-1 flex justify-between">
               <span>Taxa cartão</span>
+
               <span>{formatarPreco(taxaCartao)}</span>
             </div>
           )}
 
-          <div className="mt-3 flex justify-between text-sm font-black">
+          {descontoFidelidade > 0 && (
+            <>
+              <div className="mt-1 flex justify-between font-bold">
+                <span>Desconto fidelidade</span>
+
+                <span>- {formatarPreco(descontoFidelidade)}</span>
+              </div>
+
+              {pontosFidelidadeUsados > 0 && (
+                <div className="mt-1 flex justify-between text-[10px]">
+                  <span>Pontos utilizados</span>
+
+                  <span>{pontosFidelidadeUsados} pts</span>
+                </div>
+              )}
+            </>
+          )}
+
+          <div className="mt-3 flex justify-between border-t border-dashed border-black pt-2 text-sm font-black">
             <span>TOTAL</span>
+
             <span>{formatarPreco(Number(pedido.total))}</span>
           </div>
         </div>
@@ -208,9 +245,9 @@ export default function PrintableOrderReceipt({
         <div className="py-3">
           <p className="font-black uppercase">Conferência</p>
 
-          <p className="mt-3">Separado por: __________________</p>
+          <p className="mt-3">Separado por: ___________________</p>
 
-          <p className="mt-3">Entregador: ___________________</p>
+          <p className="mt-3">Entregador: ____________________</p>
         </div>
 
         <div className="border-t border-dashed border-black pt-3 text-center">

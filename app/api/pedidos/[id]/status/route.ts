@@ -22,7 +22,7 @@ const TRANSICOES_PERMITIDAS: Record<string, string[]> = {
   recebido: ["em_preparacao", "cancelado"],
   em_preparacao: ["recebido", "saiu_entrega", "cancelado"],
   saiu_entrega: ["em_preparacao", "entregue", "cancelado"],
-  entregue: ["saiu_entrega"],
+  entregue: [],
   cancelado: [],
 };
 export async function PATCH(request: Request, { params }: RouteContext) {

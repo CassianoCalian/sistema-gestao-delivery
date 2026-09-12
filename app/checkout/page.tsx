@@ -34,6 +34,19 @@ export default function CheckoutPage() {
   const [enviando, setEnviando] = useState(false);
 
   const [erro, setErro] = useState("");
+  const [telefone, setTelefone] = useState("");
+
+  const [consultandoFidelidade, setConsultandoFidelidade] = useState(false);
+
+  const [erroFidelidade, setErroFidelidade] = useState("");
+
+  const [fidelidade, setFidelidade] = useState<{
+    encontrado: boolean;
+    pontos_saldo: number;
+    progresso_centavos: number;
+  } | null>(null);
+
+  const [pontosFidelidade, setPontosFidelidade] = useState(0);
 
   const [pedidoConcluido, setPedidoConcluido] = useState(false);
 
@@ -50,7 +63,20 @@ export default function CheckoutPage() {
   const envioEmAndamentoRef = useRef(false);
   const taxaCartao = formaPagamento === "cartao_entrega" ? TAXA_CARTAO : 0;
 
-  const totalPedido = valorTotal + taxaCartao;
+  const descontoFidelidade = (pontosFidelidade / 500) * 5;
+
+  const totalPedido = valorTotal + taxaCartao - descontoFidelidade;
+
+  const blocosDisponiveis = fidelidade?.encontrado
+    ? Math.floor(fidelidade.pontos_saldo / 500)
+    : 0;
+
+  const blocosPermitidosPeloPedido = Math.floor(valorTotal / 5);
+
+  const blocosMaximosResgate = Math.min(
+    blocosDisponiveis,
+    blocosPermitidosPeloPedido,
+  );
 
   const possuiExcecaoMinimo = itens.some(
     (item) => item.permite_abaixo_minimo === true,
@@ -59,6 +85,61 @@ export default function CheckoutPage() {
   const valorFaltanteMinimo = possuiExcecaoMinimo
     ? 0
     : Math.max(PEDIDO_MINIMO - valorTotal, 0);
+
+  async function consultarFidelidade() {
+    const telefoneLimpo = telefone.replace(/\D/g, "");
+
+    if (telefoneLimpo.length < 10) {
+      setFidelidade(null);
+      setPontosFidelidade(0);
+      setErroFidelidade("");
+      return;
+    }
+
+    setConsultandoFidelidade(true);
+    setErroFidelidade("");
+    setPontosFidelidade(0);
+
+    try {
+      const resposta = await fetch("/api/fidelidade/saldo", {
+        method: "POST",
+
+        headers: {
+          "Content-Type": "application/json",
+        },
+
+        body: JSON.stringify({
+          telefone,
+        }),
+      });
+
+      const dados = await resposta.json();
+
+      if (!resposta.ok) {
+        throw new Error(
+          dados.erro ?? "Não foi possível consultar seus pontos.",
+        );
+      }
+
+      setFidelidade({
+        encontrado: Boolean(dados.encontrado),
+
+        pontos_saldo: Number(dados.pontos_saldo ?? 0),
+
+        progresso_centavos: Number(dados.progresso_centavos ?? 0),
+      });
+    } catch (error) {
+      setFidelidade(null);
+
+      setErroFidelidade(
+        error instanceof Error
+          ? error.message
+          : "Não foi possível consultar seus pontos.",
+      );
+    } finally {
+      setConsultandoFidelidade(false);
+    }
+  }
 
   async function consultarCep() {
     const cepLimpo = cep.replace(/\D/g, "");
@@ -184,6 +265,8 @@ export default function CheckoutPage() {
           formaPagamento === "dinheiro" && trocoDigitado
             ? Number(trocoDigitado)
             : null,
+
+        pontos_fidelidade: pontosFidelidade,
 
         itens: itens.map((item) => ({
           id: item.id,
@@ -446,15 +529,131 @@ export default function CheckoutPage() {
                       autoComplete="tel"
                       inputMode="tel"
                       placeholder="(21) 99999-9999"
+                      value={telefone}
+                      onChange={(event) => {
+                        setTelefone(event.target.value);
+
+                        setFidelidade(null);
+
+                        setPontosFidelidade(0);
+
+                        setErroFidelidade("");
+                      }}
+                      onBlur={consultarFidelidade}
                       className={inputClassName}
                     />
 
                     <p className="mt-2 text-[10px] text-zinc-600">
                       Usaremos esse número para atualizações do pedido.
                     </p>
+                    {consultandoFidelidade && (
+                      <p className="mt-2 text-[10px] font-bold text-amber-400">
+                        Consultando seus benefícios...
+                      </p>
+                    )}
+
+                    {erroFidelidade && (
+                      <p className="mt-2 text-[10px] font-bold text-red-400">
+                        {erroFidelidade}
+                      </p>
+                    )}
+
+                    {fidelidade?.encontrado && (
+                      <p className="mt-2 text-[10px] font-bold text-emerald-400">
+                        ✓ Cliente identificado — {fidelidade.pontos_saldo}{" "}
+                        pontos
+                      </p>
+                    )}
                   </div>
                 </div>
               </div>
+
+              {/* FIDELIDADE */}
+              {fidelidade?.encontrado && (
+                <div className="animate-scale-in rounded-[28px] border border-amber-400/20 bg-amber-400/[0.055] p-5 sm:p-6">
+                  <div className="flex items-start gap-3">
+                    <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-amber-400/10 text-xl">
+                      ⭐
+                    </div>
+
+                    <div className="min-w-0 flex-1">
+                      <p className="text-[10px] font-black uppercase tracking-[0.12em] text-amber-400">
+                        Programa de fidelidade
+                      </p>
+
+                      <h3 className="mt-1 text-lg font-black text-white">
+                        Você tem {fidelidade.pontos_saldo} pontos
+                      </h3>
+
+                      <p className="mt-1 text-xs leading-5 text-zinc-500">
+                        A cada 500 pontos você pode usar R$ 5,00 de desconto.
+                      </p>
+                    </div>
+                  </div>
+
+                  {blocosMaximosResgate > 0 ? (
+                    <div className="mt-5">
+                      <label
+                        htmlFor="pontos_fidelidade"
+                        className={labelClassName}
+                      >
+                        Usar pontos neste pedido
+                      </label>
+
+                      <select
+                        id="pontos_fidelidade"
+                        value={pontosFidelidade}
+                        onChange={(event) =>
+                          setPontosFidelidade(Number(event.target.value))
+                        }
+                        className={`${inputClassName} bg-zinc-950 text-white [color-scheme:dark]`}
+                      >
+                        <option value={0}>Não usar pontos</option>
+
+                        {Array.from(
+                          {
+                            length: blocosMaximosResgate,
+                          },
+                          (_, index) => {
+                            const pontos = (index + 1) * 500;
+
+                            const desconto = (index + 1) * 5;
+
+                            return (
+                              <option key={pontos} value={pontos}>
+                                {pontos} pontos — R$ {desconto.toFixed(2)}
+                              </option>
+                            );
+                          },
+                        )}
+                      </select>
+
+                      {pontosFidelidade > 0 && (
+                        <div className="mt-3 rounded-2xl border border-emerald-400/15 bg-emerald-400/[0.06] p-3">
+                          <p className="text-xs font-black text-emerald-400">
+                            ✓ {pontosFidelidade} pontos serão utilizados
+                          </p>
+
+                          <p className="mt-1 text-[10px] text-zinc-500">
+                            Desconto de {formatarPreco(descontoFidelidade)}
+                          </p>
+                        </div>
+                      )}
+                    </div>
+                  ) : (
+                    <div className="mt-5 rounded-2xl border border-white/[0.06] bg-black/20 p-4">
+                      <p className="text-xs font-bold text-zinc-400">
+                        Continue comprando para liberar seu próximo desconto.
+                      </p>
+
+                      <p className="mt-1 text-[10px] text-zinc-600">
+                        Faltam {Math.max(500 - fidelidade.pontos_saldo, 0)}{" "}
+                        pontos para R$ 5,00 de desconto.
+                      </p>
+                    </div>
+                  )}
+                </div>
+              )}
 
               {/* ENDEREÇO */}
               <div className="premium-card animate-slide-up delay-3 rounded-[28px] p-5 sm:p-6">
@@ -1104,6 +1303,16 @@ export default function CheckoutPage() {
 
                   <span className="font-black text-amber-400">
                     {formatarPreco(taxaCartao)}
+                  </span>
+                </div>
+              )}
+
+              {descontoFidelidade > 0 && (
+                <div className="flex justify-between gap-4">
+                  <span className="text-zinc-500">Desconto fidelidade</span>
+
+                  <span className="font-black text-emerald-400">
+                    - {formatarPreco(descontoFidelidade)}
                   </span>
                 </div>
               )}

@@ -334,6 +334,44 @@ export default async function AdminClientesPage({
   const ticketMedioGeral =
     totalPedidosCRM > 0 ? receitaCRM / totalPedidosCRM : 0;
 
+  // =========================================================
+  // INTELIGÊNCIA COMERCIAL
+  // =========================================================
+
+  // Top 3 clientes por faturamento
+  const rankingFaturamento = [...clientesComMetricas]
+    .filter((cliente) => cliente.quantidadePedidos > 0)
+    .sort((a, b) => b.totalGasto - a.totalGasto)
+    .slice(0, 3);
+
+  // Top 3 clientes por frequência de compras
+  const rankingPedidos = [...clientesComMetricas]
+    .filter((cliente) => cliente.quantidadePedidos > 0)
+    .sort((a, b) => {
+      if (b.quantidadePedidos !== a.quantidadePedidos) {
+        return b.quantidadePedidos - a.quantidadePedidos;
+      }
+
+      return b.totalGasto - a.totalGasto;
+    })
+    .slice(0, 3);
+
+  // Clientes que estão há 30 dias ou mais sem comprar.
+  // Não inclui clientes que nunca fizeram pedido.
+  const clientesReativacao = clientesComMetricas
+    .map((cliente) => ({
+      ...cliente,
+      diasSemComprar: calcularDiasDesde(cliente.ultimaCompra),
+    }))
+    .filter(
+      (cliente) =>
+        cliente.quantidadePedidos > 0 &&
+        cliente.diasSemComprar !== null &&
+        cliente.diasSemComprar >= 30,
+    )
+    .sort((a, b) => (b.diasSemComprar ?? 0) - (a.diasSemComprar ?? 0))
+    .slice(0, 5);
+
   function criarUrlPagina(pagina: number) {
     const params = new URLSearchParams();
 
@@ -445,6 +483,249 @@ export default async function AdminClientesPage({
             <p className="mt-2 text-[9px] text-zinc-600">
               considerando pedidos não cancelados
             </p>
+          </div>
+        </section>
+
+        {/* INTELIGÊNCIA COMERCIAL */}
+        <section className="mt-8">
+          <div className="mb-5 flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+            <div>
+              <div className="flex items-center gap-2">
+                <span className="h-px w-7 bg-fuchsia-400" />
+
+                <p className="text-[8px] font-black uppercase tracking-[0.18em] text-fuchsia-300">
+                  Inteligência comercial
+                </p>
+              </div>
+
+              <h2 className="mt-2 text-2xl font-black tracking-[-0.035em] text-white">
+                Quem merece atenção agora?
+              </h2>
+
+              <p className="mt-2 text-sm text-zinc-500">
+                Ranking de clientes e oportunidades para aumentar recompra e
+                faturamento.
+              </p>
+            </div>
+
+            <div className="rounded-full border border-fuchsia-400/10 bg-fuchsia-400/[0.04] px-3 py-2">
+              <span className="text-[8px] font-black uppercase tracking-[0.1em] text-fuchsia-300">
+                CRM comercial
+              </span>
+            </div>
+          </div>
+
+          <div className="grid gap-4 xl:grid-cols-3">
+            {/* TOP FATURAMENTO */}
+            <div className="relative overflow-hidden rounded-[26px] border border-emerald-400/15 bg-emerald-400/[0.025] p-5">
+              <div
+                aria-hidden="true"
+                className="pointer-events-none absolute -right-16 -top-16 h-44 w-44 rounded-full bg-emerald-400/[0.06] blur-[80px]"
+              />
+
+              <div className="relative">
+                <div className="flex items-start justify-between gap-4">
+                  <div>
+                    <p className="text-[8px] font-black uppercase tracking-[0.15em] text-emerald-400">
+                      Maior faturamento
+                    </p>
+
+                    <h3 className="mt-1 text-lg font-black text-white">
+                      Top clientes
+                    </h3>
+                  </div>
+
+                  <div className="flex h-10 w-10 items-center justify-center rounded-[14px] border border-emerald-400/15 bg-emerald-400/[0.07]">
+                    💰
+                  </div>
+                </div>
+
+                {rankingFaturamento.length === 0 ? (
+                  <p className="mt-6 text-sm text-zinc-600">
+                    Ainda não há compras suficientes para gerar o ranking.
+                  </p>
+                ) : (
+                  <div className="mt-5 space-y-3">
+                    {rankingFaturamento.map((cliente, indice) => (
+                      <Link
+                        key={cliente.id}
+                        href={`/admin/clientes/${cliente.id}`}
+                        className="group flex items-center justify-between gap-4 rounded-[18px] border border-white/[0.05] bg-black/20 p-3 transition hover:border-emerald-400/20 hover:bg-emerald-400/[0.03]"
+                      >
+                        <div className="flex min-w-0 items-center gap-3">
+                          <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl border border-emerald-400/10 bg-emerald-400/[0.05] text-xs font-black text-emerald-400">
+                            {indice + 1}
+                          </span>
+
+                          <div className="min-w-0">
+                            <p className="truncate text-sm font-black text-white">
+                              {cliente.nome}
+                            </p>
+
+                            <p className="mt-0.5 text-[8px] font-bold uppercase tracking-[0.08em] text-zinc-600">
+                              {cliente.quantidadePedidos} pedidos
+                            </p>
+                          </div>
+                        </div>
+
+                        <div className="text-right">
+                          <p className="text-sm font-black text-emerald-400">
+                            {formatarPreco(cliente.totalGasto)}
+                          </p>
+
+                          <span className="text-[10px] text-zinc-700 transition group-hover:text-emerald-400">
+                            →
+                          </span>
+                        </div>
+                      </Link>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* TOP FREQUÊNCIA */}
+            <div className="relative overflow-hidden rounded-[26px] border border-blue-400/15 bg-blue-400/[0.025] p-5">
+              <div
+                aria-hidden="true"
+                className="pointer-events-none absolute -right-16 -top-16 h-44 w-44 rounded-full bg-blue-400/[0.06] blur-[80px]"
+              />
+
+              <div className="relative">
+                <div className="flex items-start justify-between gap-4">
+                  <div>
+                    <p className="text-[8px] font-black uppercase tracking-[0.15em] text-blue-400">
+                      Mais frequentes
+                    </p>
+
+                    <h3 className="mt-1 text-lg font-black text-white">
+                      Top por pedidos
+                    </h3>
+                  </div>
+
+                  <div className="flex h-10 w-10 items-center justify-center rounded-[14px] border border-blue-400/15 bg-blue-400/[0.07]">
+                    🔥
+                  </div>
+                </div>
+
+                {rankingPedidos.length === 0 ? (
+                  <p className="mt-6 text-sm text-zinc-600">
+                    Ainda não há compras suficientes para gerar o ranking.
+                  </p>
+                ) : (
+                  <div className="mt-5 space-y-3">
+                    {rankingPedidos.map((cliente, indice) => (
+                      <Link
+                        key={cliente.id}
+                        href={`/admin/clientes/${cliente.id}`}
+                        className="group flex items-center justify-between gap-4 rounded-[18px] border border-white/[0.05] bg-black/20 p-3 transition hover:border-blue-400/20 hover:bg-blue-400/[0.03]"
+                      >
+                        <div className="flex min-w-0 items-center gap-3">
+                          <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl border border-blue-400/10 bg-blue-400/[0.05] text-xs font-black text-blue-400">
+                            {indice + 1}
+                          </span>
+
+                          <div className="min-w-0">
+                            <p className="truncate text-sm font-black text-white">
+                              {cliente.nome}
+                            </p>
+
+                            <p className="mt-0.5 text-[8px] font-bold uppercase tracking-[0.08em] text-zinc-600">
+                              {formatarPreco(cliente.totalGasto)} gastos
+                            </p>
+                          </div>
+                        </div>
+
+                        <div className="text-right">
+                          <p className="text-lg font-black text-blue-400">
+                            {cliente.quantidadePedidos}
+                          </p>
+
+                          <p className="text-[7px] font-black uppercase text-zinc-700">
+                            pedidos
+                          </p>
+                        </div>
+                      </Link>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* REATIVAÇÃO */}
+            <div className="relative overflow-hidden rounded-[26px] border border-fuchsia-400/15 bg-fuchsia-400/[0.025] p-5">
+              <div
+                aria-hidden="true"
+                className="pointer-events-none absolute -right-16 -top-16 h-44 w-44 rounded-full bg-fuchsia-400/[0.06] blur-[80px]"
+              />
+
+              <div className="relative">
+                <div className="flex items-start justify-between gap-4">
+                  <div>
+                    <p className="text-[8px] font-black uppercase tracking-[0.15em] text-fuchsia-300">
+                      Oportunidade
+                    </p>
+
+                    <h3 className="mt-1 text-lg font-black text-white">
+                      Reativar clientes
+                    </h3>
+                  </div>
+
+                  <div className="flex h-10 w-10 items-center justify-center rounded-[14px] border border-fuchsia-400/15 bg-fuchsia-400/[0.07]">
+                    📣
+                  </div>
+                </div>
+
+                {clientesReativacao.length === 0 ? (
+                  <div className="mt-6 rounded-[18px] border border-emerald-400/10 bg-emerald-400/[0.03] p-4">
+                    <p className="text-sm font-black text-emerald-400">
+                      Nenhum cliente para reativar agora.
+                    </p>
+
+                    <p className="mt-1 text-[9px] leading-4 text-zinc-600">
+                      Não existem clientes com 30 dias ou mais sem comprar.
+                    </p>
+                  </div>
+                ) : (
+                  <div className="mt-5 space-y-3">
+                    {clientesReativacao.map((cliente) => {
+                      const numeroWhatsApp = (
+                        cliente.telefone_normalizado ??
+                        cliente.telefone.replace(/\D/g, "")
+                      ).replace(/^55/, "");
+
+                      return (
+                        <div
+                          key={cliente.id}
+                          className="rounded-[18px] border border-white/[0.05] bg-black/20 p-3"
+                        >
+                          <div className="flex items-center justify-between gap-3">
+                            <div className="min-w-0">
+                              <p className="truncate text-sm font-black text-white">
+                                {cliente.nome}
+                              </p>
+
+                              <p className="mt-1 text-[8px] font-bold uppercase tracking-[0.08em] text-fuchsia-300">
+                                {cliente.diasSemComprar} dias sem comprar
+                              </p>
+                            </div>
+
+                            <a
+                              href={`https://wa.me/55${numeroWhatsApp}`}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="shrink-0 rounded-xl border border-emerald-400/15 bg-emerald-400/[0.06] px-3 py-2 text-[9px] font-black text-emerald-400 transition hover:bg-emerald-400/[0.12]"
+                            >
+                              WhatsApp
+                            </a>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+            </div>
           </div>
         </section>
 

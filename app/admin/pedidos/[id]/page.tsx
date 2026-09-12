@@ -134,11 +134,13 @@ export default async function AdminPedidoDetalhe({
         referencia,
         forma_pagamento,
         troco_para,
-        subtotal,
-        taxa_entrega,
-        taxa_cartao,
-        total,
-        pagamento_confirmado,
+       subtotal,
+taxa_entrega,
+taxa_cartao,
+desconto_fidelidade,
+pontos_fidelidade_usados,
+total,
+pagamento_confirmado,
         status
       `,
     )
@@ -190,6 +192,9 @@ export default async function AdminPedidoDetalhe({
   }
 
   const taxaCartaoNumero = Number(pedido.taxa_cartao ?? 0);
+  const descontoFidelidadeNumero = Number(pedido.desconto_fidelidade ?? 0);
+
+  const pontosFidelidadeUsados = Number(pedido.pontos_fidelidade_usados ?? 0);
 
   return (
     <>
@@ -210,6 +215,8 @@ export default async function AdminPedidoDetalhe({
           subtotal: Number(pedido.subtotal),
           taxa_entrega: Number(pedido.taxa_entrega),
           taxa_cartao: Number(pedido.taxa_cartao ?? 0),
+          desconto_fidelidade: descontoFidelidadeNumero,
+          pontos_fidelidade_usados: pontosFidelidadeUsados,
           total: Number(pedido.total),
           pagamento_confirmado: Boolean(pedido.pagamento_confirmado),
         }}
@@ -607,6 +614,30 @@ export default async function AdminPedidoDetalhe({
                   <span className="font-black text-amber-400">
                     {formatarPreco(taxaCartaoNumero)}
                   </span>
+                </div>
+              )}
+              {descontoFidelidadeNumero > 0 && (
+                <div className="mt-3 rounded-xl border border-emerald-400/10 bg-emerald-400/[0.04] p-4">
+                  <div className="flex items-center justify-between gap-4">
+                    <div>
+                      <p className="text-sm font-bold text-emerald-400">
+                        Desconto fidelidade
+                      </p>
+
+                      {pontosFidelidadeUsados > 0 && (
+                        <p className="mt-1 text-xs text-zinc-500">
+                          {pontosFidelidadeUsados} pontos utilizados
+                          {pedido.status === "cancelado"
+                            ? " • pontos estornados"
+                            : ""}
+                        </p>
+                      )}
+                    </div>
+
+                    <span className="font-black text-emerald-400">
+                      - {formatarPreco(descontoFidelidadeNumero)}
+                    </span>
+                  </div>
                 </div>
               )}
 
