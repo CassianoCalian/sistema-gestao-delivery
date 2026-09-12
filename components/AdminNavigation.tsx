@@ -12,6 +12,7 @@ export default function AdminNavigation() {
   const pedidosAtivo = pathname.startsWith("/admin/pedidos");
   const produtosAtivo = pathname.startsWith("/admin/produtos");
   const estoqueAtivo = pathname.startsWith("/admin/estoque");
+  const clientesAtivo = pathname.startsWith("/admin/clientes");
 
   const itensNavegacao = [
     {
@@ -41,6 +42,13 @@ export default function AdminNavigation() {
       descricao: "Controle",
       icone: "📊",
       ativo: estoqueAtivo,
+    },
+    {
+      href: "/admin/clientes",
+      label: "Clientes",
+      descricao: "CRM",
+      icone: "👥",
+      ativo: clientesAtivo,
     },
   ];
 
@@ -103,7 +111,7 @@ export default function AdminNavigation() {
 
       {/* NAVEGAÇÃO */}
       <nav className="relative p-3 sm:p-4">
-        <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
+        <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-5">
           {itensNavegacao.map((item) => (
             <Link
               key={item.href}
