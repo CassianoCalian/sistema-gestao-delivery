@@ -91,6 +91,51 @@ function formatarStatus(status: string) {
   return status;
 }
 
+function visualizarMovimentacaoFidelidade(tipo: string) {
+  if (tipo === "credito_pedido") {
+    return {
+      titulo: "Crédito por pedido",
+      icone: "↗",
+      estilo: "border-emerald-400/15 bg-emerald-400/[0.04]",
+      cor: "text-emerald-400",
+    };
+  }
+
+  if (tipo === "resgate") {
+    return {
+      titulo: "Resgate de pontos",
+      icone: "↓",
+      estilo: "border-amber-400/15 bg-amber-400/[0.04]",
+      cor: "text-amber-400",
+    };
+  }
+
+  if (tipo === "ajuste_credito") {
+    return {
+      titulo: "Ajuste de crédito",
+      icone: "+",
+      estilo: "border-blue-400/15 bg-blue-400/[0.04]",
+      cor: "text-blue-400",
+    };
+  }
+
+  if (tipo === "ajuste_debito") {
+    return {
+      titulo: "Ajuste de débito",
+      icone: "−",
+      estilo: "border-red-400/15 bg-red-400/[0.04]",
+      cor: "text-red-400",
+    };
+  }
+
+  return {
+    titulo: "Movimentação",
+    icone: "•",
+    estilo: "border-white/[0.06] bg-black/20",
+    cor: "text-zinc-400",
+  };
+}
+
 function calcularDiasDesde(data: string | null) {
   if (!data) {
     return null;
@@ -261,6 +306,38 @@ export default async function AdminClienteDetalhe({
     pontosSaldo % 500 === 0 ? 500 : 500 - (pontosSaldo % 500);
 
   const percentualDesconto = ((pontosSaldo % 500) / 500) * 100;
+
+  // =========================================================
+  // EXTRATO DE FIDELIDADE
+  // =========================================================
+
+  const {
+    data: movimentacoesFidelidadeData,
+    error: erroMovimentacoesFidelidade,
+  } = await supabaseAdmin
+    .from("fidelidade_movimentacoes")
+    .select(
+      `
+        id,
+        created_at,
+        pedido_id,
+        tipo,
+        pontos,
+        valor_referencia,
+        observacao
+      `,
+    )
+    .eq("cliente_id", clienteId)
+    .order("created_at", { ascending: false });
+
+  if (erroMovimentacoesFidelidade) {
+    console.error(
+      "Erro ao buscar extrato de fidelidade:",
+      erroMovimentacoesFidelidade,
+    );
+  }
+
+  const movimentacoesFidelidade = movimentacoesFidelidadeData ?? [];
 
   // =========================================================
   // PRODUTOS MAIS COMPRADOS
@@ -606,6 +683,144 @@ export default async function AdminClienteDetalhe({
               </p>
             </div>
           </div>
+        </section>
+
+        {/* EXTRATO DE FIDELIDADE */}
+        <section className="mt-6 rounded-[28px] border border-white/[0.07] bg-white/[0.025] p-6">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+            <div>
+              <div className="flex items-center gap-2">
+                <span className="h-px w-7 bg-amber-400" />
+
+                <p className="text-[8px] font-black uppercase tracking-[0.16em] text-amber-400">
+                  Histórico de pontos
+                </p>
+              </div>
+
+              <h2 className="mt-2 text-2xl font-black tracking-[-0.035em]">
+                Extrato de fidelidade
+              </h2>
+
+              <p className="mt-2 text-sm text-zinc-500">
+                Créditos, resgates, estornos e ajustes realizados no programa.
+              </p>
+            </div>
+
+            <span className="rounded-full border border-white/[0.06] bg-black/20 px-3 py-1.5 text-[8px] font-black uppercase tracking-[0.1em] text-zinc-500">
+              {movimentacoesFidelidade.length}{" "}
+              {movimentacoesFidelidade.length === 1
+                ? "movimentação"
+                : "movimentações"}
+            </span>
+          </div>
+
+          {movimentacoesFidelidade.length === 0 ? (
+            <div className="mt-6 rounded-[20px] border border-white/[0.05] bg-black/20 p-5">
+              <p className="text-sm font-bold text-zinc-400">
+                Nenhuma movimentação registrada.
+              </p>
+
+              <p className="mt-1 text-[10px] text-zinc-600">
+                Os lançamentos aparecerão aqui quando o cliente ganhar ou
+                utilizar pontos.
+              </p>
+            </div>
+          ) : (
+            <div className="mt-6 space-y-3">
+              {movimentacoesFidelidade.map((movimentacao) => {
+                const visual = visualizarMovimentacaoFidelidade(
+                  movimentacao.tipo,
+                );
+
+                const pontos = Number(movimentacao.pontos ?? 0);
+
+                const valorReferencia = Number(
+                  movimentacao.valor_referencia ?? 0,
+                );
+
+                return (
+                  <div
+                    key={movimentacao.id}
+                    className={`rounded-[22px] border p-5 ${visual.estilo}`}
+                  >
+                    <div className="flex flex-col gap-5 lg:flex-row lg:items-center lg:justify-between">
+                      <div className="flex items-start gap-4">
+                        <div
+                          className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-[15px] border border-current/10 bg-black/20 text-lg font-black ${visual.cor}`}
+                        >
+                          {visual.icone}
+                        </div>
+
+                        <div>
+                          <div className="flex flex-wrap items-center gap-2">
+                            <p className="font-black text-white">
+                              {visual.titulo}
+                            </p>
+
+                            {movimentacao.pedido_id ? (
+                              <Link
+                                href={`/admin/pedidos/${movimentacao.pedido_id}`}
+                                className="rounded-full border border-white/[0.07] bg-black/20 px-3 py-1 text-[8px] font-black text-zinc-500 transition hover:border-amber-400/25 hover:text-amber-400"
+                              >
+                                Pedido #{movimentacao.pedido_id}
+                              </Link>
+                            ) : (
+                              <span className="rounded-full border border-white/[0.05] px-3 py-1 text-[8px] font-black text-zinc-600">
+                                Sem pedido
+                              </span>
+                            )}
+                          </div>
+
+                          <p className="mt-2 text-[10px] text-zinc-500">
+                            {formatarDataHora(movimentacao.created_at)}
+                          </p>
+
+                          {movimentacao.observacao ? (
+                            <p className="mt-2 max-w-2xl text-[10px] leading-5 text-zinc-600">
+                              {movimentacao.observacao}
+                            </p>
+                          ) : null}
+                        </div>
+                      </div>
+
+                      <div className="flex items-center gap-6 lg:text-right">
+                        {valorReferencia > 0 ? (
+                          <div>
+                            <p className="text-[7px] font-black uppercase tracking-[0.1em] text-zinc-600">
+                              Referência
+                            </p>
+
+                            <p className="mt-1 text-sm font-black text-zinc-300">
+                              {formatarPreco(valorReferencia)}
+                            </p>
+                          </div>
+                        ) : null}
+
+                        <div>
+                          <p className="text-[7px] font-black uppercase tracking-[0.1em] text-zinc-600">
+                            Pontos
+                          </p>
+
+                          <p
+                            className={`mt-1 text-2xl font-black ${
+                              pontos > 0
+                                ? "text-emerald-400"
+                                : pontos < 0
+                                  ? "text-red-400"
+                                  : "text-zinc-400"
+                            }`}
+                          >
+                            {pontos > 0 ? "+" : ""}
+                            {pontos}
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
         </section>
 
         {/* CONTATO + RELACIONAMENTO */}
