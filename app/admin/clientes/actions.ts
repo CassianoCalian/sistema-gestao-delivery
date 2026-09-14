@@ -4,9 +4,10 @@ import { randomBytes } from "crypto";
 import { revalidatePath } from "next/cache";
 
 import { supabaseAdmin } from "../../../lib/supabaseAdmin";
+import { requireAdmin } from "../../../lib/supabase/requireAdmin";
 
 function criarSufixoAleatorio() {
-  return randomBytes(3).toString("hex").toUpperCase().slice(0, 4);
+  return randomBytes(6).toString("hex").toUpperCase();
 }
 
 function normalizarNomeCupom(nome: string) {
@@ -19,6 +20,8 @@ function normalizarNomeCupom(nome: string) {
 }
 
 export async function gerarCupomReativacao(formData: FormData) {
+  await requireAdmin();
+
   const clienteId = Number(formData.get("cliente_id"));
 
   if (!Number.isInteger(clienteId) || clienteId <= 0) {

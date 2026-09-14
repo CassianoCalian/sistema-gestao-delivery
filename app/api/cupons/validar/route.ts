@@ -1,9 +1,24 @@
+import { createHmac } from "crypto";
+
 import { NextResponse } from "next/server";
 
 import { supabaseAdmin } from "../../../../lib/supabaseAdmin";
 
 export const dynamic = "force-dynamic";
+
 export const runtime = "nodejs";
+
+const LIMITE_IP = 20;
+const JANELA_IP_SEGUNDOS = 10 * 60;
+
+const LIMITE_TELEFONE = 8;
+const JANELA_TELEFONE_SEGUNDOS = 15 * 60;
+
+type ResultadoRateLimit = {
+  permitido: boolean;
+  total_tentativas: number;
+  tentar_novamente_em: number;
+};
 
 type ValidarCupomBody = {
   codigo_cupom?: string;
@@ -28,8 +43,106 @@ function arredondarMoeda(valor: number) {
   return Math.round((valor + Number.EPSILON) * 100) / 100;
 }
 
+function obterIp(request: Request) {
+  const vercelForwardedFor = request.headers.get("x-vercel-forwarded-for");
+
+  if (vercelForwardedFor) {
+    return vercelForwardedFor.split(",")[0]?.trim() || "desconhecido";
+  }
+
+  const forwardedFor = request.headers.get("x-forwarded-for");
+
+  if (forwardedFor) {
+    return forwardedFor.split(",")[0]?.trim() || "desconhecido";
+  }
+
+  const realIp = request.headers.get("x-real-ip");
+
+  if (realIp) {
+    return realIp.trim();
+  }
+
+  return "desconhecido";
+}
+
+function criarHash(valor: string) {
+  const segredo = process.env.FIDELIDADE_RATE_LIMIT_SECRET;
+
+  if (!segredo || segredo.length < 32) {
+    throw new Error("FIDELIDADE_RATE_LIMIT_SECRET_NAO_CONFIGURADO");
+  }
+
+  return createHmac("sha256", segredo).update(valor).digest("hex");
+}
+
+async function verificarRateLimit(
+  chave: string,
+  limite: number,
+  janelaSegundos: number,
+) {
+  const { data, error } = await supabaseAdmin
+    .rpc("verificar_limite_consulta_fidelidade", {
+      p_chave: chave,
+      p_limite: limite,
+      p_janela_segundos: janelaSegundos,
+    })
+    .single();
+
+  if (error) {
+    throw error;
+  }
+
+  const resultado = data as ResultadoRateLimit | null;
+
+  if (!resultado) {
+    throw new Error("RATE_LIMIT_SEM_RESPOSTA");
+  }
+
+  return {
+    permitido: resultado.permitido === true,
+    tentarNovamenteEm: Number(resultado.tentar_novamente_em ?? janelaSegundos),
+  };
+}
+
+function respostaRateLimit(tentarNovamenteEm: number) {
+  return NextResponse.json(
+    {
+      erro: "Muitas tentativas de cupom foram realizadas. Tente novamente em alguns minutos.",
+    },
+    {
+      status: 429,
+      headers: {
+        "Cache-Control": "no-store",
+        "Retry-After": String(Math.max(1, tentarNovamenteEm)),
+      },
+    },
+  );
+}
+
 export async function POST(request: Request) {
   try {
+    // =========================================================
+    // 1. RATE LIMIT POR IP
+    // =========================================================
+
+    const ip = obterIp(request);
+
+    const chaveIp = `cupom:ip:${criarHash(ip)}`;
+
+    const limiteIp = await verificarRateLimit(
+      chaveIp,
+      LIMITE_IP,
+      JANELA_IP_SEGUNDOS,
+    );
+
+    if (!limiteIp.permitido) {
+      return respostaRateLimit(limiteIp.tentarNovamenteEm);
+    }
+
+    // =========================================================
+    // 2. DADOS RECEBIDOS
+    // =========================================================
+
     const body = (await request.json()) as ValidarCupomBody;
 
     const codigo =
@@ -86,6 +199,26 @@ export async function POST(request: Request) {
       );
     }
 
+    // =========================================================
+    // 3. RATE LIMIT POR TELEFONE
+    // =========================================================
+
+    const chaveTelefone = `cupom:telefone:${criarHash(telefone)}`;
+
+    const limiteTelefone = await verificarRateLimit(
+      chaveTelefone,
+      LIMITE_TELEFONE,
+      JANELA_TELEFONE_SEGUNDOS,
+    );
+
+    if (!limiteTelefone.permitido) {
+      return respostaRateLimit(limiteTelefone.tentarNovamenteEm);
+    }
+
+    // =========================================================
+    // 4. LOCALIZA CLIENTE
+    // =========================================================
+
     const { data: cliente, error: erroCliente } = await supabaseAdmin
       .from("clientes")
       .select("id")
@@ -125,6 +258,10 @@ export async function POST(request: Request) {
         },
       );
     }
+
+    // =========================================================
+    // 5. LOCALIZA E VALIDA CUPOM
+    // =========================================================
 
     const { data: cupom, error: erroCupom } = await supabaseAdmin
       .from("cupons")
@@ -222,6 +359,10 @@ export async function POST(request: Request) {
       );
     }
 
+    // =========================================================
+    // 6. VALOR MÍNIMO
+    // =========================================================
+
     const valorMinimoPedido = Number(cupom.valor_minimo_pedido);
 
     if (subtotal < valorMinimoPedido) {
@@ -244,7 +385,12 @@ export async function POST(request: Request) {
       );
     }
 
+    // =========================================================
+    // 7. PRÉVIA DO DESCONTO
+    // =========================================================
+
     const percentual = Number(cupom.percentual);
+
     const descontoMaximo = Number(cupom.desconto_maximo);
 
     const descontoEstimado = arredondarMoeda(

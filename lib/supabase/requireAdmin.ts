@@ -1,6 +1,6 @@
 import { createClient } from "./server";
 
-export async function verificarAdmin() {
+async function obterAdminAtual() {
   const supabase = await createClient();
 
   const {
@@ -9,14 +9,33 @@ export async function verificarAdmin() {
   } = await supabase.auth.getUser();
 
   if (error || !user?.email) {
-    return false;
+    return null;
   }
 
-  const adminEmail = process.env.ADMIN_EMAIL;
+  const adminEmails = (process.env.ADMIN_EMAILS ?? "")
+    .split(",")
+    .map((email) => email.trim().toLowerCase())
+    .filter(Boolean);
 
-  if (!adminEmail) {
-    return false;
+  if (!adminEmails.includes(user.email.toLowerCase())) {
+    return null;
   }
 
-  return user.email.toLowerCase() === adminEmail.toLowerCase();
+  return user;
+}
+
+export async function verificarAdmin() {
+  const user = await obterAdminAtual();
+
+  return Boolean(user);
+}
+
+export async function requireAdmin() {
+  const user = await obterAdminAtual();
+
+  if (!user) {
+    throw new Error("Acesso não autorizado.");
+  }
+
+  return user;
 }
