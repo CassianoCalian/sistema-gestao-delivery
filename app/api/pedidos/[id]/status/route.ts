@@ -89,7 +89,11 @@ export async function PATCH(request: Request, { params }: RouteContext) {
       );
 
       if (error) {
-        console.error("Erro ao cancelar pedido:", error);
+        if (process.env.NODE_ENV === "development") {
+          console.error("Erro ao cancelar pedido:", error);
+        } else {
+          console.error("Erro ao cancelar pedido.");
+        }
 
         if (error.message.includes("PEDIDO_NAO_ENCONTRADO")) {
           return NextResponse.json(
@@ -131,7 +135,13 @@ export async function PATCH(request: Request, { params }: RouteContext) {
       .single();
 
     if (erroPedidoAtual || !pedidoAtual) {
-      console.error("Erro ao consultar pedido:", erroPedidoAtual);
+      if (erroPedidoAtual) {
+        if (process.env.NODE_ENV === "development") {
+          console.error("Erro ao consultar pedido:", erroPedidoAtual);
+        } else {
+          console.error("Erro ao consultar pedido.");
+        }
+      }
 
       return NextResponse.json(
         { erro: "Pedido não encontrado." },
@@ -188,7 +198,11 @@ export async function PATCH(request: Request, { params }: RouteContext) {
       .maybeSingle();
 
     if (error) {
-      console.error("Erro ao atualizar pedido:", error);
+      if (process.env.NODE_ENV === "development") {
+        console.error("Erro ao atualizar pedido:", error);
+      } else {
+        console.error("Erro ao atualizar pedido.");
+      }
 
       return NextResponse.json(
         {
@@ -212,7 +226,11 @@ export async function PATCH(request: Request, { params }: RouteContext) {
       pedido,
     });
   } catch (error) {
-    console.error("Erro ao alterar status:", error);
+    if (process.env.NODE_ENV === "development") {
+      console.error("Erro ao alterar status:", error);
+    } else {
+      console.error("Erro ao alterar status.");
+    }
 
     return NextResponse.json(
       { erro: "Erro interno ao atualizar o pedido." },

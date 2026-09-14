@@ -183,7 +183,11 @@ export async function GET(
       uf: endereco.uf ?? "",
     });
   } catch (error) {
-    console.error("Erro ao consultar CEP:", error);
+    if (process.env.NODE_ENV === "development") {
+      console.error("Erro ao consultar CEP:", error);
+    } else {
+      console.error("Erro ao consultar CEP.");
+    }
 
     return respostaJson(
       {

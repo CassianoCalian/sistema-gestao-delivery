@@ -205,7 +205,11 @@ export async function POST(request: Request) {
       .maybeSingle();
 
     if (error) {
-      console.error("Erro ao consultar fidelidade:", error);
+      if (process.env.NODE_ENV === "development") {
+        console.error("Erro ao consultar fidelidade:", error);
+      } else {
+        console.error("Erro ao consultar fidelidade.");
+      }
 
       return NextResponse.json(
         {
@@ -245,7 +249,11 @@ export async function POST(request: Request) {
       },
     );
   } catch (error) {
-    console.error("Erro inesperado ao consultar fidelidade:", error);
+    if (process.env.NODE_ENV === "development") {
+      console.error("Erro inesperado ao consultar fidelidade:", error);
+    } else {
+      console.error("Erro inesperado ao consultar fidelidade.");
+    }
 
     return NextResponse.json(
       {

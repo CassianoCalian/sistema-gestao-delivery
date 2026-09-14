@@ -124,7 +124,9 @@ export default async function ProductSection({
   const { data, error } = await consulta;
 
   if (error) {
-    console.error("Erro ao buscar produtos:", error);
+    if (process.env.NODE_ENV === "development") {
+      console.error("Erro ao buscar produtos:", error);
+    }
 
     return (
       <section id="produtos" className="scroll-mt-28 pb-20">

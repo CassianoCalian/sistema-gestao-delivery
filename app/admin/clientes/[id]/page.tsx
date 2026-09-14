@@ -254,7 +254,11 @@ export default async function AdminClienteDetalhe({
     .order("created_at", { ascending: false });
 
   if (erroPedidos) {
-    console.error("Erro ao buscar pedidos do cliente:", erroPedidos);
+    if (process.env.NODE_ENV === "development") {
+      console.error("Erro ao buscar pedidos do cliente:", erroPedidos);
+    } else {
+      console.error("Erro ao buscar pedidos do cliente.");
+    }
   }
 
   const pedidos = pedidosData ?? [];
@@ -331,10 +335,14 @@ export default async function AdminClienteDetalhe({
     .order("created_at", { ascending: false });
 
   if (erroMovimentacoesFidelidade) {
-    console.error(
-      "Erro ao buscar extrato de fidelidade:",
-      erroMovimentacoesFidelidade,
-    );
+    if (process.env.NODE_ENV === "development") {
+      console.error(
+        "Erro ao buscar extrato de fidelidade:",
+        erroMovimentacoesFidelidade,
+      );
+    } else {
+      console.error("Erro ao buscar extrato de fidelidade.");
+    }
   }
 
   const movimentacoesFidelidade = movimentacoesFidelidadeData ?? [];
@@ -366,7 +374,11 @@ export default async function AdminClienteDetalhe({
       .in("pedido_id", idsPedidosValidos);
 
     if (erroItens) {
-      console.error("Erro ao buscar produtos do cliente:", erroItens);
+      if (process.env.NODE_ENV === "development") {
+        console.error("Erro ao buscar produtos do cliente:", erroItens);
+      } else {
+        console.error("Erro ao buscar produtos do cliente.");
+      }
     } else {
       itensPedidos = (itensData ?? []).map((item) => ({
         pedido_id: Number(item.pedido_id),

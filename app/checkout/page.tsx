@@ -398,7 +398,9 @@ export default function CheckoutPage() {
         try {
           resultado = JSON.parse(textoResposta);
         } catch {
-          console.error("Resposta inválida da API:", textoResposta);
+          if (process.env.NODE_ENV === "development") {
+            console.error("Resposta inválida da API.");
+          }
 
           throw new Error(
             `A API respondeu em um formato inválido. Código: ${resposta.status}`,

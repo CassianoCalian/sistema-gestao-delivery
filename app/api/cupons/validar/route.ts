@@ -242,7 +242,11 @@ export async function POST(request: Request) {
       .maybeSingle();
 
     if (erroCliente) {
-      console.error("Erro ao localizar cliente do cupom:", erroCliente);
+      if (process.env.NODE_ENV === "development") {
+        console.error("Erro ao localizar cliente do cupom:", erroCliente);
+      } else {
+        console.error("Erro ao localizar cliente do cupom.");
+      }
 
       return NextResponse.json(
         {
@@ -300,7 +304,11 @@ export async function POST(request: Request) {
       .maybeSingle();
 
     if (erroCupom) {
-      console.error("Erro ao validar cupom:", erroCupom);
+      if (process.env.NODE_ENV === "development") {
+        console.error("Erro ao validar cupom:", erroCupom);
+      } else {
+        console.error("Erro ao validar cupom.");
+      }
 
       return NextResponse.json(
         {
@@ -430,7 +438,11 @@ export async function POST(request: Request) {
       },
     );
   } catch (error) {
-    console.error("Erro inesperado ao validar cupom:", error);
+    if (process.env.NODE_ENV === "development") {
+      console.error("Erro inesperado ao validar cupom:", error);
+    } else {
+      console.error("Erro inesperado ao validar cupom.");
+    }
 
     return NextResponse.json(
       {

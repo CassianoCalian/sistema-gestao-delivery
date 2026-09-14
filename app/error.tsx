@@ -11,7 +11,9 @@ type ErrorPageProps = {
 
 export default function ErrorPage({ error, reset }: ErrorPageProps) {
   useEffect(() => {
-    console.error("Erro capturado pela aplicação:", error);
+    if (process.env.NODE_ENV === "development") {
+      console.error("Erro capturado pela aplicação:", error);
+    }
   }, [error]);
 
   function voltarParaLoja() {

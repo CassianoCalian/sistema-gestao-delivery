@@ -80,7 +80,9 @@ export default function EntradaEstoqueForm({
 
       router.refresh();
     } catch (error) {
-      console.error("Erro ao registrar entrada:", error);
+      if (process.env.NODE_ENV === "development") {
+        console.error("Erro ao registrar entrada:", error);
+      }
 
       setErro("Não foi possível registrar a entrada.");
     } finally {

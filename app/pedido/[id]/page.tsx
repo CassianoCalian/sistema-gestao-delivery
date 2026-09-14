@@ -218,7 +218,11 @@ pagamento_confirmado,
     .eq("pedido_id", pedido.id);
 
   if (erroItens) {
-    console.error("Erro ao buscar itens do pedido:", erroItens);
+    if (process.env.NODE_ENV === "development") {
+      console.error("Erro ao buscar itens do pedido:", erroItens);
+    } else {
+      console.error("Erro ao buscar itens do pedido.");
+    }
   }
 
   const { data: historicoStatus, error: erroHistorico } = await supabaseAdmin
@@ -234,7 +238,11 @@ pagamento_confirmado,
     .order("created_at", { ascending: false });
 
   if (erroHistorico) {
-    console.error("Erro ao buscar histórico do pedido:", erroHistorico);
+    if (process.env.NODE_ENV === "development") {
+      console.error("Erro ao buscar histórico do pedido:", erroHistorico);
+    } else {
+      console.error("Erro ao buscar histórico do pedido.");
+    }
   }
 
   function obterHorarioStatus(status: string) {

@@ -91,7 +91,11 @@ export async function PATCH(request: Request, { params }: RouteProps) {
       .maybeSingle();
 
     if (erroPedido) {
-      console.error("Erro ao consultar pedido:", erroPedido);
+      if (process.env.NODE_ENV === "development") {
+        console.error("Erro ao consultar pedido:", erroPedido);
+      } else {
+        console.error("Erro ao consultar pedido.");
+      }
 
       return NextResponse.json(
         {
@@ -170,7 +174,11 @@ export async function PATCH(request: Request, { params }: RouteProps) {
       .maybeSingle();
 
     if (error) {
-      console.error("Erro ao atualizar pagamento:", error);
+      if (process.env.NODE_ENV === "development") {
+        console.error("Erro ao atualizar pagamento:", error);
+      } else {
+        console.error("Erro ao atualizar pagamento.");
+      }
 
       return NextResponse.json(
         {
@@ -198,7 +206,11 @@ export async function PATCH(request: Request, { params }: RouteProps) {
       pedido,
     });
   } catch (error) {
-    console.error("Erro na rota de pagamento:", error);
+    if (process.env.NODE_ENV === "development") {
+      console.error("Erro na rota de pagamento:", error);
+    } else {
+      console.error("Erro na rota de pagamento.");
+    }
 
     return NextResponse.json(
       {

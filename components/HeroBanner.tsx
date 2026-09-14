@@ -24,7 +24,9 @@ export default async function HeroBanner() {
     .order("nome", { ascending: true });
 
   if (error) {
-    console.error("Erro ao buscar produtos promocionais:", error);
+    if (process.env.NODE_ENV === "development") {
+      console.error("Erro ao buscar produtos promocionais:", error);
+    }
 
     return null;
   }

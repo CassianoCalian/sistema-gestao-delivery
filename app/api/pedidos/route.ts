@@ -293,7 +293,11 @@ export async function POST(request: Request) {
 
       enderecoCep = (await respostaCep.json()) as ViaCepResponse;
     } catch (error) {
-      console.error("Erro ao validar CEP no pedido:", error);
+      if (process.env.NODE_ENV === "development") {
+        console.error("Erro ao validar CEP no pedido:", error);
+      } else {
+        console.error("Erro ao validar CEP no pedido.");
+      }
 
       return NextResponse.json(
         {
@@ -475,7 +479,11 @@ export async function POST(request: Request) {
     );
 
     if (error) {
-      console.error("Erro ao criar pedido:", error);
+      if (process.env.NODE_ENV === "development") {
+        console.error("Erro ao criar pedido:", error);
+      } else {
+        console.error("Erro ao criar pedido.");
+      }
 
       const mensagem = error.message ?? "";
 
@@ -727,7 +735,11 @@ export async function POST(request: Request) {
       },
     );
   } catch (error) {
-    console.error("Erro inesperado:", error);
+    if (process.env.NODE_ENV === "development") {
+      console.error("Erro inesperado:", error);
+    } else {
+      console.error("Erro inesperado ao processar pedido.");
+    }
 
     return NextResponse.json(
       { erro: "Erro interno ao processar o pedido." },

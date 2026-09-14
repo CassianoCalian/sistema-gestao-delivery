@@ -217,11 +217,19 @@ export default async function AdminClientesPage({
     .order("created_at", { ascending: false });
 
   if (erroClientes || erroPedidos || erroCupons) {
-    console.error("Erro ao carregar CRM:", {
-      erroClientes,
-      erroPedidos,
-      erroCupons,
-    });
+    if (process.env.NODE_ENV === "development") {
+      console.error("Erro ao carregar CRM:", {
+        erroClientes,
+        erroPedidos,
+        erroCupons,
+      });
+    } else {
+      console.error("Erro ao carregar CRM.", {
+        clientes: Boolean(erroClientes),
+        pedidos: Boolean(erroPedidos),
+        cupons: Boolean(erroCupons),
+      });
+    }
 
     return (
       <main className="min-h-screen bg-zinc-950 px-6 py-12 text-white">

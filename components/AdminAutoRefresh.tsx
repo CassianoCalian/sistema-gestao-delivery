@@ -61,7 +61,11 @@ export default function AdminAutoRefresh({
         }
       }
     } catch (error) {
-      console.error("Erro ao ativar alertas:", error);
+      if (process.env.NODE_ENV === "development") {
+        if (process.env.NODE_ENV === "development") {
+          console.error("Erro ao verificar novos pedidos:", error);
+        }
+      }
       alert("Não foi possível ativar os alertas.");
     }
   }
