@@ -39,9 +39,32 @@ export async function PATCH(request: Request, { params }: RouteProps) {
       );
     }
 
-    const body = await request.json();
+    let body: unknown;
 
-    const pagamentoConfirmado = body.pagamento_confirmado;
+    try {
+      body = await request.json();
+    } catch {
+      return NextResponse.json(
+        {
+          erro: "Os dados enviados são inválidos.",
+        },
+        {
+          status: 400,
+          headers: {
+            "Cache-Control": "no-store",
+          },
+        },
+      );
+    }
+
+    const pagamentoConfirmado =
+      typeof body === "object" &&
+      body !== null &&
+      "pagamento_confirmado" in body &&
+      typeof (body as { pagamento_confirmado?: unknown })
+        .pagamento_confirmado === "boolean"
+        ? (body as { pagamento_confirmado: boolean }).pagamento_confirmado
+        : null;
 
     if (typeof pagamentoConfirmado !== "boolean") {
       return NextResponse.json(
@@ -141,10 +164,12 @@ export async function PATCH(request: Request, { params }: RouteProps) {
         pagamento_confirmado: pagamentoConfirmado,
       })
       .eq("id", pedidoId)
+      .eq("status", pedidoAtual.status)
+      .eq("pagamento_confirmado", pedidoAtual.pagamento_confirmado)
       .select("id, pagamento_confirmado")
-      .single();
+      .maybeSingle();
 
-    if (error || !pedido) {
+    if (error) {
       console.error("Erro ao atualizar pagamento:", error);
 
       return NextResponse.json(
@@ -153,6 +178,17 @@ export async function PATCH(request: Request, { params }: RouteProps) {
         },
         {
           status: 500,
+        },
+      );
+    }
+
+    if (!pedido) {
+      return NextResponse.json(
+        {
+          erro: "O pedido foi atualizado por outra operação. Atualize a página e tente novamente.",
+        },
+        {
+          status: 409,
         },
       );
     }

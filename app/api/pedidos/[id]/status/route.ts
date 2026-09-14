@@ -48,9 +48,31 @@ export async function PATCH(request: Request, { params }: RouteContext) {
       return NextResponse.json({ erro: "Pedido inválido." }, { status: 400 });
     }
 
-    const body = await request.json();
+    let body: unknown;
 
-    const status = body.status;
+    try {
+      body = await request.json();
+    } catch {
+      return NextResponse.json(
+        {
+          erro: "Os dados enviados são inválidos.",
+        },
+        {
+          status: 400,
+          headers: {
+            "Cache-Control": "no-store",
+          },
+        },
+      );
+    }
+
+    const status =
+      typeof body === "object" &&
+      body !== null &&
+      "status" in body &&
+      typeof (body as { status?: unknown }).status === "string"
+        ? (body as { status: string }).status
+        : "";
 
     if (typeof status !== "string" || !STATUS_PERMITIDOS.includes(status)) {
       return NextResponse.json({ erro: "Status inválido." }, { status: 400 });
@@ -160,10 +182,12 @@ export async function PATCH(request: Request, { params }: RouteContext) {
         status,
       })
       .eq("id", pedidoId)
+      .eq("status", pedidoAtual.status)
+      .eq("pagamento_confirmado", pedidoAtual.pagamento_confirmado)
       .select("id, status")
-      .single();
+      .maybeSingle();
 
-    if (error || !pedido) {
+    if (error) {
       console.error("Erro ao atualizar pedido:", error);
 
       return NextResponse.json(
@@ -171,6 +195,15 @@ export async function PATCH(request: Request, { params }: RouteContext) {
           erro: "Não foi possível atualizar o pedido.",
         },
         { status: 500 },
+      );
+    }
+
+    if (!pedido) {
+      return NextResponse.json(
+        {
+          erro: "O pedido foi atualizado por outra operação. Atualize a página e tente novamente.",
+        },
+        { status: 409 },
       );
     }
 

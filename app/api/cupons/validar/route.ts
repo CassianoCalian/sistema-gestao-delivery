@@ -143,7 +143,23 @@ export async function POST(request: Request) {
     // 2. DADOS RECEBIDOS
     // =========================================================
 
-    const body = (await request.json()) as ValidarCupomBody;
+    let body: ValidarCupomBody;
+
+    try {
+      body = (await request.json()) as ValidarCupomBody;
+    } catch {
+      return NextResponse.json(
+        {
+          erro: "Os dados enviados são inválidos.",
+        },
+        {
+          status: 400,
+          headers: {
+            "Cache-Control": "no-store",
+          },
+        },
+      );
+    }
 
     const codigo =
       typeof body.codigo_cupom === "string"

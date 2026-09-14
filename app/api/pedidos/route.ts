@@ -1,6 +1,9 @@
+import { createHmac } from "crypto";
+
 import { NextResponse } from "next/server";
 
 import { supabaseAdmin } from "../../../lib/supabaseAdmin";
+export const runtime = "nodejs";
 
 type ItemRecebido = {
   id: number;
@@ -36,6 +39,107 @@ type ViaCepResponse = {
   erro?: boolean;
 };
 
+const LIMITE_IP = 15;
+const JANELA_IP_SEGUNDOS = 10 * 60;
+
+const LIMITE_TELEFONE = 6;
+const JANELA_TELEFONE_SEGUNDOS = 15 * 60;
+
+type ResultadoRateLimit = {
+  permitido: boolean;
+  total_tentativas: number;
+  tentar_novamente_em: number;
+};
+
+function normalizarTelefoneRateLimit(valor: string) {
+  let numeros = valor.replace(/\D/g, "");
+
+  if (
+    (numeros.length === 12 || numeros.length === 13) &&
+    numeros.startsWith("55")
+  ) {
+    numeros = numeros.slice(2);
+  }
+
+  return numeros;
+}
+
+function obterIp(request: Request) {
+  const vercelForwardedFor = request.headers.get("x-vercel-forwarded-for");
+
+  if (vercelForwardedFor) {
+    return vercelForwardedFor.split(",")[0]?.trim() || "desconhecido";
+  }
+
+  const forwardedFor = request.headers.get("x-forwarded-for");
+
+  if (forwardedFor) {
+    return forwardedFor.split(",")[0]?.trim() || "desconhecido";
+  }
+
+  const realIp = request.headers.get("x-real-ip");
+
+  if (realIp) {
+    return realIp.trim();
+  }
+
+  return "desconhecido";
+}
+
+function criarHashRateLimit(valor: string) {
+  const segredo = process.env.FIDELIDADE_RATE_LIMIT_SECRET;
+
+  if (!segredo || segredo.length < 32) {
+    throw new Error("FIDELIDADE_RATE_LIMIT_SECRET_NAO_CONFIGURADO");
+  }
+
+  return createHmac("sha256", segredo).update(valor).digest("hex");
+}
+
+async function verificarRateLimit(
+  chave: string,
+  limite: number,
+  janelaSegundos: number,
+) {
+  const { data, error } = await supabaseAdmin
+    .rpc("verificar_limite_consulta_fidelidade", {
+      p_chave: chave,
+      p_limite: limite,
+      p_janela_segundos: janelaSegundos,
+    })
+    .single();
+
+  if (error) {
+    throw error;
+  }
+
+  const resultado = data as ResultadoRateLimit | null;
+
+  if (!resultado) {
+    throw new Error("RATE_LIMIT_SEM_RESPOSTA");
+  }
+
+  return {
+    permitido: resultado.permitido === true,
+    tentarNovamenteEm: Number(resultado.tentar_novamente_em ?? janelaSegundos),
+  };
+}
+
+function respostaRateLimit(tentarNovamenteEm: number) {
+  return NextResponse.json(
+    {
+      erro: "Muitas tentativas de pedido foram realizadas. Aguarde alguns minutos e tente novamente.",
+    },
+    {
+      status: 429,
+      headers: {
+        "Cache-Control": "no-store",
+        "Retry-After": String(Math.max(1, tentarNovamenteEm)),
+      },
+    },
+  );
+}
+
 function normalizarTexto(valor: string) {
   return valor
     .normalize("NFD")
@@ -46,7 +150,36 @@ function normalizarTexto(valor: string) {
 
 export async function POST(request: Request) {
   try {
-    const body = (await request.json()) as PedidoRecebido;
+    let body: PedidoRecebido;
+
+    try {
+      body = (await request.json()) as PedidoRecebido;
+    } catch {
+      return NextResponse.json(
+        {
+          erro: "Os dados enviados são inválidos.",
+        },
+        {
+          status: 400,
+          headers: {
+            "Cache-Control": "no-store",
+          },
+        },
+      );
+    }
+    const ip = obterIp(request);
+
+    const chaveIp = `pedido:ip:${criarHashRateLimit(ip)}`;
+
+    const limiteIp = await verificarRateLimit(
+      chaveIp,
+      LIMITE_IP,
+      JANELA_IP_SEGUNDOS,
+    );
+
+    if (!limiteIp.permitido) {
+      return respostaRateLimit(limiteIp.tentarNovamenteEm);
+    }
 
     const {
       nome,
@@ -78,6 +211,27 @@ export async function POST(request: Request) {
         { erro: "Informe o telefone." },
         { status: 400 },
       );
+    }
+
+    const telefoneNormalizadoRateLimit = normalizarTelefoneRateLimit(telefone);
+
+    if (
+      telefoneNormalizadoRateLimit.length >= 10 &&
+      telefoneNormalizadoRateLimit.length <= 11
+    ) {
+      const chaveTelefone = `pedido:telefone:${criarHashRateLimit(
+        telefoneNormalizadoRateLimit,
+      )}`;
+
+      const limiteTelefone = await verificarRateLimit(
+        chaveTelefone,
+        LIMITE_TELEFONE,
+        JANELA_TELEFONE_SEGUNDOS,
+      );
+
+      if (!limiteTelefone.permitido) {
+        return respostaRateLimit(limiteTelefone.tentarNovamenteEm);
+      }
     }
 
     if (!cep?.trim() || !rua?.trim() || !numero?.trim() || !bairro?.trim()) {
@@ -299,7 +453,7 @@ export async function POST(request: Request) {
         p_nome: nome.trim(),
         p_telefone: telefone.trim(),
         p_cep: cep.trim(),
-        p_rua: rua.trim(),
+        p_rua: ruaConfirmada,
         p_numero: numero.trim(),
         p_complemento: complemento?.trim() || null,
         p_bairro: bairroConfirmado,
@@ -451,7 +605,7 @@ export async function POST(request: Request) {
       if (mensagem.includes("CUPOM_NAO_ENCONTRADO")) {
         return NextResponse.json(
           {
-            erro: "Cupom não encontrado.",
+            erro: "Cupom inválido para este cliente.",
           },
           {
             status: 400,
@@ -484,7 +638,7 @@ export async function POST(request: Request) {
       if (mensagem.includes("CUPOM_NAO_PERTENCE_AO_CLIENTE")) {
         return NextResponse.json(
           {
-            erro: "Este cupom foi criado para outro cliente.",
+            erro: "Cupom inválido para este cliente.",
           },
           {
             status: 400,
@@ -547,11 +701,15 @@ export async function POST(request: Request) {
     const resultado = Array.isArray(data) ? data[0] : data;
 
     if (!resultado) {
+      console.error("RPC de criação de pedido retornou resposta vazia.");
+
       return NextResponse.json(
         {
-          erro: "O pedido não retornou os dados esperados.",
+          erro: "Não foi possível finalizar o pedido.",
         },
-        { status: 500 },
+        {
+          status: 500,
+        },
       );
     }
 

@@ -41,7 +41,6 @@ export default function CheckoutPage() {
   const [erroFidelidade, setErroFidelidade] = useState("");
 
   const [fidelidade, setFidelidade] = useState<{
-    encontrado: boolean;
     pontos_saldo: number;
     progresso_centavos: number;
   } | null>(null);
@@ -93,7 +92,7 @@ export default function CheckoutPage() {
     0,
   );
 
-  const blocosDisponiveis = fidelidade?.encontrado
+  const blocosDisponiveis = fidelidade
     ? Math.floor(fidelidade.pontos_saldo / 500)
     : 0;
 
@@ -226,10 +225,7 @@ export default function CheckoutPage() {
       }
 
       setFidelidade({
-        encontrado: Boolean(dados.encontrado),
-
         pontos_saldo: Number(dados.pontos_saldo ?? 0),
-
         progresso_centavos: Number(dados.progresso_centavos ?? 0),
       });
     } catch (error) {
@@ -669,10 +665,10 @@ export default function CheckoutPage() {
                       </p>
                     )}
 
-                    {fidelidade?.encontrado && (
+                    {fidelidade && (
                       <p className="mt-2 text-[10px] font-bold text-emerald-400">
-                        ✓ Cliente identificado — {fidelidade.pontos_saldo}{" "}
-                        pontos
+                        ✓ Saldo de fidelidade consultado —{" "}
+                        {fidelidade.pontos_saldo} pontos
                       </p>
                     )}
                   </div>
@@ -680,7 +676,7 @@ export default function CheckoutPage() {
               </div>
 
               {/* FIDELIDADE */}
-              {fidelidade?.encontrado && (
+              {fidelidade && (
                 <div className="animate-scale-in rounded-[28px] border border-amber-400/20 bg-amber-400/[0.055] p-5 sm:p-6">
                   <div className="flex items-start gap-3">
                     <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-amber-400/10 text-xl">

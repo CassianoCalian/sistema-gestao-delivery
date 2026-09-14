@@ -131,10 +131,31 @@ export async function POST(request: Request) {
     // 2. VALIDAÇÃO DO TELEFONE
     // =========================================================
 
-    const body = await request.json();
+    let body: unknown;
+
+    try {
+      body = await request.json();
+    } catch {
+      return NextResponse.json(
+        {
+          erro: "Os dados enviados são inválidos.",
+        },
+        {
+          status: 400,
+          headers: {
+            "Cache-Control": "no-store",
+          },
+        },
+      );
+    }
 
     const telefone =
-      typeof body?.telefone === "string" ? body.telefone.trim() : "";
+      typeof body === "object" &&
+      body !== null &&
+      "telefone" in body &&
+      typeof body.telefone === "string"
+        ? body.telefone.trim()
+        : "";
 
     const telefoneNormalizado = normalizarTelefone(telefone);
 
@@ -198,11 +219,9 @@ export async function POST(request: Request) {
         },
       );
     }
-
     if (!cliente) {
       return NextResponse.json(
         {
-          encontrado: false,
           pontos_saldo: 0,
           progresso_centavos: 0,
         },
@@ -216,7 +235,6 @@ export async function POST(request: Request) {
 
     return NextResponse.json(
       {
-        encontrado: true,
         pontos_saldo: Number(cliente.pontos_saldo ?? 0),
         progresso_centavos: Number(cliente.fidelidade_progresso_centavos ?? 0),
       },
