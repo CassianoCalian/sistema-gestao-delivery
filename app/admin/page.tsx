@@ -75,6 +75,10 @@ export default async function AdminPage() {
     inicioHoje.getTime() - 6 * 24 * 60 * 60 * 1000,
   );
 
+  const inicio7DiasAnteriores = new Date(
+    inicioUltimos7Dias.getTime() - 7 * 24 * 60 * 60 * 1000,
+  );
+
   // -----------------------------------------
   // 3. Busca os dados do dashboard
   // -----------------------------------------
@@ -94,18 +98,22 @@ export default async function AdminPage() {
     resultadoUltimosPedidos,
     resultadoProdutos,
     resultadoPedidosUltimos7Dias,
+    resultadoPedidos7DiasAnteriores,
   ] = await Promise.all([
+    // PEDIDOS DE HOJE
     supabaseAdmin
       .from("pedidos")
       .select("id, total, status")
       .gte("created_at", inicioHoje.toISOString())
       .lt("created_at", fimHoje.toISOString()),
 
+    // PEDIDOS ABERTOS
     supabaseAdmin
       .from("pedidos")
       .select("id, status, forma_pagamento, pagamento_confirmado")
       .in("status", ["recebido", "em_preparacao", "saiu_entrega"]),
 
+    // ÚLTIMOS PEDIDOS
     supabaseAdmin
       .from("pedidos")
       .select(
@@ -120,25 +128,34 @@ export default async function AdminPage() {
       .order("created_at", { ascending: false })
       .limit(5),
 
+    // PRODUTOS
     supabaseAdmin
       .from("produtos")
       .select(
         `
-      id,
-      nome,
-      estoque,
-      estoque_minimo,
-      ativo
-    `,
+          id,
+          nome,
+          estoque,
+          estoque_minimo,
+          ativo
+        `,
       )
       .eq("ativo", true)
       .order("estoque", { ascending: true }),
 
+    // ÚLTIMOS 7 DIAS
     supabaseAdmin
       .from("pedidos")
       .select("id, created_at, total, status, forma_pagamento, bairro")
       .gte("created_at", inicioUltimos7Dias.toISOString())
       .lt("created_at", fimHoje.toISOString()),
+
+    // 7 DIAS ANTERIORES
+    supabaseAdmin
+      .from("pedidos")
+      .select("id, created_at, total, status")
+      .gte("created_at", inicio7DiasAnteriores.toISOString())
+      .lt("created_at", inicioUltimos7Dias.toISOString()),
   ]);
 
   const pedidosHoje = resultadoPedidosHoje.data ?? [];
@@ -146,6 +163,7 @@ export default async function AdminPage() {
   const ultimosPedidos = resultadoUltimosPedidos.data ?? [];
   const produtos = resultadoProdutos.data ?? [];
   const pedidosUltimos7Dias = resultadoPedidosUltimos7Dias.data ?? [];
+  const pedidos7DiasAnteriores = resultadoPedidos7DiasAnteriores.data ?? [];
   const idsPedidosValidosUltimos7Dias = pedidosUltimos7Dias
     .filter((pedido) => pedido.status !== "cancelado")
     .map((pedido) => pedido.id);
@@ -268,6 +286,98 @@ export default async function AdminPage() {
 
   const pedidosValidosUltimos7Dias = pedidosUltimos7Dias.filter(
     (pedido) => pedido.status !== "cancelado",
+  );
+
+  const pedidosValidos7DiasAnteriores = pedidos7DiasAnteriores.filter(
+    (pedido) => pedido.status !== "cancelado",
+  );
+
+  const quantidadePedidos7DiasAnteriores = pedidosValidos7DiasAnteriores.length;
+
+  const faturamento7DiasAnteriores = pedidosValidos7DiasAnteriores.reduce(
+    (total, pedido) => total + Number(pedido.total),
+    0,
+  );
+
+  const ticketMedio7DiasAnteriores =
+    quantidadePedidos7DiasAnteriores > 0
+      ? faturamento7DiasAnteriores / quantidadePedidos7DiasAnteriores
+      : 0;
+
+  const calcularVariacaoPercentual = (
+    valorAtual: number,
+    valorAnterior: number,
+  ) => {
+    if (valorAnterior === 0) {
+      if (valorAtual === 0) {
+        return 0;
+      }
+
+      return null;
+    }
+
+    return ((valorAtual - valorAnterior) / valorAnterior) * 100;
+  };
+
+  const variacaoFaturamento7Dias = calcularVariacaoPercentual(
+    faturamentoUltimos7Dias,
+    faturamento7DiasAnteriores,
+  );
+
+  const variacaoPedidos7Dias = calcularVariacaoPercentual(
+    quantidadePedidosUltimos7Dias,
+    quantidadePedidos7DiasAnteriores,
+  );
+
+  const variacaoTicketMedio7Dias = calcularVariacaoPercentual(
+    ticketMedioUltimos7Dias,
+    ticketMedio7DiasAnteriores,
+  );
+
+  const obterComparacaoPeriodo = (variacao: number | null) => {
+    if (variacao === null) {
+      return {
+        texto: "Novo período",
+        simbolo: "●",
+        classe: "text-amber-400",
+        fundo: "border-amber-400/15 bg-amber-400/[0.06]",
+      };
+    }
+
+    if (variacao > 0) {
+      return {
+        texto: `+${variacao.toFixed(1)}%`,
+        simbolo: "▲",
+        classe: "text-emerald-400",
+        fundo: "border-emerald-400/15 bg-emerald-400/[0.06]",
+      };
+    }
+
+    if (variacao < 0) {
+      return {
+        texto: `${variacao.toFixed(1)}%`,
+        simbolo: "▼",
+        classe: "text-red-400",
+        fundo: "border-red-400/15 bg-red-400/[0.06]",
+      };
+    }
+
+    return {
+      texto: "0,0%",
+      simbolo: "•",
+      classe: "text-zinc-400",
+      fundo: "border-white/[0.07] bg-white/[0.03]",
+    };
+  };
+
+  const comparacaoFaturamento = obterComparacaoPeriodo(
+    variacaoFaturamento7Dias,
+  );
+
+  const comparacaoPedidos = obterComparacaoPeriodo(variacaoPedidos7Dias);
+
+  const comparacaoTicketMedio = obterComparacaoPeriodo(
+    variacaoTicketMedio7Dias,
   );
 
   const quantidadePix7Dias = pedidosValidosUltimos7Dias.filter(
@@ -543,9 +653,17 @@ export default async function AdminPage() {
                 {formatarPreco(ticketMedioHoje)}
               </p>
 
-              <p className="mt-2 text-xs text-zinc-600">
-                valor médio por pedido hoje
-              </p>
+              <div className="mt-3 flex flex-wrap items-center gap-2">
+                <span
+                  className={`rounded-full border px-2 py-1 text-[8px] font-black ${comparacaoTicketMedio.fundo} ${comparacaoTicketMedio.classe}`}
+                >
+                  {comparacaoTicketMedio.simbolo} {comparacaoTicketMedio.texto}
+                </span>
+
+                <span className="text-[8px] text-zinc-600">
+                  vs. 7 dias anteriores
+                </span>
+              </div>
             </div>
 
             <div className="absolute bottom-0 left-0 h-px w-0 bg-gradient-to-r from-transparent via-cyan-400/70 to-transparent transition-all duration-700 group-hover:w-full" />
@@ -814,9 +932,18 @@ export default async function AdminPage() {
                   {formatarPreco(faturamentoUltimos7Dias)}
                 </p>
 
-                <p className="mt-2 text-[9px] text-zinc-600">
-                  acumulado em 7 dias
-                </p>
+                <div className="mt-3 flex flex-wrap items-center gap-2">
+                  <span
+                    className={`rounded-full border px-2 py-1 text-[8px] font-black ${comparacaoFaturamento.fundo} ${comparacaoFaturamento.classe}`}
+                  >
+                    {comparacaoFaturamento.simbolo}{" "}
+                    {comparacaoFaturamento.texto}
+                  </span>
+
+                  <span className="text-[8px] text-zinc-600">
+                    vs. 7 dias anteriores
+                  </span>
+                </div>
               </div>
 
               <div className="absolute bottom-0 left-0 h-px w-0 bg-linear-to-r from-transparent via-emerald-400 to-transparent transition-all duration-700 group-hover:w-full" />
@@ -848,9 +975,17 @@ export default async function AdminPage() {
                   {quantidadePedidosUltimos7Dias}
                 </p>
 
-                <p className="mt-2 text-[9px] text-zinc-600">
-                  pedidos válidos no período
-                </p>
+                <div className="mt-3 flex flex-wrap items-center gap-2">
+                  <span
+                    className={`rounded-full border px-2 py-1 text-[8px] font-black ${comparacaoPedidos.fundo} ${comparacaoPedidos.classe}`}
+                  >
+                    {comparacaoPedidos.simbolo} {comparacaoPedidos.texto}
+                  </span>
+
+                  <span className="text-[8px] text-zinc-600">
+                    vs. 7 dias anteriores
+                  </span>
+                </div>
               </div>
 
               <div className="absolute bottom-0 left-0 h-px w-0 bg-linear-to-r from-transparent via-white/40 to-transparent transition-all duration-700 group-hover:w-full" />
@@ -882,9 +1017,18 @@ export default async function AdminPage() {
                   {formatarPreco(ticketMedioUltimos7Dias)}
                 </p>
 
-                <p className="mt-2 text-[9px] text-zinc-600">
-                  valor médio por pedido
-                </p>
+                <div className="mt-3 flex flex-wrap items-center gap-2">
+                  <span
+                    className={`rounded-full border px-2 py-1 text-[8px] font-black ${comparacaoTicketMedio.fundo} ${comparacaoTicketMedio.classe}`}
+                  >
+                    {comparacaoTicketMedio.simbolo}{" "}
+                    {comparacaoTicketMedio.texto}
+                  </span>
+
+                  <span className="text-[8px] text-zinc-600">
+                    vs. 7 dias anteriores
+                  </span>
+                </div>
               </div>
 
               <div className="absolute bottom-0 left-0 h-px w-0 bg-linear-to-r from-transparent via-cyan-400 to-transparent transition-all duration-700 group-hover:w-full" />
