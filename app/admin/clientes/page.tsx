@@ -2,12 +2,14 @@ import Link from "next/link";
 
 import { supabaseAdmin } from "../../../lib/supabaseAdmin";
 import AdminNavigation from "../../../components/AdminNavigation";
+import { gerarCupomReativacao } from "./actions";
 
 export const dynamic = "force-dynamic";
 
 type AdminClientesPageProps = {
   searchParams: Promise<{
     busca?: string;
+    acao?: string;
     segmento?: string;
     ordem?: string;
     pagina?: string;
@@ -37,6 +39,17 @@ type SegmentoCliente =
   | "novo"
   | "inativo"
   | "sem_compras";
+
+type CupomReativacao = {
+  id: string;
+  cliente_id: number;
+  codigo: string;
+  percentual: number;
+  desconto_maximo: number;
+  valido_ate: string;
+  ativo: boolean;
+  usado_em: string | null;
+};
 
 function formatarPreco(valor: number) {
   return valor.toLocaleString("pt-BR", {
@@ -153,6 +166,7 @@ export default async function AdminClientesPage({
   const busca = parametros.busca?.trim() ?? "";
   const segmentoSelecionado = parametros.segmento ?? "";
   const ordemSelecionada = parametros.ordem ?? "faturamento";
+  const acaoSelecionada = parametros.acao ?? "";
   const paginaAtual = Math.max(1, Number(parametros.pagina) || 1);
 
   const clientesPorPagina = 10;
@@ -182,10 +196,31 @@ export default async function AdminClientesPage({
       `,
     );
 
-  if (erroClientes || erroPedidos) {
+  const { data: cuponsData, error: erroCupons } = await supabaseAdmin
+    .from("cupons")
+    .select(
+      `
+      id,
+      cliente_id,
+      codigo,
+      percentual,
+      desconto_maximo,
+      valido_ate,
+      ativo,
+      usado_em
+    `,
+    )
+    .eq("motivo", "reativacao")
+    .eq("ativo", true)
+    .is("usado_em", null)
+    .gt("valido_ate", new Date().toISOString())
+    .order("created_at", { ascending: false });
+
+  if (erroClientes || erroPedidos || erroCupons) {
     console.error("Erro ao carregar CRM:", {
       erroClientes,
       erroPedidos,
+      erroCupons,
     });
 
     return (
@@ -204,6 +239,17 @@ export default async function AdminClientesPage({
   const clientes = (clientesData ?? []) as Cliente[];
 
   const pedidos = (pedidosData ?? []) as PedidoCliente[];
+  const cuponsAtivos = (cuponsData ?? []) as CupomReativacao[];
+
+  const cuponsAtivosPorCliente = new Map<number, CupomReativacao>();
+
+  for (const cupom of cuponsAtivos) {
+    const clienteId = Number(cupom.cliente_id);
+
+    if (!cuponsAtivosPorCliente.has(clienteId)) {
+      cuponsAtivosPorCliente.set(clienteId, cupom);
+    }
+  }
 
   // Pedidos cancelados não entram nas métricas do CRM.
   const pedidosValidos = pedidos.filter(
@@ -278,6 +324,18 @@ export default async function AdminClientesPage({
     clientesFiltrados = clientesFiltrados.filter(
       (cliente) => cliente.segmento.valor === segmentoSelecionado,
     );
+  }
+
+  if (acaoSelecionada === "reativacao") {
+    clientesFiltrados = clientesFiltrados.filter((cliente) => {
+      if (cliente.quantidadePedidos === 0 || !cliente.ultimaCompra) {
+        return false;
+      }
+
+      const diasSemComprar = calcularDiasDesde(cliente.ultimaCompra);
+
+      return diasSemComprar !== null && diasSemComprar >= 30;
+    });
   }
 
   // =========================================================
@@ -428,6 +486,10 @@ export default async function AdminClientesPage({
 
     if (segmentoSelecionado) {
       params.set("segmento", segmentoSelecionado);
+    }
+
+    if (acaoSelecionada) {
+      params.set("acao", acaoSelecionada);
     }
 
     if (ordemSelecionada && ordemSelecionada !== "faturamento") {
@@ -745,6 +807,19 @@ export default async function AdminClientesPage({
                         cliente.telefone.replace(/\D/g, "")
                       ).replace(/^55/, "");
 
+                      const cupomAtivo = cuponsAtivosPorCliente.get(
+                        Number(cliente.id),
+                      );
+
+                      const primeiroNome =
+                        cliente.nome.trim().split(/\s+/)[0] || cliente.nome;
+
+                      const mensagemCupom = cupomAtivo
+                        ? encodeURIComponent(
+                            `Olá, ${primeiroNome}! 😊 Aqui é do Depósito do Zé. Sentimos sua falta! Preparamos um presente para você voltar: 5% de desconto no seu próximo pedido. 🍻 Seu cupom é ${cupomAtivo.codigo}. Ele é válido até ${formatarData(cupomAtivo.valido_ate)}. Esperamos você! 💛`,
+                          )
+                        : "";
+
                       return (
                         <div
                           key={cliente.id}
@@ -761,20 +836,78 @@ export default async function AdminClientesPage({
                               </p>
                             </div>
 
-                            <a
-                              href={`https://wa.me/55${numeroWhatsApp}`}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              className="shrink-0 rounded-xl border border-emerald-400/15 bg-emerald-400/[0.06] px-3 py-2 text-[9px] font-black text-emerald-400 transition hover:bg-emerald-400/[0.12]"
-                            >
-                              WhatsApp
-                            </a>
+                            {cupomAtivo ? (
+                              <a
+                                href={`https://wa.me/55${numeroWhatsApp}?text=${mensagemCupom}`}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="shrink-0 rounded-xl border border-emerald-400/15 bg-emerald-400/[0.06] px-3 py-2 text-[9px] font-black text-emerald-400 transition hover:bg-emerald-400/[0.12]"
+                              >
+                                Enviar cupom
+                              </a>
+                            ) : (
+                              <form action={gerarCupomReativacao}>
+                                <input
+                                  type="hidden"
+                                  name="cliente_id"
+                                  value={cliente.id}
+                                />
+
+                                <button
+                                  type="submit"
+                                  className="shrink-0 rounded-xl border border-amber-400/15 bg-amber-400/[0.06] px-3 py-2 text-[9px] font-black text-amber-300 transition hover:bg-amber-400/[0.12]"
+                                >
+                                  Gerar cupom 5%
+                                </button>
+                              </form>
+                            )}
                           </div>
+
+                          {cupomAtivo && (
+                            <div className="mt-3 rounded-[14px] border border-amber-400/10 bg-amber-400/[0.035] px-3 py-2.5">
+                              <p className="text-[7px] font-black uppercase tracking-[0.12em] text-amber-400">
+                                Cupom ativo
+                              </p>
+
+                              <p className="mt-1 font-mono text-sm font-black tracking-[0.06em] text-white">
+                                {cupomAtivo.codigo}
+                              </p>
+
+                              <p className="mt-1 text-[8px] text-zinc-600">
+                                {cupomAtivo.percentual}% OFF · máximo{" "}
+                                {formatarPreco(
+                                  Number(cupomAtivo.desconto_maximo),
+                                )}{" "}
+                                · válido até{" "}
+                                {formatarData(cupomAtivo.valido_ate)}
+                              </p>
+                            </div>
+                          )}
                         </div>
                       );
                     })}
                   </div>
                 )}
+                <div className="mt-5 border-t border-fuchsia-400/10 pt-4">
+                  <Link
+                    href="/admin/clientes?acao=reativacao&ordem=antiga"
+                    className="group flex items-center justify-between rounded-[16px] border border-fuchsia-400/10 bg-fuchsia-400/[0.035] px-4 py-3 transition hover:border-fuchsia-400/25 hover:bg-fuchsia-400/[0.07]"
+                  >
+                    <div>
+                      <p className="text-[8px] font-black uppercase tracking-[0.12em] text-fuchsia-300">
+                        Lista de reativação
+                      </p>
+
+                      <p className="mt-1 text-[9px] text-zinc-600">
+                        Ver todos os clientes há 30+ dias sem comprar
+                      </p>
+                    </div>
+
+                    <span className="text-sm font-black text-fuchsia-300 transition group-hover:translate-x-1">
+                      →
+                    </span>
+                  </Link>
+                </div>
               </div>
             </div>
           </div>
@@ -785,7 +918,7 @@ export default async function AdminClientesPage({
           method="GET"
           className="mt-8 rounded-[26px] border border-white/[0.07] bg-white/[0.025] p-5"
         >
-          <div className="grid gap-3 lg:grid-cols-[1fr_210px_210px_auto]">
+          <div className="grid gap-3 xl:grid-cols-[1fr_190px_210px_210px_auto]">
             <input
               type="text"
               name="busca"
@@ -806,6 +939,15 @@ export default async function AdminClientesPage({
               <option value="novo">🟡 Novos</option>
               <option value="inativo">🔴 Inativos</option>
               <option value="sem_compras">⚪ Sem compras</option>
+            </select>
+
+            <select
+              name="acao"
+              defaultValue={acaoSelecionada}
+              className="h-13 cursor-pointer rounded-[16px] border border-white/[0.08] bg-zinc-950 px-4 text-sm font-bold text-white outline-none focus:border-fuchsia-400/50"
+            >
+              <option value="">🎯 Ação comercial</option>
+              <option value="reativacao">📣 Reativar 30+ dias</option>
             </select>
 
             <select
@@ -832,6 +974,7 @@ export default async function AdminClientesPage({
 
         {(busca ||
           segmentoSelecionado ||
+          acaoSelecionada ||
           ordemSelecionada !== "faturamento") && (
           <div className="mt-3">
             <Link
