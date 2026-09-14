@@ -96,12 +96,11 @@ BEGIN
     atualizado_em = v_agora
 
   RETURNING
-    rl.janela_inicio,
-    rl.contagem
+    janela_inicio,
+    contagem
 
   INTO
     v_janela_inicio,
-    v_contagem;
 
 
   v_expira_em :=
