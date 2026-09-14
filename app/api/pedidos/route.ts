@@ -22,6 +22,7 @@ type PedidoRecebido = {
   troco_para?: number | null;
   chave_idempotencia: string;
   pontos_fidelidade?: number;
+  codigo_cupom?: string;
 
   itens: ItemRecebido[];
 };
@@ -52,6 +53,7 @@ export async function POST(request: Request) {
       telefone,
       chave_idempotencia,
       pontos_fidelidade,
+      codigo_cupom,
       cep,
       rua,
       numero,
@@ -273,6 +275,20 @@ export async function POST(request: Request) {
         },
       );
     }
+
+    const codigoCupomNormalizado =
+      typeof codigo_cupom === "string" ? codigo_cupom.trim().toUpperCase() : "";
+
+    if (codigoCupomNormalizado && pontosFidelidadeNumero > 0) {
+      return NextResponse.json(
+        {
+          erro: "Cupom de desconto não pode ser usado junto com resgate de pontos.",
+        },
+        {
+          status: 400,
+        },
+      );
+    }
     // A partir daqui, criação do pedido, cálculo dos preços,
     // gravação dos itens e baixa de estoque acontecem
     // dentro de uma única transação no PostgreSQL.
@@ -297,6 +313,8 @@ export async function POST(request: Request) {
         })),
 
         p_pontos_fidelidade: pontosFidelidadeNumero,
+
+        p_codigo_cupom: codigoCupomNormalizado || null,
 
         p_chave_idempotencia: chave_idempotencia,
       },
@@ -423,6 +441,94 @@ export async function POST(request: Request) {
         return NextResponse.json(
           {
             erro: "Não foi possível localizar o cadastro do cliente para aplicar a fidelidade.",
+          },
+          {
+            status: 400,
+          },
+        );
+      }
+
+      if (mensagem.includes("CUPOM_NAO_ENCONTRADO")) {
+        return NextResponse.json(
+          {
+            erro: "Cupom não encontrado.",
+          },
+          {
+            status: 400,
+          },
+        );
+      }
+
+      if (mensagem.includes("CUPOM_JA_UTILIZADO_OU_INATIVO")) {
+        return NextResponse.json(
+          {
+            erro: "Este cupom não está mais disponível.",
+          },
+          {
+            status: 400,
+          },
+        );
+      }
+
+      if (mensagem.includes("CUPOM_EXPIRADO")) {
+        return NextResponse.json(
+          {
+            erro: "Este cupom expirou.",
+          },
+          {
+            status: 400,
+          },
+        );
+      }
+
+      if (mensagem.includes("CUPOM_NAO_PERTENCE_AO_CLIENTE")) {
+        return NextResponse.json(
+          {
+            erro: "Este cupom foi criado para outro cliente.",
+          },
+          {
+            status: 400,
+          },
+        );
+      }
+
+      if (mensagem.includes("CUPOM_NAO_ACUMULA_FIDELIDADE")) {
+        return NextResponse.json(
+          {
+            erro: "O cupom não pode ser usado junto com desconto de fidelidade.",
+          },
+          {
+            status: 400,
+          },
+        );
+      }
+
+      if (mensagem.includes("CUPOM_VALOR_MINIMO:")) {
+        return NextResponse.json(
+          {
+            erro: "Este cupom exige pelo menos R$ 30,00 em produtos.",
+          },
+          {
+            status: 400,
+          },
+        );
+      }
+
+      if (mensagem.includes("TIPO_CUPOM_NAO_SUPORTADO")) {
+        return NextResponse.json(
+          {
+            erro: "Este tipo de cupom não é aceito.",
+          },
+          {
+            status: 400,
+          },
+        );
+      }
+
+      if (mensagem.includes("DESCONTO_CUPOM_INVALIDO")) {
+        return NextResponse.json(
+          {
+            erro: "Não foi possível calcular o desconto deste cupom.",
           },
           {
             status: 400,

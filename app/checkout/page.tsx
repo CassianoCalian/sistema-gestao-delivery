@@ -47,6 +47,19 @@ export default function CheckoutPage() {
   } | null>(null);
 
   const [pontosFidelidade, setPontosFidelidade] = useState(0);
+  const [codigoCupom, setCodigoCupom] = useState("");
+
+  const [consultandoCupom, setConsultandoCupom] = useState(false);
+
+  const [erroCupom, setErroCupom] = useState("");
+
+  const [cupomAplicado, setCupomAplicado] = useState<{
+    codigo: string;
+    percentual: number;
+    desconto_maximo: number;
+    desconto_estimado: number;
+    valido_ate: string;
+  } | null>(null);
 
   const [pedidoConcluido, setPedidoConcluido] = useState(false);
 
@@ -65,7 +78,20 @@ export default function CheckoutPage() {
 
   const descontoFidelidade = (pontosFidelidade / 500) * 5;
 
-  const totalPedido = valorTotal + taxaCartao - descontoFidelidade;
+  const descontoCupom = cupomAplicado
+    ? Math.min(
+        Math.round(
+          (valorTotal * (cupomAplicado.percentual / 100) + Number.EPSILON) *
+            100,
+        ) / 100,
+        cupomAplicado.desconto_maximo,
+      )
+    : 0;
+
+  const totalPedido = Math.max(
+    valorTotal + taxaCartao - descontoFidelidade - descontoCupom,
+    0,
+  );
 
   const blocosDisponiveis = fidelidade?.encontrado
     ? Math.floor(fidelidade.pontos_saldo / 500)
@@ -85,6 +111,84 @@ export default function CheckoutPage() {
   const valorFaltanteMinimo = possuiExcecaoMinimo
     ? 0
     : Math.max(PEDIDO_MINIMO - valorTotal, 0);
+
+  async function aplicarCupom() {
+    const codigoNormalizado = codigoCupom.trim().toUpperCase();
+
+    setErroCupom("");
+
+    if (!codigoNormalizado) {
+      setCupomAplicado(null);
+      setErroCupom("Informe o código do cupom.");
+      return;
+    }
+
+    if (pontosFidelidade > 0) {
+      setCupomAplicado(null);
+      setErroCupom("O cupom não pode ser usado junto com resgate de pontos.");
+      return;
+    }
+
+    const telefoneLimpo = telefone.replace(/\D/g, "");
+
+    if (telefoneLimpo.length < 10) {
+      setCupomAplicado(null);
+      setErroCupom("Informe seu WhatsApp antes de aplicar o cupom.");
+      return;
+    }
+
+    setConsultandoCupom(true);
+    setCupomAplicado(null);
+
+    try {
+      const resposta = await fetch("/api/cupons/validar", {
+        method: "POST",
+
+        headers: {
+          "Content-Type": "application/json",
+        },
+
+        body: JSON.stringify({
+          codigo_cupom: codigoNormalizado,
+          telefone,
+          subtotal: valorTotal,
+        }),
+      });
+
+      const dados = await resposta.json();
+
+      if (!resposta.ok) {
+        throw new Error(dados.erro ?? "Não foi possível validar o cupom.");
+      }
+
+      setCupomAplicado({
+        codigo: dados.codigo,
+        percentual: Number(dados.percentual),
+        desconto_maximo: Number(dados.desconto_maximo),
+        desconto_estimado: Number(dados.desconto_estimado),
+        valido_ate: dados.valido_ate,
+      });
+
+      setCodigoCupom(dados.codigo);
+      setErroCupom("");
+    } catch (error) {
+      setCupomAplicado(null);
+
+      setErroCupom(
+        error instanceof Error
+          ? error.message
+          : "Não foi possível validar o cupom.",
+      );
+    } finally {
+      setConsultandoCupom(false);
+    }
+  }
+
+  function removerCupom() {
+    setCupomAplicado(null);
+    setCodigoCupom("");
+    setErroCupom("");
+  }
 
   async function consultarFidelidade() {
     const telefoneLimpo = telefone.replace(/\D/g, "");
@@ -267,6 +371,7 @@ export default function CheckoutPage() {
             : null,
 
         pontos_fidelidade: pontosFidelidade,
+        codigo_cupom: cupomAplicado?.codigo ?? "",
 
         itens: itens.map((item) => ({
           id: item.id,
@@ -538,6 +643,12 @@ export default function CheckoutPage() {
                         setPontosFidelidade(0);
 
                         setErroFidelidade("");
+
+                        setCupomAplicado(null);
+
+                        setCodigoCupom("");
+
+                        setErroCupom("");
                       }}
                       onBlur={consultarFidelidade}
                       className={inputClassName}
@@ -603,9 +714,19 @@ export default function CheckoutPage() {
                       <select
                         id="pontos_fidelidade"
                         value={pontosFidelidade}
-                        onChange={(event) =>
-                          setPontosFidelidade(Number(event.target.value))
-                        }
+                        onChange={(event) => {
+                          const pontos = Number(event.target.value);
+
+                          if (pontos > 0 && cupomAplicado) {
+                            removerCupom();
+
+                            setErroCupom(
+                              "O cupom foi removido porque o resgate de pontos foi selecionado.",
+                            );
+                          }
+
+                          setPontosFidelidade(pontos);
+                        }}
                         className={`${inputClassName} bg-zinc-950 text-white [color-scheme:dark]`}
                       >
                         <option value={0}>Não usar pontos</option>
@@ -654,6 +775,117 @@ export default function CheckoutPage() {
                   )}
                 </div>
               )}
+
+              {/* CUPOM */}
+              <div className="premium-card animate-slide-up delay-3 rounded-[28px] p-5 sm:p-6">
+                <div className="flex items-start gap-3">
+                  <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl border border-fuchsia-400/20 bg-fuchsia-400/[0.08] text-xl">
+                    🎟️
+                  </div>
+
+                  <div className="min-w-0 flex-1">
+                    <p className="text-[10px] font-black uppercase tracking-[0.12em] text-fuchsia-300">
+                      Cupom de desconto
+                    </p>
+
+                    <h3 className="mt-1 text-lg font-black text-white">
+                      Tem um cupom?
+                    </h3>
+
+                    <p className="mt-1 text-xs leading-5 text-zinc-500">
+                      Digite o código recebido pelo Depósito do Zé.
+                    </p>
+                  </div>
+                </div>
+
+                <div className="mt-5">
+                  <div className="flex flex-col gap-2 sm:flex-row">
+                    <input
+                      type="text"
+                      value={codigoCupom}
+                      disabled={consultandoCupom || pontosFidelidade > 0}
+                      onChange={(event) => {
+                        const codigo = event.target.value.toUpperCase();
+
+                        setCodigoCupom(codigo);
+                        setCupomAplicado(null);
+                        setErroCupom("");
+                      }}
+                      placeholder="EX.: VOLTA-CASSIANO-A7F2"
+                      className={`${inputClassName} font-mono uppercase disabled:cursor-not-allowed disabled:opacity-50`}
+                    />
+
+                    {cupomAplicado ? (
+                      <button
+                        type="button"
+                        onClick={removerCupom}
+                        className="pressable min-h-12 shrink-0 rounded-2xl border border-red-400/15 bg-red-400/[0.06] px-5 text-xs font-black text-red-300 transition hover:bg-red-400/[0.12]"
+                      >
+                        Remover
+                      </button>
+                    ) : (
+                      <button
+                        type="button"
+                        onClick={aplicarCupom}
+                        disabled={
+                          consultandoCupom ||
+                          pontosFidelidade > 0 ||
+                          !codigoCupom.trim()
+                        }
+                        className="pressable min-h-12 shrink-0 rounded-2xl border border-fuchsia-400/20 bg-fuchsia-400/[0.08] px-5 text-xs font-black text-fuchsia-200 transition hover:bg-fuchsia-400/[0.14] disabled:cursor-not-allowed disabled:opacity-40"
+                      >
+                        {consultandoCupom ? "Validando..." : "Aplicar"}
+                      </button>
+                    )}
+                  </div>
+
+                  {pontosFidelidade > 0 && (
+                    <p className="mt-3 text-[10px] font-bold text-amber-400">
+                      Para usar um cupom, selecione “Não usar pontos” na
+                      fidelidade.
+                    </p>
+                  )}
+
+                  {erroCupom && (
+                    <div className="mt-3 rounded-2xl border border-red-400/15 bg-red-400/[0.05] p-3">
+                      <p className="text-[10px] font-bold text-red-300">
+                        {erroCupom}
+                      </p>
+                    </div>
+                  )}
+
+                  {cupomAplicado && (
+                    <div className="mt-3 rounded-2xl border border-emerald-400/15 bg-emerald-400/[0.06] p-4">
+                      <div className="flex items-start justify-between gap-4">
+                        <div>
+                          <p className="text-xs font-black text-emerald-400">
+                            ✓ Cupom aplicado
+                          </p>
+
+                          <p className="mt-1 font-mono text-sm font-black tracking-[0.04em] text-white">
+                            {cupomAplicado.codigo}
+                          </p>
+
+                          <p className="mt-2 text-[10px] text-zinc-500">
+                            {cupomAplicado.percentual}% de desconto · máximo{" "}
+                            {formatarPreco(cupomAplicado.desconto_maximo)}
+                          </p>
+                        </div>
+
+                        <div className="text-right">
+                          <p className="text-[8px] font-black uppercase tracking-[0.1em] text-zinc-600">
+                            Economia
+                          </p>
+
+                          <p className="mt-1 text-lg font-black text-emerald-400">
+                            - {formatarPreco(descontoCupom)}
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </div>
 
               {/* ENDEREÇO */}
               <div className="premium-card animate-slide-up delay-3 rounded-[28px] p-5 sm:p-6">
@@ -1313,6 +1545,18 @@ export default function CheckoutPage() {
 
                   <span className="font-black text-emerald-400">
                     - {formatarPreco(descontoFidelidade)}
+                  </span>
+                </div>
+              )}
+
+              {descontoCupom > 0 && (
+                <div className="flex justify-between gap-4">
+                  <span className="text-zinc-500">
+                    Cupom {cupomAplicado?.codigo}
+                  </span>
+
+                  <span className="font-black text-emerald-400">
+                    - {formatarPreco(descontoCupom)}
                   </span>
                 </div>
               )}
