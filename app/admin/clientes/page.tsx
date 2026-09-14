@@ -9,6 +9,7 @@ type AdminClientesPageProps = {
   searchParams: Promise<{
     busca?: string;
     segmento?: string;
+    ordem?: string;
     pagina?: string;
   }>;
 };
@@ -151,6 +152,7 @@ export default async function AdminClientesPage({
 
   const busca = parametros.busca?.trim() ?? "";
   const segmentoSelecionado = parametros.segmento ?? "";
+  const ordemSelecionada = parametros.ordem ?? "faturamento";
   const paginaAtual = Math.max(1, Number(parametros.pagina) || 1);
 
   const clientesPorPagina = 10;
@@ -278,8 +280,53 @@ export default async function AdminClientesPage({
     );
   }
 
-  // Clientes de maior valor aparecem primeiro.
+  // =========================================================
+  // ORDENAÇÃO
+  // =========================================================
+
   clientesFiltrados.sort((a, b) => {
+    if (ordemSelecionada === "pedidos") {
+      if (b.quantidadePedidos !== a.quantidadePedidos) {
+        return b.quantidadePedidos - a.quantidadePedidos;
+      }
+
+      return b.totalGasto - a.totalGasto;
+    }
+
+    if (ordemSelecionada === "recente") {
+      return (
+        new Date(b.ultimaCompra ?? 0).getTime() -
+        new Date(a.ultimaCompra ?? 0).getTime()
+      );
+    }
+
+    if (ordemSelecionada === "antiga") {
+      const dataA = a.ultimaCompra
+        ? new Date(a.ultimaCompra).getTime()
+        : Number.MAX_SAFE_INTEGER;
+
+      const dataB = b.ultimaCompra
+        ? new Date(b.ultimaCompra).getTime()
+        : Number.MAX_SAFE_INTEGER;
+
+      return dataA - dataB;
+    }
+
+    if (ordemSelecionada === "ticket") {
+      if (b.ticketMedio !== a.ticketMedio) {
+        return b.ticketMedio - a.ticketMedio;
+      }
+
+      return b.totalGasto - a.totalGasto;
+    }
+
+    if (ordemSelecionada === "nome") {
+      return a.nome.localeCompare(b.nome, "pt-BR", {
+        sensitivity: "base",
+      });
+    }
+
+    // Padrão: maior faturamento
     if (b.totalGasto !== a.totalGasto) {
       return b.totalGasto - a.totalGasto;
     }
@@ -381,6 +428,10 @@ export default async function AdminClientesPage({
 
     if (segmentoSelecionado) {
       params.set("segmento", segmentoSelecionado);
+    }
+
+    if (ordemSelecionada && ordemSelecionada !== "faturamento") {
+      params.set("ordem", ordemSelecionada);
     }
 
     if (pagina > 1) {
@@ -734,7 +785,7 @@ export default async function AdminClientesPage({
           method="GET"
           className="mt-8 rounded-[26px] border border-white/[0.07] bg-white/[0.025] p-5"
         >
-          <div className="grid gap-3 lg:grid-cols-[1fr_240px_auto]">
+          <div className="grid gap-3 lg:grid-cols-[1fr_210px_210px_auto]">
             <input
               type="text"
               name="busca"
@@ -757,6 +808,19 @@ export default async function AdminClientesPage({
               <option value="sem_compras">⚪ Sem compras</option>
             </select>
 
+            <select
+              name="ordem"
+              defaultValue={ordemSelecionada}
+              className="h-13 cursor-pointer rounded-[16px] border border-white/[0.08] bg-zinc-950 px-4 text-sm font-bold text-white outline-none focus:border-violet-400/50"
+            >
+              <option value="faturamento">💰 Maior faturamento</option>
+              <option value="pedidos">🔥 Mais pedidos</option>
+              <option value="recente">🕒 Compra mais recente</option>
+              <option value="antiga">📅 Compra mais antiga</option>
+              <option value="ticket">🎯 Maior ticket médio</option>
+              <option value="nome">🔤 Nome A → Z</option>
+            </select>
+
             <button
               type="submit"
               className="h-13 rounded-[16px] bg-violet-500 px-7 text-sm font-black text-white transition hover:bg-violet-400"
@@ -766,7 +830,9 @@ export default async function AdminClientesPage({
           </div>
         </form>
 
-        {(busca || segmentoSelecionado) && (
+        {(busca ||
+          segmentoSelecionado ||
+          ordemSelecionada !== "faturamento") && (
           <div className="mt-3">
             <Link
               href="/admin/clientes"
