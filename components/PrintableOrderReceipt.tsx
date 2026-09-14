@@ -26,7 +26,8 @@ type PedidoImpressao = {
 
   desconto_fidelidade?: number | null;
   pontos_fidelidade_usados?: number | null;
-
+  codigo_cupom?: string | null;
+  desconto_cupom?: number | null;
   total: number;
 };
 
@@ -83,6 +84,10 @@ export default function PrintableOrderReceipt({
   const descontoFidelidade = Number(pedido.desconto_fidelidade ?? 0);
 
   const pontosFidelidadeUsados = Number(pedido.pontos_fidelidade_usados ?? 0);
+  const descontoCupom = Number(pedido.desconto_cupom ?? 0);
+
+  const codigoCupom =
+    typeof pedido.codigo_cupom === "string" ? pedido.codigo_cupom : "";
 
   const whatsapp = process.env.NEXT_PUBLIC_WHATSAPP_NUMBER ?? "21973209746";
 
@@ -217,6 +222,21 @@ export default function PrintableOrderReceipt({
 
                   <span>{pontosFidelidadeUsados} pts</span>
                 </div>
+              )}
+              {descontoCupom > 0 && codigoCupom && (
+                <>
+                  <div className="mt-1 flex justify-between font-bold">
+                    <span>Desconto cupom</span>
+                    <span>- {formatarPreco(descontoCupom)}</span>
+                  </div>
+
+                  <div className="mt-1 flex justify-between gap-3 text-[10px]">
+                    <span>Cupom</span>
+                    <span className="break-all text-right font-bold">
+                      {codigoCupom}
+                    </span>
+                  </div>
+                </>
               )}
             </>
           )}

@@ -187,6 +187,8 @@ taxa_entrega,
 taxa_cartao,
 desconto_fidelidade,
 pontos_fidelidade_usados,
+codigo_cupom,
+desconto_cupom,
 total,
 pagamento_confirmado,
         status
@@ -251,6 +253,10 @@ pagamento_confirmado,
   const taxaCartaoNumero = Number(pedido.taxa_cartao ?? 0);
 
   const descontoFidelidadeNumero = Number(pedido.desconto_fidelidade ?? 0);
+  const descontoCupomNumero = Number(pedido.desconto_cupom ?? 0);
+
+  const codigoCupom =
+    typeof pedido.codigo_cupom === "string" ? pedido.codigo_cupom : "";
 
   const pontosFidelidadeUsados = Number(pedido.pontos_fidelidade_usados ?? 0);
   const itensMensagem =
@@ -286,6 +292,9 @@ pagamento_confirmado,
       ? `⭐ Fidelidade: -${formatarPreco(
           descontoFidelidadeNumero,
         )} (${pontosFidelidadeUsados} pontos)`
+      : "",
+    descontoCupomNumero > 0 && codigoCupom
+      ? `🎟️ Cupom ${codigoCupom}: -${formatarPreco(descontoCupomNumero)}`
       : "",
 
     `💰 Total: ${formatarPreco(Number(pedido.total))}`,
@@ -911,6 +920,32 @@ pagamento_confirmado,
                           ? " • pontos devolvidos"
                           : ""}
                       </p>
+                    )}
+
+                    {descontoCupomNumero > 0 && codigoCupom && (
+                      <div className="rounded-2xl border border-fuchsia-400/10 bg-fuchsia-400/[0.045] p-4">
+                        <div className="flex items-center justify-between gap-4">
+                          <div className="min-w-0">
+                            <p className="font-black text-fuchsia-300">
+                              Cupom de desconto
+                            </p>
+
+                            <p className="mt-1 break-all font-mono text-[10px] font-black tracking-[0.04em] text-zinc-400">
+                              {codigoCupom}
+                            </p>
+
+                            {pedido.status === "cancelado" && (
+                              <p className="mt-1 text-[10px] text-zinc-600">
+                                Cupom registrado no pedido cancelado
+                              </p>
+                            )}
+                          </div>
+
+                          <span className="shrink-0 font-black text-emerald-400">
+                            - {formatarPreco(descontoCupomNumero)}
+                          </span>
+                        </div>
+                      </div>
                     )}
                   </div>
 
