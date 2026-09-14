@@ -83,6 +83,24 @@ export default async function AdminPage() {
     inicioUltimos7Dias.getTime() - 7 * 24 * 60 * 60 * 1000,
   );
 
+  const anoAtual = Number(dataHojeBrasil.slice(0, 4));
+  const mesAtual = Number(dataHojeBrasil.slice(5, 7));
+
+  const formatarInicioMesBrasil = (ano: number, mes: number) => {
+    const referencia = new Date(Date.UTC(ano, mes - 1, 1));
+
+    const anoFormatado = referencia.getUTCFullYear();
+    const mesFormatado = String(referencia.getUTCMonth() + 1).padStart(2, "0");
+
+    return new Date(`${anoFormatado}-${mesFormatado}-01T00:00:00-03:00`);
+  };
+
+  const inicioMesAtual = formatarInicioMesBrasil(anoAtual, mesAtual);
+
+  const inicioProximoMes = formatarInicioMesBrasil(anoAtual, mesAtual + 1);
+
+  const inicioMesAnterior = formatarInicioMesBrasil(anoAtual, mesAtual - 1);
+
   // -----------------------------------------
   // 3. Busca os dados do dashboard
   // -----------------------------------------
@@ -105,6 +123,8 @@ export default async function AdminPage() {
     resultadoPedidos7DiasAnteriores,
     resultadoPedidosClientes,
     resultadoClientesCadastro,
+    resultadoPedidosMesAtual,
+    resultadoPedidosMesAnterior,
   ] = await Promise.all([
     // PEDIDOS DE HOJE
     supabaseAdmin
@@ -172,6 +192,20 @@ export default async function AdminPage() {
 
     // CADASTRO DE CLIENTES
     supabaseAdmin.from("clientes").select("id, nome, telefone, pontos_saldo"),
+
+    // PEDIDOS DO MÊS ATUAL
+    supabaseAdmin
+      .from("pedidos")
+      .select("id, created_at, total, status")
+      .gte("created_at", inicioMesAtual.toISOString())
+      .lt("created_at", fimHoje.toISOString()),
+
+    // PEDIDOS DO MÊS ANTERIOR
+    supabaseAdmin
+      .from("pedidos")
+      .select("id, created_at, total, status")
+      .gte("created_at", inicioMesAnterior.toISOString())
+      .lt("created_at", inicioMesAtual.toISOString()),
   ]);
 
   const pedidosHoje = resultadoPedidosHoje.data ?? [];
@@ -182,6 +216,8 @@ export default async function AdminPage() {
   const pedidos7DiasAnteriores = resultadoPedidos7DiasAnteriores.data ?? [];
   const pedidosClientes = resultadoPedidosClientes.data ?? [];
   const clientesCadastro = resultadoClientesCadastro.data ?? [];
+  const pedidosMesAtual = resultadoPedidosMesAtual.data ?? [];
+  const pedidosMesAnterior = resultadoPedidosMesAnterior.data ?? [];
   const idsPedidosValidosUltimos7Dias = pedidosUltimos7Dias
     .filter((pedido) => pedido.status !== "cancelado")
     .map((pedido) => pedido.id);
@@ -355,7 +391,7 @@ export default async function AdminPage() {
   const obterComparacaoPeriodo = (variacao: number | null) => {
     if (variacao === null) {
       return {
-        texto: "Novo período",
+        texto: "Sem base anterior",
         simbolo: "●",
         classe: "text-amber-400",
         fundo: "border-amber-400/15 bg-amber-400/[0.06]",
@@ -396,6 +432,114 @@ export default async function AdminPage() {
 
   const comparacaoTicketMedio = obterComparacaoPeriodo(
     variacaoTicketMedio7Dias,
+  );
+
+  // -----------------------------------------
+  // INTELIGÊNCIA FINANCEIRA MENSAL
+  // -----------------------------------------
+
+  const pedidosValidosMesAtual = pedidosMesAtual.filter(
+    (pedido) => pedido.status !== "cancelado",
+  );
+
+  const pedidosValidosMesAnterior = pedidosMesAnterior.filter(
+    (pedido) => pedido.status !== "cancelado",
+  );
+
+  const quantidadePedidosMesAtual = pedidosValidosMesAtual.length;
+
+  const faturamentoMesAtual = pedidosValidosMesAtual.reduce(
+    (total, pedido) => total + Number(pedido.total),
+    0,
+  );
+
+  const ticketMedioMesAtual =
+    quantidadePedidosMesAtual > 0
+      ? faturamentoMesAtual / quantidadePedidosMesAtual
+      : 0;
+
+  // Mesmo intervalo de tempo do mês atual aplicado ao mês anterior.
+  // Ex.: 01/09 até 14/09 16h compara com 01/08 até 14/08 16h.
+  const agora = new Date();
+
+  const tempoDecorridoMesAtual = Math.max(
+    0,
+    agora.getTime() - inicioMesAtual.getTime(),
+  );
+
+  const fimPeriodoComparavelMesAnterior = new Date(
+    Math.min(
+      inicioMesAnterior.getTime() + tempoDecorridoMesAtual,
+      inicioMesAtual.getTime(),
+    ),
+  );
+
+  const pedidosPeriodoComparavelMesAnterior = pedidosValidosMesAnterior.filter(
+    (pedido) => {
+      const dataPedido = new Date(pedido.created_at);
+
+      return dataPedido < fimPeriodoComparavelMesAnterior;
+    },
+  );
+
+  const quantidadePedidosPeriodoComparavelMesAnterior =
+    pedidosPeriodoComparavelMesAnterior.length;
+
+  const faturamentoPeriodoComparavelMesAnterior =
+    pedidosPeriodoComparavelMesAnterior.reduce(
+      (total, pedido) => total + Number(pedido.total),
+      0,
+    );
+
+  const ticketMedioPeriodoComparavelMesAnterior =
+    quantidadePedidosPeriodoComparavelMesAnterior > 0
+      ? faturamentoPeriodoComparavelMesAnterior /
+        quantidadePedidosPeriodoComparavelMesAnterior
+      : 0;
+
+  const variacaoFaturamentoMes = calcularVariacaoPercentual(
+    faturamentoMesAtual,
+    faturamentoPeriodoComparavelMesAnterior,
+  );
+
+  const variacaoPedidosMes = calcularVariacaoPercentual(
+    quantidadePedidosMesAtual,
+    quantidadePedidosPeriodoComparavelMesAnterior,
+  );
+
+  const variacaoTicketMedioMes = calcularVariacaoPercentual(
+    ticketMedioMesAtual,
+    ticketMedioPeriodoComparavelMesAnterior,
+  );
+
+  const comparacaoFaturamentoMes = obterComparacaoPeriodo(
+    variacaoFaturamentoMes,
+  );
+
+  const comparacaoPedidosMes = obterComparacaoPeriodo(variacaoPedidosMes);
+
+  const comparacaoTicketMedioMes = obterComparacaoPeriodo(
+    variacaoTicketMedioMes,
+  );
+
+  // Projeção de faturamento até o fechamento do mês,
+  // usando o ritmo real transcorrido até agora.
+  const duracaoTotalMesAtual =
+    inicioProximoMes.getTime() - inicioMesAtual.getTime();
+
+  const percentualMesDecorrido =
+    duracaoTotalMesAtual > 0
+      ? Math.min(Math.max(tempoDecorridoMesAtual / duracaoTotalMesAtual, 0), 1)
+      : 0;
+
+  const projecaoFaturamentoMes =
+    percentualMesDecorrido > 0
+      ? faturamentoMesAtual / percentualMesDecorrido
+      : 0;
+
+  const faturamentoMesAnteriorCompleto = pedidosValidosMesAnterior.reduce(
+    (total, pedido) => total + Number(pedido.total),
+    0,
   );
 
   const pedidosClientesValidos = pedidosClientes.filter(
@@ -2224,6 +2368,268 @@ export default async function AdminPage() {
           <div className="relative mt-6 border-t border-white/[0.05] pt-4">
             <p className="text-[9px] text-zinc-700">
               Análise baseada apenas em pedidos válidos dos últimos 7 dias.
+            </p>
+          </div>
+        </section>
+
+        {/* INTELIGÊNCIA FINANCEIRA MENSAL */}
+
+        <section className="animate-slide-up relative mt-8 overflow-hidden rounded-[32px] border border-white/[0.07] bg-white/[0.025] p-6 shadow-[0_30px_100px_rgba(0,0,0,0.25)] sm:p-7">
+          {/* GLOWS */}
+          <div
+            aria-hidden="true"
+            className="pointer-events-none absolute -left-28 -top-32 h-80 w-80 rounded-full bg-emerald-400/[0.04] blur-[120px]"
+          />
+
+          <div
+            aria-hidden="true"
+            className="pointer-events-none absolute -bottom-36 -right-28 h-80 w-80 rounded-full bg-cyan-400/[0.03] blur-[130px]"
+          />
+
+          {/* CABEÇALHO */}
+          <div className="relative flex flex-col gap-6 lg:flex-row lg:items-end lg:justify-between">
+            <div>
+              <div className="flex items-center gap-3">
+                <span className="h-px w-8 bg-emerald-400" />
+
+                <p className="text-[9px] font-black uppercase tracking-[0.2em] text-emerald-400">
+                  Inteligência financeira
+                </p>
+
+                <span className="hidden h-1 w-1 rounded-full bg-zinc-700 sm:block" />
+
+                <span className="hidden text-[8px] font-black uppercase tracking-[0.12em] text-zinc-700 sm:block">
+                  Visão mensal
+                </span>
+              </div>
+
+              <h2 className="mt-3 text-3xl font-black tracking-[-0.045em] text-white">
+                Desempenho do{" "}
+                <span className="brand-gradient-text">mês atual.</span>
+              </h2>
+
+              <p className="mt-3 max-w-2xl text-sm leading-6 text-zinc-500">
+                Acompanhe a evolução financeira do mês e compare o desempenho
+                com o mesmo período do mês anterior.
+              </p>
+            </div>
+
+            <div className="flex flex-wrap gap-2">
+              <div className="flex items-center gap-2 rounded-full border border-emerald-400/10 bg-emerald-400/[0.04] px-3 py-2">
+                <span className="relative flex h-2 w-2">
+                  <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-40" />
+                  <span className="relative inline-flex h-2 w-2 rounded-full bg-emerald-400" />
+                </span>
+
+                <span className="text-[8px] font-black uppercase tracking-[0.1em] text-emerald-400">
+                  Mês em andamento
+                </span>
+              </div>
+
+              <div className="rounded-full border border-white/[0.06] bg-white/[0.025] px-3 py-2">
+                <span className="text-[8px] font-black uppercase tracking-[0.1em] text-zinc-500">
+                  Cancelados excluídos
+                </span>
+              </div>
+            </div>
+          </div>
+
+          {/* DIVISOR */}
+          <div className="relative mt-7 flex items-center gap-3">
+            <div className="h-px flex-1 bg-linear-to-r from-emerald-400/20 via-white/[0.05] to-transparent" />
+
+            <span className="text-[7px] font-black uppercase tracking-[0.16em] text-zinc-800">
+              desempenho acumulado
+            </span>
+          </div>
+
+          {/* CARDS */}
+          <div className="relative mt-7 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+            {/* FATURAMENTO */}
+            <div className="group relative overflow-hidden rounded-[24px] border border-emerald-400/15 bg-emerald-400/[0.04] p-5 transition duration-500 hover:-translate-y-1 hover:border-emerald-400/30">
+              <div
+                aria-hidden="true"
+                className="pointer-events-none absolute -right-12 -top-12 h-36 w-36 rounded-full bg-emerald-400/[0.08] blur-3xl"
+              />
+
+              <div className="relative">
+                <div className="flex items-start justify-between gap-4">
+                  <div className="flex h-11 w-11 items-center justify-center rounded-2xl border border-emerald-400/15 bg-emerald-400/[0.08] text-xl transition duration-300 group-hover:scale-110">
+                    💰
+                  </div>
+
+                  <span className="rounded-full border border-emerald-400/10 bg-emerald-400/[0.05] px-2 py-1 text-[7px] font-black uppercase tracking-[0.1em] text-emerald-400">
+                    Receita
+                  </span>
+                </div>
+
+                <p className="mt-5 text-[9px] font-black uppercase tracking-[0.12em] text-emerald-400/70">
+                  Faturamento do mês
+                </p>
+
+                <p className="mt-1 text-2xl font-black tracking-[-0.04em] text-white">
+                  {formatarPreco(faturamentoMesAtual)}
+                </p>
+
+                <div className="mt-3 flex flex-wrap items-center gap-2">
+                  <span
+                    className={`rounded-full border px-2 py-1 text-[8px] font-black ${comparacaoFaturamentoMes.fundo} ${comparacaoFaturamentoMes.classe}`}
+                  >
+                    {comparacaoFaturamentoMes.simbolo}{" "}
+                    {comparacaoFaturamentoMes.texto}
+                  </span>
+
+                  <span className="text-[8px] text-zinc-600">
+                    mesmo período anterior
+                  </span>
+                </div>
+              </div>
+
+              <div className="absolute bottom-0 left-0 h-px w-0 bg-linear-to-r from-transparent via-emerald-400 to-transparent transition-all duration-700 group-hover:w-full" />
+            </div>
+
+            {/* PEDIDOS */}
+            <div className="group relative overflow-hidden rounded-[24px] border border-blue-400/15 bg-blue-400/[0.035] p-5 transition duration-500 hover:-translate-y-1 hover:border-blue-400/30">
+              <div className="relative">
+                <div className="flex items-start justify-between gap-4">
+                  <div className="flex h-11 w-11 items-center justify-center rounded-2xl border border-blue-400/15 bg-blue-400/[0.07] text-xl transition duration-300 group-hover:scale-110">
+                    📦
+                  </div>
+
+                  <span className="rounded-full border border-blue-400/10 bg-blue-400/[0.05] px-2 py-1 text-[7px] font-black uppercase tracking-[0.1em] text-blue-400">
+                    Volume
+                  </span>
+                </div>
+
+                <p className="mt-5 text-[9px] font-black uppercase tracking-[0.12em] text-blue-400/70">
+                  Pedidos do mês
+                </p>
+
+                <p className="mt-1 text-3xl font-black tracking-[-0.05em] text-white">
+                  {quantidadePedidosMesAtual}
+                </p>
+
+                <div className="mt-3 flex flex-wrap items-center gap-2">
+                  <span
+                    className={`rounded-full border px-2 py-1 text-[8px] font-black ${comparacaoPedidosMes.fundo} ${comparacaoPedidosMes.classe}`}
+                  >
+                    {comparacaoPedidosMes.simbolo} {comparacaoPedidosMes.texto}
+                  </span>
+
+                  <span className="text-[8px] text-zinc-600">
+                    mesmo período anterior
+                  </span>
+                </div>
+              </div>
+            </div>
+
+            {/* TICKET MÉDIO */}
+            <div className="group relative overflow-hidden rounded-[24px] border border-cyan-400/15 bg-cyan-400/[0.035] p-5 transition duration-500 hover:-translate-y-1 hover:border-cyan-400/30">
+              <div className="relative">
+                <div className="flex items-start justify-between gap-4">
+                  <div className="flex h-11 w-11 items-center justify-center rounded-2xl border border-cyan-400/15 bg-cyan-400/[0.07] text-xl transition duration-300 group-hover:scale-110">
+                    📊
+                  </div>
+
+                  <span className="rounded-full border border-cyan-400/10 bg-cyan-400/[0.05] px-2 py-1 text-[7px] font-black uppercase tracking-[0.1em] text-cyan-400">
+                    Média
+                  </span>
+                </div>
+
+                <p className="mt-5 text-[9px] font-black uppercase tracking-[0.12em] text-cyan-400/70">
+                  Ticket médio
+                </p>
+
+                <p className="mt-1 text-2xl font-black tracking-[-0.04em] text-white">
+                  {formatarPreco(ticketMedioMesAtual)}
+                </p>
+
+                <div className="mt-3 flex flex-wrap items-center gap-2">
+                  <span
+                    className={`rounded-full border px-2 py-1 text-[8px] font-black ${comparacaoTicketMedioMes.fundo} ${comparacaoTicketMedioMes.classe}`}
+                  >
+                    {comparacaoTicketMedioMes.simbolo}{" "}
+                    {comparacaoTicketMedioMes.texto}
+                  </span>
+
+                  <span className="text-[8px] text-zinc-600">
+                    mesmo período anterior
+                  </span>
+                </div>
+              </div>
+            </div>
+
+            {/* PROJEÇÃO */}
+            <div className="group relative overflow-hidden rounded-[24px] border border-amber-400/20 bg-amber-400/[0.045] p-5 transition duration-500 hover:-translate-y-1 hover:border-amber-400/35">
+              <div
+                aria-hidden="true"
+                className="pointer-events-none absolute -right-12 -top-12 h-36 w-36 rounded-full bg-amber-400/[0.09] blur-3xl"
+              />
+
+              <div className="relative">
+                <div className="flex items-start justify-between gap-4">
+                  <div className="flex h-11 w-11 items-center justify-center rounded-2xl border border-amber-400/20 bg-amber-400/[0.08] text-xl transition duration-300 group-hover:scale-110">
+                    🎯
+                  </div>
+
+                  <span className="rounded-full border border-amber-400/15 bg-amber-400/[0.07] px-2 py-1 text-[7px] font-black uppercase tracking-[0.1em] text-amber-400">
+                    Projeção
+                  </span>
+                </div>
+
+                <p className="mt-5 text-[9px] font-black uppercase tracking-[0.12em] text-amber-400/80">
+                  Fechamento estimado
+                </p>
+
+                <p className="mt-1 text-2xl font-black tracking-[-0.04em] text-white">
+                  {formatarPreco(projecaoFaturamentoMes)}
+                </p>
+
+                <p className="mt-3 text-[8px] leading-4 text-zinc-600">
+                  projeção simples baseada no ritmo atual de faturamento
+                </p>
+              </div>
+            </div>
+          </div>
+
+          {/* COMPARATIVO DO MÊS ANTERIOR */}
+          <div className="relative mt-5 overflow-hidden rounded-[26px] border border-white/[0.06] bg-zinc-950/60 p-5 sm:p-6">
+            <div className="flex flex-col gap-5 lg:flex-row lg:items-center lg:justify-between">
+              <div>
+                <div className="flex items-center gap-2">
+                  <span className="h-1.5 w-1.5 rounded-full bg-zinc-500" />
+
+                  <p className="text-[8px] font-black uppercase tracking-[0.14em] text-zinc-500">
+                    Referência histórica
+                  </p>
+                </div>
+
+                <h3 className="mt-2 text-lg font-black tracking-[-0.025em] text-white">
+                  Mês anterior completo
+                </h3>
+
+                <p className="mt-1 text-[10px] text-zinc-600">
+                  faturamento consolidado, excluindo pedidos cancelados
+                </p>
+              </div>
+
+              <div className="lg:text-right">
+                <p className="text-[8px] font-black uppercase tracking-[0.12em] text-zinc-600">
+                  Faturamento
+                </p>
+
+                <p className="mt-1 text-2xl font-black tracking-[-0.04em] text-zinc-200">
+                  {formatarPreco(faturamentoMesAnteriorCompleto)}
+                </p>
+              </div>
+            </div>
+          </div>
+
+          <div className="relative mt-5 border-t border-white/[0.05] pt-4">
+            <p className="text-[9px] leading-4 text-zinc-700">
+              As variações comparam o mês atual com o mesmo intervalo
+              transcorrido do mês anterior. A projeção é apenas uma estimativa
+              baseada no ritmo atual.
             </p>
           </div>
         </section>
