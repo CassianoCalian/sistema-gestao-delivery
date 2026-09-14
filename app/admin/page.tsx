@@ -75,6 +75,10 @@ export default async function AdminPage() {
     inicioHoje.getTime() - 6 * 24 * 60 * 60 * 1000,
   );
 
+  const inicioUltimos30Dias = new Date(
+    inicioHoje.getTime() - 29 * 24 * 60 * 60 * 1000,
+  );
+
   const inicio7DiasAnteriores = new Date(
     inicioUltimos7Dias.getTime() - 7 * 24 * 60 * 60 * 1000,
   );
@@ -99,6 +103,8 @@ export default async function AdminPage() {
     resultadoProdutos,
     resultadoPedidosUltimos7Dias,
     resultadoPedidos7DiasAnteriores,
+    resultadoPedidosClientes,
+    resultadoClientesCadastro,
   ] = await Promise.all([
     // PEDIDOS DE HOJE
     supabaseAdmin
@@ -118,12 +124,12 @@ export default async function AdminPage() {
       .from("pedidos")
       .select(
         `
-          id,
-          created_at,
-          nome_cliente,
-          total,
-          status
-        `,
+      id,
+      created_at,
+      nome_cliente,
+      total,
+      status
+    `,
       )
       .order("created_at", { ascending: false })
       .limit(5),
@@ -133,12 +139,12 @@ export default async function AdminPage() {
       .from("produtos")
       .select(
         `
-          id,
-          nome,
-          estoque,
-          estoque_minimo,
-          ativo
-        `,
+      id,
+      nome,
+      estoque,
+      estoque_minimo,
+      ativo
+    `,
       )
       .eq("ativo", true)
       .order("estoque", { ascending: true }),
@@ -156,6 +162,16 @@ export default async function AdminPage() {
       .select("id, created_at, total, status")
       .gte("created_at", inicio7DiasAnteriores.toISOString())
       .lt("created_at", inicioUltimos7Dias.toISOString()),
+
+    // HISTÓRICO PARA INTELIGÊNCIA DE CLIENTES
+    supabaseAdmin
+      .from("pedidos")
+      .select("id, cliente_id, created_at, total, status")
+      .not("cliente_id", "is", null)
+      .order("created_at", { ascending: true }),
+
+    // CADASTRO DE CLIENTES
+    supabaseAdmin.from("clientes").select("id, nome, telefone, pontos_saldo"),
   ]);
 
   const pedidosHoje = resultadoPedidosHoje.data ?? [];
@@ -164,6 +180,8 @@ export default async function AdminPage() {
   const produtos = resultadoProdutos.data ?? [];
   const pedidosUltimos7Dias = resultadoPedidosUltimos7Dias.data ?? [];
   const pedidos7DiasAnteriores = resultadoPedidos7DiasAnteriores.data ?? [];
+  const pedidosClientes = resultadoPedidosClientes.data ?? [];
+  const clientesCadastro = resultadoClientesCadastro.data ?? [];
   const idsPedidosValidosUltimos7Dias = pedidosUltimos7Dias
     .filter((pedido) => pedido.status !== "cancelado")
     .map((pedido) => pedido.id);
@@ -379,6 +397,98 @@ export default async function AdminPage() {
   const comparacaoTicketMedio = obterComparacaoPeriodo(
     variacaoTicketMedio7Dias,
   );
+
+  const pedidosClientesValidos = pedidosClientes.filter(
+    (pedido) => pedido.status !== "cancelado" && pedido.cliente_id !== null,
+  );
+
+  const pedidosClientes30Dias = pedidosClientesValidos.filter(
+    (pedido) => new Date(pedido.created_at) >= inicioUltimos30Dias,
+  );
+
+  const clientesAtivos30Dias = new Set(
+    pedidosClientes30Dias.map((pedido) => Number(pedido.cliente_id)),
+  );
+
+  const quantidadeClientesAtivos30Dias = clientesAtivos30Dias.size;
+
+  const pedidosPorCliente = new Map<
+    number,
+    {
+      quantidadeTotal: number;
+      quantidade30Dias: number;
+      faturamento30Dias: number;
+      primeiraCompra: Date;
+      ultimaCompra: Date;
+    }
+  >();
+
+  for (const pedido of pedidosClientesValidos) {
+    const clienteId = Number(pedido.cliente_id);
+    const dataPedido = new Date(pedido.created_at);
+    const dentro30Dias = dataPedido >= inicioUltimos30Dias;
+
+    const clienteAtual = pedidosPorCliente.get(clienteId);
+
+    if (clienteAtual) {
+      clienteAtual.quantidadeTotal += 1;
+
+      if (dataPedido < clienteAtual.primeiraCompra) {
+        clienteAtual.primeiraCompra = dataPedido;
+      }
+
+      if (dataPedido > clienteAtual.ultimaCompra) {
+        clienteAtual.ultimaCompra = dataPedido;
+      }
+
+      if (dentro30Dias) {
+        clienteAtual.quantidade30Dias += 1;
+        clienteAtual.faturamento30Dias += Number(pedido.total);
+      }
+    } else {
+      pedidosPorCliente.set(clienteId, {
+        quantidadeTotal: 1,
+        quantidade30Dias: dentro30Dias ? 1 : 0,
+        faturamento30Dias: dentro30Dias ? Number(pedido.total) : 0,
+        primeiraCompra: dataPedido,
+        ultimaCompra: dataPedido,
+      });
+    }
+  }
+
+  const clientesNovos30Dias = Array.from(pedidosPorCliente.values()).filter(
+    (cliente) => cliente.primeiraCompra >= inicioUltimos30Dias,
+  ).length;
+
+  const clientesRecorrentes30Dias = Array.from(
+    pedidosPorCliente.values(),
+  ).filter((cliente) => cliente.quantidade30Dias >= 2).length;
+
+  const taxaRecompra30Dias =
+    quantidadeClientesAtivos30Dias > 0
+      ? (clientesRecorrentes30Dias / quantidadeClientesAtivos30Dias) * 100
+      : 0;
+
+  const clienteMaiorFaturamento30Dias =
+    Array.from(pedidosPorCliente.entries())
+      .filter(([, cliente]) => cliente.faturamento30Dias > 0)
+      .sort((a, b) => b[1].faturamento30Dias - a[1].faturamento30Dias)[0] ??
+    null;
+
+  const clientesPorId = new Map(
+    clientesCadastro.map((cliente) => [Number(cliente.id), cliente]),
+  );
+
+  const melhorCliente30Dias = clienteMaiorFaturamento30Dias
+    ? {
+        cadastro: clientesPorId.get(clienteMaiorFaturamento30Dias[0]) ?? null,
+        dados: clienteMaiorFaturamento30Dias[1],
+      }
+    : null;
+
+  const clientesInativos30Dias = Array.from(pedidosPorCliente.values()).filter(
+    (cliente) => cliente.ultimaCompra < inicioUltimos30Dias,
+  ).length;
 
   const quantidadePix7Dias = pedidosValidosUltimos7Dias.filter(
     (pedido) => pedido.forma_pagamento === "pix",
@@ -653,17 +763,9 @@ export default async function AdminPage() {
                 {formatarPreco(ticketMedioHoje)}
               </p>
 
-              <div className="mt-3 flex flex-wrap items-center gap-2">
-                <span
-                  className={`rounded-full border px-2 py-1 text-[8px] font-black ${comparacaoTicketMedio.fundo} ${comparacaoTicketMedio.classe}`}
-                >
-                  {comparacaoTicketMedio.simbolo} {comparacaoTicketMedio.texto}
-                </span>
-
-                <span className="text-[8px] text-zinc-600">
-                  vs. 7 dias anteriores
-                </span>
-              </div>
+              <p className="mt-2 text-xs text-zinc-600">
+                valor médio dos pedidos de hoje
+              </p>
             </div>
 
             <div className="absolute bottom-0 left-0 h-px w-0 bg-gradient-to-r from-transparent via-cyan-400/70 to-transparent transition-all duration-700 group-hover:w-full" />
@@ -2123,6 +2225,290 @@ export default async function AdminPage() {
             <p className="text-[9px] text-zinc-700">
               Análise baseada apenas em pedidos válidos dos últimos 7 dias.
             </p>
+          </div>
+        </section>
+
+        {/* INTELIGÊNCIA DE CLIENTES */}
+
+        <section className="animate-slide-up relative mt-8 overflow-hidden rounded-[32px] border border-white/[0.07] bg-white/[0.025] p-6 shadow-[0_30px_100px_rgba(0,0,0,0.25)] sm:p-7">
+          <div
+            aria-hidden="true"
+            className="pointer-events-none absolute -left-32 -top-32 h-80 w-80 rounded-full bg-violet-500/[0.045] blur-[120px]"
+          />
+
+          <div
+            aria-hidden="true"
+            className="pointer-events-none absolute -bottom-40 -right-28 h-80 w-80 rounded-full bg-amber-400/[0.035] blur-[130px]"
+          />
+
+          <div className="relative flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between">
+            <div>
+              <div className="flex items-center gap-3">
+                <span className="h-px w-8 bg-violet-400" />
+
+                <p className="text-[9px] font-black uppercase tracking-[0.2em] text-violet-400">
+                  Inteligência de clientes
+                </p>
+
+                <span className="hidden h-1 w-1 rounded-full bg-zinc-700 sm:block" />
+
+                <span className="hidden text-[8px] font-black uppercase tracking-[0.12em] text-zinc-700 sm:block">
+                  CRM & BI
+                </span>
+              </div>
+
+              <h2 className="mt-3 text-3xl font-black tracking-[-0.045em] text-white">
+                Relacionamento em{" "}
+                <span className="brand-gradient-text">30 dias.</span>
+              </h2>
+
+              <p className="mt-3 max-w-2xl text-sm leading-6 text-zinc-500">
+                Entenda quem está comprando, quem voltou a comprar e quais
+                clientes merecem atenção comercial.
+              </p>
+            </div>
+
+            <div className="flex flex-wrap gap-2">
+              <div className="flex items-center gap-2 rounded-full border border-violet-400/10 bg-violet-400/[0.05] px-3 py-2">
+                <span className="h-1.5 w-1.5 rounded-full bg-violet-400" />
+
+                <span className="text-[8px] font-black uppercase tracking-[0.1em] text-violet-400">
+                  Janela de 30 dias
+                </span>
+              </div>
+
+              <Link
+                href="/admin/clientes"
+                className="rounded-full border border-white/[0.07] bg-white/[0.03] px-3 py-2 text-[8px] font-black uppercase tracking-[0.1em] text-zinc-400 transition hover:border-amber-400/20 hover:text-amber-400"
+              >
+                Ver CRM →
+              </Link>
+            </div>
+          </div>
+
+          <div className="relative mt-7 flex items-center gap-3">
+            <div className="h-px flex-1 bg-linear-to-r from-violet-400/20 via-white/[0.05] to-transparent" />
+
+            <span className="text-[7px] font-black uppercase tracking-[0.16em] text-zinc-800">
+              comportamento da base
+            </span>
+          </div>
+
+          <div className="relative mt-7 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+            {/* CLIENTES ATIVOS */}
+            <div className="group rounded-[22px] border border-blue-400/15 bg-blue-400/[0.035] p-5 transition duration-500 hover:-translate-y-1 hover:border-blue-400/30">
+              <div className="flex items-start justify-between gap-3">
+                <div className="flex h-11 w-11 items-center justify-center rounded-2xl border border-blue-400/15 bg-blue-400/[0.07] text-xl transition group-hover:scale-110">
+                  👥
+                </div>
+
+                <span className="rounded-full border border-blue-400/10 bg-blue-400/[0.05] px-2 py-1 text-[7px] font-black uppercase tracking-[0.1em] text-blue-400">
+                  Ativos
+                </span>
+              </div>
+
+              <p className="mt-5 text-[9px] font-black uppercase tracking-[0.12em] text-blue-400/70">
+                Clientes ativos
+              </p>
+
+              <p className="mt-1 text-3xl font-black tracking-[-0.05em] text-white">
+                {quantidadeClientesAtivos30Dias}
+              </p>
+
+              <p className="mt-2 text-[9px] text-zinc-600">
+                compraram nos últimos 30 dias
+              </p>
+            </div>
+
+            {/* NOVOS CLIENTES */}
+            <div className="group rounded-[22px] border border-emerald-400/15 bg-emerald-400/[0.035] p-5 transition duration-500 hover:-translate-y-1 hover:border-emerald-400/30">
+              <div className="flex items-start justify-between gap-3">
+                <div className="flex h-11 w-11 items-center justify-center rounded-2xl border border-emerald-400/15 bg-emerald-400/[0.07] text-xl transition group-hover:scale-110">
+                  ✨
+                </div>
+
+                <span className="rounded-full border border-emerald-400/10 bg-emerald-400/[0.05] px-2 py-1 text-[7px] font-black uppercase tracking-[0.1em] text-emerald-400">
+                  Aquisição
+                </span>
+              </div>
+
+              <p className="mt-5 text-[9px] font-black uppercase tracking-[0.12em] text-emerald-400/70">
+                Novos clientes
+              </p>
+
+              <p className="mt-1 text-3xl font-black tracking-[-0.05em] text-white">
+                {clientesNovos30Dias}
+              </p>
+
+              <p className="mt-2 text-[9px] text-zinc-600">
+                fizeram a primeira compra no período
+              </p>
+            </div>
+
+            {/* RECORRENTES */}
+            <div className="group rounded-[22px] border border-amber-400/15 bg-amber-400/[0.035] p-5 transition duration-500 hover:-translate-y-1 hover:border-amber-400/30">
+              <div className="flex items-start justify-between gap-3">
+                <div className="flex h-11 w-11 items-center justify-center rounded-2xl border border-amber-400/15 bg-amber-400/[0.07] text-xl transition group-hover:scale-110">
+                  🔁
+                </div>
+
+                <span className="rounded-full border border-amber-400/10 bg-amber-400/[0.05] px-2 py-1 text-[7px] font-black uppercase tracking-[0.1em] text-amber-400">
+                  Retenção
+                </span>
+              </div>
+
+              <p className="mt-5 text-[9px] font-black uppercase tracking-[0.12em] text-amber-400/70">
+                Recorrentes
+              </p>
+
+              <p className="mt-1 text-3xl font-black tracking-[-0.05em] text-white">
+                {clientesRecorrentes30Dias}
+              </p>
+
+              <p className="mt-2 text-[9px] text-zinc-600">
+                compraram duas ou mais vezes
+              </p>
+            </div>
+
+            {/* TAXA DE RECOMPRA */}
+            <div className="group rounded-[22px] border border-violet-400/15 bg-violet-400/[0.035] p-5 transition duration-500 hover:-translate-y-1 hover:border-violet-400/30">
+              <div className="flex items-start justify-between gap-3">
+                <div className="flex h-11 w-11 items-center justify-center rounded-2xl border border-violet-400/15 bg-violet-400/[0.07] text-xl transition group-hover:scale-110">
+                  📈
+                </div>
+
+                <span className="rounded-full border border-violet-400/10 bg-violet-400/[0.05] px-2 py-1 text-[7px] font-black uppercase tracking-[0.1em] text-violet-400">
+                  Fidelização
+                </span>
+              </div>
+
+              <p className="mt-5 text-[9px] font-black uppercase tracking-[0.12em] text-violet-400/70">
+                Taxa de recompra
+              </p>
+
+              <p className="mt-1 text-3xl font-black tracking-[-0.05em] text-white">
+                {taxaRecompra30Dias.toFixed(1)}%
+              </p>
+
+              <p className="mt-2 text-[9px] text-zinc-600">
+                dos clientes ativos voltaram a comprar
+              </p>
+            </div>
+          </div>
+
+          <div className="relative mt-5 grid gap-5 lg:grid-cols-2">
+            {/* MELHOR CLIENTE */}
+            <div className="group relative overflow-hidden rounded-[26px] border border-amber-400/20 bg-amber-400/[0.045] p-6 transition duration-500 hover:border-amber-400/35">
+              <div
+                aria-hidden="true"
+                className="pointer-events-none absolute -right-20 -top-20 h-56 w-56 rounded-full bg-amber-400/[0.08] blur-[90px]"
+              />
+
+              <div className="relative">
+                <div className="flex items-start justify-between gap-4">
+                  <div>
+                    <p className="text-[9px] font-black uppercase tracking-[0.16em] text-amber-400">
+                      🏆 Melhor cliente do período
+                    </p>
+
+                    {melhorCliente30Dias ? (
+                      <>
+                        <p className="mt-3 text-xl font-black tracking-[-0.03em] text-white">
+                          {melhorCliente30Dias.cadastro?.nome ??
+                            "Cliente sem cadastro"}
+                        </p>
+
+                        <p className="mt-1 text-xs text-zinc-500">
+                          {melhorCliente30Dias.dados.quantidade30Dias}{" "}
+                          {melhorCliente30Dias.dados.quantidade30Dias === 1
+                            ? "pedido"
+                            : "pedidos"}{" "}
+                          nos últimos 30 dias
+                        </p>
+                      </>
+                    ) : (
+                      <p className="mt-3 text-xl font-black text-zinc-500">
+                        Sem vendas no período
+                      </p>
+                    )}
+                  </div>
+
+                  <div className="flex h-12 w-12 items-center justify-center rounded-2xl border border-amber-400/15 bg-amber-400/[0.08] text-2xl">
+                    👑
+                  </div>
+                </div>
+
+                {melhorCliente30Dias && (
+                  <div className="mt-6 flex flex-wrap items-end justify-between gap-4 border-t border-amber-400/10 pt-5">
+                    <div>
+                      <p className="text-[8px] font-black uppercase tracking-[0.12em] text-zinc-600">
+                        Faturamento gerado
+                      </p>
+
+                      <p className="mt-1 text-2xl font-black tracking-[-0.04em] text-amber-400">
+                        {formatarPreco(
+                          melhorCliente30Dias.dados.faturamento30Dias,
+                        )}
+                      </p>
+                    </div>
+
+                    {melhorCliente30Dias.cadastro && (
+                      <Link
+                        href={`/admin/clientes/${melhorCliente30Dias.cadastro.id}`}
+                        className="rounded-xl border border-amber-400/15 bg-amber-400/[0.06] px-4 py-2 text-[8px] font-black uppercase tracking-[0.1em] text-amber-400 transition hover:bg-amber-400 hover:text-zinc-950"
+                      >
+                        Ver cliente →
+                      </Link>
+                    )}
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* REATIVAÇÃO */}
+            <div className="group relative overflow-hidden rounded-[26px] border border-red-400/15 bg-red-400/[0.03] p-6 transition duration-500 hover:border-red-400/30">
+              <div
+                aria-hidden="true"
+                className="pointer-events-none absolute -right-20 -top-20 h-56 w-56 rounded-full bg-red-400/[0.06] blur-[90px]"
+              />
+
+              <div className="relative">
+                <div className="flex items-start justify-between gap-4">
+                  <div>
+                    <p className="text-[9px] font-black uppercase tracking-[0.16em] text-red-400">
+                      😴 Oportunidade de reativação
+                    </p>
+
+                    <p className="mt-3 text-4xl font-black tracking-[-0.05em] text-white">
+                      {clientesInativos30Dias}
+                    </p>
+
+                    <p className="mt-2 max-w-md text-xs leading-5 text-zinc-500">
+                      clientes com histórico de compras estão há mais de 30 dias
+                      sem realizar um novo pedido.
+                    </p>
+                  </div>
+
+                  <div className="flex h-12 w-12 items-center justify-center rounded-2xl border border-red-400/15 bg-red-400/[0.07] text-2xl">
+                    🎯
+                  </div>
+                </div>
+
+                <div className="mt-6 flex flex-wrap items-center justify-between gap-4 border-t border-red-400/10 pt-5">
+                  <p className="max-w-sm text-[9px] leading-4 text-zinc-600">
+                    Essa base pode ser usada futuramente para campanhas de
+                    WhatsApp, cupons e promoções de retorno.
+                  </p>
+
+                  <Link
+                    href="/admin/clientes"
+                    className="rounded-xl border border-white/[0.07] bg-white/[0.03] px-4 py-2 text-[8px] font-black uppercase tracking-[0.1em] text-zinc-400 transition hover:border-red-400/20 hover:text-red-400"
+                  >
+                    Abrir clientes →
+                  </Link>
+                </div>
+              </div>
+            </div>
           </div>
         </section>
 
