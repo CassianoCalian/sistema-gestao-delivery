@@ -308,6 +308,20 @@ export default function CheckoutPage() {
 
     setErro("");
 
+    if (valorFaltanteMinimo > 0) {
+      setErro(
+        `Adicione mais ${formatarPreco(
+          valorFaltanteMinimo,
+        )} em produtos para atingir o pedido mínimo de ${formatarPreco(
+          PEDIDO_MINIMO,
+        )}.`,
+      );
+
+      envioEmAndamentoRef.current = false;
+
+      return;
+    }
+
     if (bairroSelecionado === "outro") {
       setErro(
         "Para outros bairros, a entrega é realizada via Uber Flash. Consulte o valor da entrega pelo WhatsApp.",
@@ -1581,11 +1595,17 @@ export default function CheckoutPage() {
               <button
                 type="submit"
                 form="checkout-form"
-                disabled={enviando || bairroSelecionado === "outro"}
+                disabled={
+                  enviando ||
+                  bairroSelecionado === "outro" ||
+                  valorFaltanteMinimo > 0
+                }
                 className="brand-button pressable group mt-5 flex min-h-14 w-full items-center justify-center gap-3 rounded-2xl px-5 py-4 text-sm font-black uppercase tracking-[0.06em] disabled:cursor-not-allowed disabled:opacity-40"
               >
                 {bairroSelecionado === "outro" ? (
                   "Consulte a entrega"
+                ) : valorFaltanteMinimo > 0 ? (
+                  `Faltam ${formatarPreco(valorFaltanteMinimo)}`
                 ) : enviando ? (
                   <>
                     <span className="h-4 w-4 animate-spin rounded-full border-2 border-zinc-950/30 border-t-zinc-950" />

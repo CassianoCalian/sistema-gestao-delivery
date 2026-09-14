@@ -31,6 +31,17 @@ export default function CartDrawer({ aberto, fechar }: CartDrawerProps) {
 
   const router = useRouter();
 
+  const VALOR_MINIMO_PEDIDO = 30;
+
+  const temExcecaoMinimo = itens.some(
+    (item) => item.permite_abaixo_minimo === true,
+  );
+
+  const podeFinalizarPorMinimo =
+    valorTotal >= VALOR_MINIMO_PEDIDO || temExcecaoMinimo;
+
+  const valorFaltante = Math.max(0, VALOR_MINIMO_PEDIDO - valorTotal);
+
   const painelRef = useRef<HTMLElement | null>(null);
   const fundoRef = useRef<HTMLButtonElement | null>(null);
 
@@ -154,9 +165,24 @@ export default function CartDrawer({ aberto, fechar }: CartDrawerProps) {
                 </span>
 
                 {quantidadeTotal > 0 && (
-                  <span className="flex items-center gap-1.5 text-[10px] font-bold text-emerald-400">
-                    <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-emerald-400" />
-                    Pronto para finalizar
+                  <span
+                    className={`flex items-center gap-1.5 text-[10px] font-bold ${
+                      podeFinalizarPorMinimo
+                        ? "text-emerald-400"
+                        : "text-amber-400"
+                    }`}
+                  >
+                    <span
+                      className={`h-1.5 w-1.5 animate-pulse rounded-full ${
+                        podeFinalizarPorMinimo
+                          ? "bg-emerald-400"
+                          : "bg-amber-400"
+                      }`}
+                    />
+
+                    {podeFinalizarPorMinimo
+                      ? "Pronto para finalizar"
+                      : "Complete seu pedido"}
                   </span>
                 )}
               </div>
@@ -322,6 +348,12 @@ export default function CartDrawer({ aberto, fechar }: CartDrawerProps) {
                   <p className="mt-1 text-xs font-medium text-zinc-500">
                     Frete calculado no checkout
                   </p>
+                  {!podeFinalizarPorMinimo && (
+                    <p className="mt-2 text-[10px] font-bold leading-4 text-amber-400">
+                      Faltam {formatarPreco(valorFaltante)} para o pedido mínimo
+                      de {formatarPreco(VALOR_MINIMO_PEDIDO)}.
+                    </p>
+                  )}
                 </div>
 
                 <span className="text-2xl font-black tracking-[-0.04em] text-amber-400">

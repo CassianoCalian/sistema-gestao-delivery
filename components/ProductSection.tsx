@@ -129,7 +129,7 @@ export default async function ProductSection({
     }
 
     return (
-      <section id="produtos" className="scroll-mt-28 pb-20">
+      <section id="produtos" className="scroll-mt-28 pb-10 sm:pb-20">
         <div className="premium-card rounded-3xl border border-red-500/15 bg-red-500/[0.04] p-7 text-center">
           <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-2xl bg-red-500/10 text-xl">
             !
@@ -266,10 +266,11 @@ export default async function ProductSection({
             return (
               <article
                 key={produto.id}
-                className="premium-card interactive-card group animate-slide-up relative flex min-w-0 flex-col overflow-hidden rounded-[24px] sm:rounded-[28px]"
-                style={{
-                  animationDelay: `${Math.min(index, 8) * 65}ms`,
-                }}
+                className={`premium-card interactive-card group animate-slide-up relative flex min-w-0 flex-col overflow-hidden rounded-[24px] sm:rounded-[28px] ${
+                  produtos.length % 2 === 1 && index === produtos.length - 1
+                    ? "col-span-2 mx-auto w-[calc(50%_-_0.375rem)] sm:col-span-1 sm:w-full"
+                    : ""
+                }`}
               >
                 {/* IMAGEM */}
                 <div className="relative flex h-40 items-center justify-center overflow-hidden bg-gradient-to-b from-white/[0.055] to-white/[0.015] sm:h-56">
