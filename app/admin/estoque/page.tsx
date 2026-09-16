@@ -191,30 +191,47 @@ export default async function AdminEstoquePage() {
 
             <div className="mt-5 grid gap-3 sm:grid-cols-2">
               {[...esgotados, ...estoqueBaixo].map((produto) => (
-                <Link
+                <div
                   key={produto.id}
-                  href={`/admin/produtos/${produto.id}`}
-                  className="flex items-center justify-between rounded-xl border border-zinc-800 bg-zinc-950 p-4 transition hover:border-amber-400"
+                  className="rounded-xl border border-zinc-800 bg-zinc-950 p-4"
                 >
-                  <div>
-                    <p className="font-black">{produto.nome}</p>
+                  <div className="flex items-center justify-between gap-4">
+                    <div>
+                      <p className="font-black">{produto.nome}</p>
 
-                    <p className="mt-1 text-xs text-zinc-500">
-                      Atual: {produto.estoque} • Mínimo:{" "}
-                      {produto.estoque_minimo}
-                    </p>
+                      <p className="mt-1 text-xs text-zinc-500">
+                        Atual: {produto.estoque} • Mínimo:{" "}
+                        {produto.estoque_minimo}
+                      </p>
+                    </div>
+
+                    <span
+                      className={`text-xl font-black ${
+                        Number(produto.estoque) === 0
+                          ? "text-red-400"
+                          : "text-orange-400"
+                      }`}
+                    >
+                      {produto.estoque}
+                    </span>
                   </div>
 
-                  <span
-                    className={`font-black ${
-                      Number(produto.estoque) === 0
-                        ? "text-red-400"
-                        : "text-orange-400"
-                    }`}
-                  >
-                    {produto.estoque}
-                  </span>
-                </Link>
+                  <div className="mt-4 flex flex-wrap gap-2">
+                    <Link
+                      href={`/admin/estoque/entrada?produto=${produto.id}`}
+                      className="rounded-lg bg-amber-400 px-4 py-2 text-xs font-black text-zinc-950 transition hover:bg-amber-300"
+                    >
+                      📥 Registrar entrada
+                    </Link>
+
+                    <Link
+                      href={`/admin/produtos/${produto.id}`}
+                      className="rounded-lg border border-zinc-700 px-4 py-2 text-xs font-black text-zinc-300 transition hover:border-amber-400 hover:text-amber-400"
+                    >
+                      ✏️ Editar produto
+                    </Link>
+                  </div>
+                </div>
               ))}
             </div>
           </div>

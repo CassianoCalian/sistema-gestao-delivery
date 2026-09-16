@@ -8,13 +8,29 @@ import AdminNavigation from "../../../../components/AdminNavigation";
 import EntradaEstoqueForm from "../../../../components/EntradaEstoqueForm";
 
 export const dynamic = "force-dynamic";
+type EntradaEstoquePageProps = {
+  searchParams: Promise<{
+    produto?: string;
+  }>;
+};
 
-export default async function EntradaEstoquePage() {
+export default async function EntradaEstoquePage({
+  searchParams,
+}: EntradaEstoquePageProps) {
   const autorizado = await verificarAdmin();
 
   if (!autorizado) {
     redirect("/admin/login");
   }
+
+  const parametros = await searchParams;
+
+  const produtoIdParametro = Number(parametros.produto);
+
+  const produtoInicialId =
+    Number.isInteger(produtoIdParametro) && produtoIdParametro > 0
+      ? produtoIdParametro
+      : undefined;
 
   const { data: produtos, error } = await supabaseAdmin
     .from("produtos")
@@ -65,6 +81,7 @@ export default async function EntradaEstoquePage() {
               estoque: Number(produto.estoque),
               ativo: Boolean(produto.ativo),
             }))}
+            produtoInicialId={produtoInicialId}
           />
         )}
       </div>

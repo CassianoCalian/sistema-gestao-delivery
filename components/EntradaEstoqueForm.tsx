@@ -12,14 +12,26 @@ type Produto = {
 
 type EntradaEstoqueFormProps = {
   produtos: Produto[];
+  produtoInicialId?: number;
 };
 
 export default function EntradaEstoqueForm({
   produtos,
+  produtoInicialId,
 }: EntradaEstoqueFormProps) {
   const router = useRouter();
 
-  const [produtoId, setProdutoId] = useState("");
+  const [produtoId, setProdutoId] = useState(() => {
+    if (!produtoInicialId) {
+      return "";
+    }
+
+    const produtoExiste = produtos.some(
+      (produto) => produto.id === produtoInicialId,
+    );
+
+    return produtoExiste ? String(produtoInicialId) : "";
+  });
   const [quantidade, setQuantidade] = useState("");
   const [observacao, setObservacao] = useState("");
 
@@ -147,11 +159,15 @@ export default function EntradaEstoqueForm({
               {produtoSelecionado.estoque}
             </span>
 
-            <span className="text-zinc-500">→</span>
+            {Number(quantidade) > 0 && (
+              <>
+                <span className="text-zinc-500">→</span>
 
-            <span className="text-2xl font-black text-green-400">
-              {produtoSelecionado.estoque + (Number(quantidade) || 0)}
-            </span>
+                <span className="text-2xl font-black text-green-400">
+                  {produtoSelecionado.estoque + Number(quantidade)}
+                </span>
+              </>
+            )}
           </div>
         </div>
       )}
