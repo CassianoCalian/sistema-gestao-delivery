@@ -162,59 +162,31 @@ export async function POST(request: Request) {
       );
     }
 
-    const { data: produto, error } = await supabaseAdmin
-      .from("produtos")
-      .insert({
-        codigo_barras: codigoLimpo || null,
+    const { data, error } = await supabaseAdmin.rpc("cadastrar_produto_admin", {
+      p_codigo_barras: codigoLimpo,
+      p_categoria_id: categoriaIdNumero,
+      p_nome: nome.trim(),
+      p_descricao:
+        typeof descricao === "string" && descricao.trim()
+          ? descricao.trim()
+          : null,
+      p_preco: precoNumero,
+      p_preco_promocional: precoPromocionalNumero,
+      p_estoque_inicial: estoqueNumero,
+      p_estoque_minimo: estoqueMinimoNumero,
+      p_imagem_url:
+        typeof imagem_url === "string" && imagem_url.trim()
+          ? imagem_url.trim()
+          : null,
+      p_ativo: Boolean(ativo),
+      p_em_promocao: Boolean(em_promocao),
+      p_permite_abaixo_minimo: permite_abaixo_minimo === true,
+    });
 
-        categoria_id: categoriaIdNumero,
-
-        nome: nome.trim(),
-
-        descricao:
-          typeof descricao === "string" && descricao.trim()
-            ? descricao.trim()
-            : null,
-
-        preco: precoNumero,
-
-        preco_promocional: precoPromocionalNumero,
-
-        estoque: estoqueNumero,
-        estoque_minimo: estoqueMinimoNumero,
-
-        imagem_url:
-          typeof imagem_url === "string" && imagem_url.trim()
-            ? imagem_url.trim()
-            : null,
-
-        ativo: Boolean(ativo),
-        em_promocao: Boolean(em_promocao),
-        permite_abaixo_minimo: permite_abaixo_minimo === true,
-      })
-      .select(
-        `
-        id,
-        codigo_barras,
-        categoria_id,
-        nome,
-        descricao,
-        preco,
-        preco_promocional,
-        estoque,
-        estoque_minimo,
-        imagem_url,
-        ativo,
-        em_promocao,
-        permite_abaixo_minimo
-      `,
-      )
-      .single();
-
-    if (error || !produto) {
+    if (error) {
       console.error("Erro ao cadastrar produto:", error);
 
-      if (error?.code === "23505") {
+      if (error.code === "23505") {
         return NextResponse.json(
           {
             erro: "Já existe um produto com esse código de barras.",
@@ -223,9 +195,34 @@ export async function POST(request: Request) {
         );
       }
 
+      if (error.message.includes("ESTOQUE_INVALIDO")) {
+        return NextResponse.json(
+          { erro: "Estoque inválido." },
+          { status: 400 },
+        );
+      }
+
+      if (error.message.includes("ESTOQUE_MINIMO_INVALIDO")) {
+        return NextResponse.json(
+          { erro: "Estoque mínimo inválido." },
+          { status: 400 },
+        );
+      }
+
       return NextResponse.json(
         {
           erro: "Não foi possível cadastrar o produto.",
+        },
+        { status: 500 },
+      );
+    }
+
+    const produto = Array.isArray(data) ? data[0] : data;
+
+    if (!produto) {
+      return NextResponse.json(
+        {
+          erro: "O cadastro não retornou os dados esperados.",
         },
         { status: 500 },
       );
