@@ -72,7 +72,7 @@ export default async function AdminPedidosPage({
   const pagamentoSelecionado = parametros.pagamento ?? "";
   const paginaAtual = Math.max(1, Number(parametros.pagina) || 1);
 
-  const pedidosPorPagina = 10;
+  const pedidosPorPagina = statusSelecionado === "ativos" ? 50 : 10;
 
   const inicioPagina = (paginaAtual - 1) * pedidosPorPagina;
 
@@ -132,7 +132,13 @@ export default async function AdminPedidosPage({
     "cancelado",
   ];
 
-  if (statusPermitidos.includes(statusSelecionado)) {
+  if (statusSelecionado === "ativos") {
+    consultaPedidos = consultaPedidos.in("status", [
+      "recebido",
+      "em_preparacao",
+      "saiu_entrega",
+    ]);
+  } else if (statusPermitidos.includes(statusSelecionado)) {
     consultaPedidos = consultaPedidos.eq("status", statusSelecionado);
   }
 
@@ -151,7 +157,8 @@ export default async function AdminPedidosPage({
   if (pagamentoSelecionado === "pix_pendente") {
     consultaPedidos = consultaPedidos
       .eq("forma_pagamento", "pix")
-      .eq("pagamento_confirmado", false);
+      .eq("pagamento_confirmado", false)
+      .in("status", ["recebido", "em_preparacao", "saiu_entrega"]);
   }
 
   if (pagamentoSelecionado === "pix_pago") {
@@ -413,6 +420,7 @@ export default async function AdminPedidosPage({
                   <option value="saiu_entrega">🔵 Saiu para entrega</option>
                   <option value="entregue">🟢 Entregues</option>
                   <option value="cancelado">🔴 Cancelados</option>
+                  <option value="ativos">⚡ Pedidos ativos</option>
                 </select>
 
                 <span className="pointer-events-none absolute right-4 top-1/2 -translate-y-1/2 text-[10px] text-zinc-600">
@@ -709,21 +717,35 @@ export default async function AdminPedidosPage({
               </div>
             </div>
 
-            {/* PAGINAÇÃO RESUMIDA */}
-            {(totalPedidos ?? 0) > 0 && (
-              <div className="flex items-center gap-3 rounded-full border border-white/[0.05] bg-black/20 px-4 py-2">
-                <span className="h-1.5 w-1.5 rounded-full bg-cyan-400" />
+            {/* AÇÕES RÁPIDAS + PAGINAÇÃO RESUMIDA */}
+            <div className="flex flex-wrap items-center gap-2">
+              <Link
+                href="/admin/pedidos?status=ativos"
+                className={`flex min-h-10 items-center gap-2 rounded-full border px-4 py-2 text-[8px] font-black uppercase tracking-[0.1em] transition ${
+                  statusSelecionado === "ativos"
+                    ? "border-amber-400/30 bg-amber-400 text-zinc-950"
+                    : "border-amber-400/15 bg-amber-400/[0.06] text-amber-400 hover:border-amber-400/35 hover:bg-amber-400/[0.1]"
+                }`}
+              >
+                <span>⚡</span>
+                Pedidos ativos
+              </Link>
 
-                <p className="text-[8px] font-black uppercase tracking-[0.1em] text-zinc-600">
-                  Mostrando{" "}
-                  <span className="text-zinc-300">
-                    {inicioPagina + 1}–
-                    {Math.min(fimPagina + 1, totalPedidos ?? 0)}
-                  </span>{" "}
-                  de <span className="text-white">{totalPedidos}</span>
-                </p>
-              </div>
-            )}
+              {(totalPedidos ?? 0) > 0 && (
+                <div className="flex items-center gap-3 rounded-full border border-white/[0.05] bg-black/20 px-4 py-2">
+                  <span className="h-1.5 w-1.5 rounded-full bg-cyan-400" />
+
+                  <p className="text-[8px] font-black uppercase tracking-[0.1em] text-zinc-600">
+                    Mostrando{" "}
+                    <span className="text-zinc-300">
+                      {inicioPagina + 1}–
+                      {Math.min(fimPagina + 1, totalPedidos ?? 0)}
+                    </span>{" "}
+                    de <span className="text-white">{totalPedidos}</span>
+                  </p>
+                </div>
+              )}
+            </div>
           </div>
 
           <div className="relative mt-4 h-px w-full bg-linear-to-r from-amber-400/15 via-white/[0.04] to-transparent" />
@@ -773,6 +795,9 @@ export default async function AdminPedidosPage({
               const saiuEntrega = pedido.status === "saiu_entrega";
               const entregue = pedido.status === "entregue";
               const cancelado = pedido.status === "cancelado";
+              const mostrarStatusPix =
+                pedido.forma_pagamento === "pix" &&
+                (pedido.pagamento_confirmado || (!cancelado && !entregue));
 
               const estiloCard = recebido
                 ? "border-amber-400/25 bg-amber-400/[0.04] hover:border-amber-400/45 hover:shadow-[0_25px_80px_rgba(245,158,11,0.08)]"
@@ -898,7 +923,7 @@ export default async function AdminPedidosPage({
                               </span>
                             </div>
 
-                            {pedido.forma_pagamento === "pix" && (
+                            {mostrarStatusPix && (
                               <span
                                 className={`rounded-full border px-3 py-1.5 text-[8px] font-black uppercase tracking-[0.08em] ${
                                   pedido.pagamento_confirmado

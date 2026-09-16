@@ -102,10 +102,10 @@ export default function PrintableOrderReceipt({
 
   return (
     <div className="hidden print:block">
-      <div className="mx-auto w-[72mm] bg-white font-mono text-[11px] leading-4 text-black">
+      <div className="mx-auto w-[72mm] bg-white font-mono text-[13px] leading-5 text-black">
         {/* CABEÇALHO */}
         <div className="border-b border-dashed border-black pb-3 text-center">
-          <p className="text-base font-black uppercase">Depósito do Zé</p>
+          <p className="text-lg font-black uppercase">Depósito do Zé</p>
 
           <p className="mt-1">Av. Recife, 574 - Jardim Pernambuco</p>
 
@@ -117,17 +117,19 @@ export default function PrintableOrderReceipt({
 
           <p className="mt-2 font-black">Pedido #{pedido.id}</p>
 
-          <p className="mt-1 text-[10px]">{formatarData(pedido.created_at)}</p>
+          <p className="mt-1 text-[11px]">{formatarData(pedido.created_at)}</p>
         </div>
 
         {/* STATUS DO PAGAMENTO */}
         <div className="border-b border-dashed border-black py-3 text-center">
-          <p className="text-[9px] font-black uppercase">Pagamento</p>
+          <p className="text-[11px] font-black uppercase">Pagamento</p>
 
-          <p className="mt-1 text-sm font-black uppercase">{statusPagamento}</p>
+          <p className="mt-1 text-base font-black uppercase">
+            {statusPagamento}
+          </p>
 
           {pedido.forma_pagamento === "pix" && !pedido.pagamento_confirmado && (
-            <p className="mt-1 text-[10px] font-black uppercase">
+            <p className="mt-1 text-[11px] font-black uppercase">
               Aguardar confirmação antes de liberar
             </p>
           )}
@@ -176,7 +178,7 @@ export default function PrintableOrderReceipt({
                   </span>
                 </div>
 
-                <p className="text-[10px]">
+                <p className="text-[11px]">
                   {formatarPreco(Number(item.preco_unitario))} cada
                 </p>
               </div>
@@ -241,7 +243,7 @@ export default function PrintableOrderReceipt({
             </>
           )}
 
-          <div className="mt-3 flex justify-between border-t border-dashed border-black pt-2 text-sm font-black">
+          <div className="mt-3 flex justify-between border-t border-dashed border-black pt-2 text-base font-black">
             <span>TOTAL</span>
 
             <span>{formatarPreco(Number(pedido.total))}</span>

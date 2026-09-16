@@ -117,6 +117,8 @@ export default function OrderStatusButtons({
   const [carregando, setCarregando] = useState(false);
   const [erro, setErro] = useState("");
   const [statusAlterado, setStatusAlterado] = useState<string | null>(null);
+  const pedidoEncerrado =
+    statusAtual === "entregue" || statusAtual === "cancelado";
 
   async function alterarStatus(novoStatus: string) {
     if (novoStatus === statusAtual) {
@@ -190,48 +192,71 @@ export default function OrderStatusButtons({
 
   return (
     <div className="mt-5">
-      <p className="mb-3 text-sm font-bold text-zinc-400">Alterar status</p>
+      {pedidoEncerrado ? (
+        <div
+          className={`rounded-xl border p-4 ${
+            statusAtual === "entregue"
+              ? "border-emerald-900 bg-emerald-950/20"
+              : "border-red-900 bg-red-950/20"
+          }`}
+        >
+          <p
+            className={`text-sm font-black ${
+              statusAtual === "entregue" ? "text-emerald-400" : "text-red-400"
+            }`}
+          >
+            {statusAtual === "entregue"
+              ? "✅ Pedido entregue — operação encerrada."
+              : "✕ Pedido cancelado — operação encerrada."}
+          </p>
+        </div>
+      ) : (
+        <>
+          <p className="mb-3 text-sm font-bold text-zinc-400">Alterar status</p>
 
-      <div className="flex flex-wrap gap-2">
-        {statusOpcoes.map((opcao) => {
-          const selecionado = statusAtual === opcao.valor;
+          <div className="flex flex-wrap gap-2">
+            {statusOpcoes.map((opcao) => {
+              const selecionado = statusAtual === opcao.valor;
 
-          const permitido =
-            TRANSICOES_PERMITIDAS[statusAtual]?.includes(opcao.valor) ?? false;
+              const permitido =
+                TRANSICOES_PERMITIDAS[statusAtual]?.includes(opcao.valor) ??
+                false;
 
-          const bloqueadoPorPagamento =
-            formaPagamento === "pix" &&
-            !pagamentoConfirmado &&
-            (opcao.valor === "saiu_entrega" || opcao.valor === "entregue");
+              const bloqueadoPorPagamento =
+                formaPagamento === "pix" &&
+                !pagamentoConfirmado &&
+                (opcao.valor === "saiu_entrega" || opcao.valor === "entregue");
 
-          if (!selecionado && !permitido) {
-            return null;
-          }
+              if (!selecionado && !permitido) {
+                return null;
+              }
 
-          return (
-            <button
-              key={opcao.valor}
-              type="button"
-              disabled={carregando || selecionado || bloqueadoPorPagamento}
-              onClick={() => alterarStatus(opcao.valor)}
-              className={`rounded-lg border px-3 py-2 text-sm font-bold transition ${
-                selecionado
-                  ? "border-amber-400 bg-amber-400 text-zinc-950"
-                  : opcao.valor === "cancelado"
-                    ? "border-red-900 bg-red-950/30 text-red-300 hover:bg-red-950/60"
-                    : "border-zinc-700 bg-zinc-950 text-zinc-300 hover:border-amber-400 hover:text-white"
-              } disabled:cursor-not-allowed`}
-            >
-              {opcao.texto}
-            </button>
-          );
-        })}
-      </div>
+              return (
+                <button
+                  key={opcao.valor}
+                  type="button"
+                  disabled={carregando || selecionado || bloqueadoPorPagamento}
+                  onClick={() => alterarStatus(opcao.valor)}
+                  className={`rounded-lg border px-3 py-2 text-sm font-bold transition ${
+                    selecionado
+                      ? "border-amber-400 bg-amber-400 text-zinc-950"
+                      : opcao.valor === "cancelado"
+                        ? "border-red-900 bg-red-950/30 text-red-300 hover:bg-red-950/60"
+                        : "border-zinc-700 bg-zinc-950 text-zinc-300 hover:border-amber-400 hover:text-white"
+                  } disabled:cursor-not-allowed`}
+                >
+                  {opcao.texto}
+                </button>
+              );
+            })}
+          </div>
 
-      {formaPagamento === "pix" && !pagamentoConfirmado && (
-        <p className="mt-3 text-sm font-bold text-amber-400">
-          ⏳ Confirme o pagamento PIX para liberar a saída para entrega.
-        </p>
+          {formaPagamento === "pix" && !pagamentoConfirmado && (
+            <p className="mt-3 text-sm font-bold text-amber-400">
+              ⏳ Confirme o pagamento PIX para liberar a saída para entrega.
+            </p>
+          )}
+        </>
       )}
 
       {carregando && (

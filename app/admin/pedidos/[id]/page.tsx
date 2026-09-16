@@ -534,7 +534,7 @@ pagamento_confirmado,
                         <p className="mt-1 text-[8px] text-zinc-700">
                           {pedido.pagamento_confirmado
                             ? "Pagamento registrado no sistema."
-                            : "Confirme o pagamento antes de avançar o pedido."}
+                            : "Confirme o PIX antes de liberar o pedido para entrega."}
                         </p>
                       </div>
                     </div>
@@ -551,6 +551,38 @@ pagamento_confirmado,
                   )}
                 </div>
               </div>
+            </div>
+
+            <div className="mt-8 rounded-2xl border border-zinc-800 bg-zinc-950 p-6">
+              <h2 className="text-xl font-black">Gerenciar pedido</h2>
+
+              <div className="mt-5">
+                <PrintOrderButton />
+              </div>
+
+              {pedido.forma_pagamento === "pix" &&
+                pedido.status !== "cancelado" && (
+                  <div className="mt-5 rounded-xl border border-zinc-800 p-4">
+                    <p className="text-sm font-bold text-zinc-400">
+                      Pagamento PIX
+                    </p>
+
+                    <ConfirmPaymentButton
+                      pedidoId={pedido.id}
+                      pagamentoConfirmado={pedido.pagamento_confirmado}
+                      statusAtual={pedido.status}
+                    />
+                  </div>
+                )}
+
+              <OrderStatusButtons
+                pedidoId={pedido.id}
+                statusAtual={pedido.status}
+                telefone={pedido.telefone}
+                formaPagamento={pedido.forma_pagamento}
+                pagamentoConfirmado={pedido.pagamento_confirmado}
+                codigoAcesso={pedido.codigo_acesso}
+              />
             </div>
 
             <div className="mt-8 rounded-2xl border border-zinc-800 p-6">
@@ -720,38 +752,6 @@ pagamento_confirmado,
                   ))}
                 </div>
               )}
-            </div>
-
-            <div className="mt-8 rounded-2xl border border-zinc-800 bg-zinc-950 p-6">
-              <h2 className="text-xl font-black">Gerenciar pedido</h2>
-
-              <div className="mt-5">
-                <PrintOrderButton />
-              </div>
-
-              {pedido.forma_pagamento === "pix" &&
-                pedido.status !== "cancelado" && (
-                  <div className="mt-5 rounded-xl border border-zinc-800 p-4">
-                    <p className="text-sm font-bold text-zinc-400">
-                      Pagamento PIX
-                    </p>
-
-                    <ConfirmPaymentButton
-                      pedidoId={pedido.id}
-                      pagamentoConfirmado={pedido.pagamento_confirmado}
-                      statusAtual={pedido.status}
-                    />
-                  </div>
-                )}
-
-              <OrderStatusButtons
-                pedidoId={pedido.id}
-                statusAtual={pedido.status}
-                telefone={pedido.telefone}
-                formaPagamento={pedido.forma_pagamento}
-                pagamentoConfirmado={pedido.pagamento_confirmado}
-                codigoAcesso={pedido.codigo_acesso}
-              />
             </div>
           </div>
         </div>

@@ -27,6 +27,11 @@ export default function ConfirmPaymentButton({
     pagamentoConfirmado &&
     (statusAtual === "saiu_entrega" || statusAtual === "entregue");
 
+  const mensagemPagamentoTravado =
+    statusAtual === "entregue"
+      ? "Pagamento confirmado. O pedido já foi finalizado."
+      : "A confirmação está bloqueada porque o pedido já saiu para entrega.";
+
   async function atualizarPagamento(novoValor: boolean) {
     if (statusAtual === "cancelado") {
       return;
@@ -95,7 +100,7 @@ export default function ConfirmPaymentButton({
 
           {pagamentoTravado && (
             <p className="mt-2 text-center text-sm text-green-300">
-              A confirmação está bloqueada porque o pedido já saiu para entrega.
+              {mensagemPagamentoTravado}
             </p>
           )}
 
