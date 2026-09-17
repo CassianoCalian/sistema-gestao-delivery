@@ -491,7 +491,17 @@ export default function CheckoutPage() {
   }
 
   return (
-    <main className="relative min-h-screen overflow-hidden bg-zinc-950 text-white">
+    <main
+      className="relative min-h-screen overflow-hidden bg-[#070707] text-white"
+      style={{
+        backgroundImage: `
+      radial-gradient(circle at 50% 5%, rgba(245,158,11,0.11), transparent 24%),
+      radial-gradient(circle at 5% 38%, rgba(249,115,22,0.055), transparent 24%),
+      radial-gradient(circle at 95% 68%, rgba(245,158,11,0.05), transparent 26%),
+      linear-gradient(180deg, #080808 0%, #0b0907 45%, #070707 100%)
+    `,
+      }}
+    >
       {/* GLOWS */}
       <div
         aria-hidden="true"
@@ -844,7 +854,7 @@ export default function CheckoutPage() {
                           pontosFidelidade > 0 ||
                           !codigoCupom.trim()
                         }
-                        className="pressable min-h-12 shrink-0 rounded-2xl border border-fuchsia-400/20 bg-fuchsia-400/[0.08] px-5 text-xs font-black text-fuchsia-200 transition hover:bg-fuchsia-400/[0.14] disabled:cursor-not-allowed disabled:opacity-40"
+                        className="pressable min-h-12 shrink-0 rounded-2xl border border-fuchsia-400/20 bg-fuchsia-400/[0.08] px-5 text-xs font-black text-fuchsia-200 transition hover:bg-fuchsia-400/[0.14] disabled:cursor-not-allowed disabled:opacity-[0.62] disabled:saturate-75"
                       >
                         {consultandoCupom ? "Validando..." : "Aplicar"}
                       </button>
