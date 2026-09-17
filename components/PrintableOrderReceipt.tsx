@@ -214,32 +214,31 @@ export default function PrintableOrderReceipt({
             <>
               <div className="mt-1 flex justify-between font-bold">
                 <span>Desconto fidelidade</span>
-
                 <span>- {formatarPreco(descontoFidelidade)}</span>
               </div>
 
               {pontosFidelidadeUsados > 0 && (
                 <div className="mt-1 flex justify-between text-[10px]">
                   <span>Pontos utilizados</span>
-
                   <span>{pontosFidelidadeUsados} pts</span>
                 </div>
               )}
-              {descontoCupom > 0 && codigoCupom && (
-                <>
-                  <div className="mt-1 flex justify-between font-bold">
-                    <span>Desconto cupom</span>
-                    <span>- {formatarPreco(descontoCupom)}</span>
-                  </div>
+            </>
+          )}
 
-                  <div className="mt-1 flex justify-between gap-3 text-[10px]">
-                    <span>Cupom</span>
-                    <span className="break-all text-right font-bold">
-                      {codigoCupom}
-                    </span>
-                  </div>
-                </>
-              )}
+          {descontoCupom > 0 && codigoCupom && (
+            <>
+              <div className="mt-1 flex justify-between font-bold">
+                <span>Desconto cupom</span>
+                <span>- {formatarPreco(descontoCupom)}</span>
+              </div>
+
+              <div className="mt-1 flex justify-between gap-3 text-[10px]">
+                <span>Cupom</span>
+                <span className="break-all text-right font-bold">
+                  {codigoCupom}
+                </span>
+              </div>
             </>
           )}
 

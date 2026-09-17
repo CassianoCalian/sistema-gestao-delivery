@@ -672,36 +672,37 @@ pagamento_confirmado,
                             : ""}
                         </p>
                       )}
-                      {descontoCupomNumero > 0 && codigoCupom && (
-                        <div className="mt-3 rounded-xl border border-fuchsia-400/10 bg-fuchsia-400/[0.04] p-4">
-                          <div className="flex items-center justify-between gap-4">
-                            <div className="min-w-0">
-                              <p className="text-sm font-bold text-fuchsia-300">
-                                Cupom de desconto
-                              </p>
-
-                              <p className="mt-1 break-all font-mono text-xs font-black tracking-[0.04em] text-zinc-400">
-                                {codigoCupom}
-                              </p>
-
-                              {pedido.status === "cancelado" && (
-                                <p className="mt-1 text-xs text-zinc-600">
-                                  Pedido cancelado • cupom liberado novamente se
-                                  ainda estiver válido
-                                </p>
-                              )}
-                            </div>
-
-                            <span className="shrink-0 font-black text-emerald-400">
-                              - {formatarPreco(descontoCupomNumero)}
-                            </span>
-                          </div>
-                        </div>
-                      )}
                     </div>
 
                     <span className="font-black text-emerald-400">
                       - {formatarPreco(descontoFidelidadeNumero)}
+                    </span>
+                  </div>
+                </div>
+              )}
+
+              {descontoCupomNumero > 0 && codigoCupom && (
+                <div className="mt-3 rounded-xl border border-fuchsia-400/10 bg-fuchsia-400/[0.04] p-4">
+                  <div className="flex items-center justify-between gap-4">
+                    <div className="min-w-0">
+                      <p className="text-sm font-bold text-fuchsia-300">
+                        Cupom de desconto
+                      </p>
+
+                      <p className="mt-1 break-all font-mono text-xs font-black tracking-[0.04em] text-zinc-400">
+                        {codigoCupom}
+                      </p>
+
+                      {pedido.status === "cancelado" && (
+                        <p className="mt-1 text-xs text-zinc-600">
+                          Pedido cancelado • cupom liberado novamente se ainda
+                          estiver válido
+                        </p>
+                      )}
+                    </div>
+
+                    <span className="shrink-0 font-black text-emerald-400">
+                      - {formatarPreco(descontoCupomNumero)}
                     </span>
                   </div>
                 </div>
