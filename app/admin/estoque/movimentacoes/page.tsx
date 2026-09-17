@@ -280,7 +280,7 @@ export default async function MovimentacoesEstoquePage({
               href="/admin/produtos"
               className="text-sm font-bold text-zinc-400 transition hover:text-amber-400"
             >
-              ← Voltar para produtos
+              ← Voltar ao estoque
             </Link>
           </div>
         </div>
