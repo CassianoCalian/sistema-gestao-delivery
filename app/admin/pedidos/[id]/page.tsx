@@ -186,11 +186,11 @@ pagamento_confirmado,
     .order("created_at", { ascending: true });
 
   if (erroHistorico) {
-    console.error("Erro ao buscar histórico do pedido:", erroHistorico);
+    console.error("Erro ao buscar histórico do pedido.");
   }
 
   if (erroItens) {
-    console.error("Erro ao buscar itens:", erroItens);
+    console.error("Erro ao buscar itens do pedido.");
   }
 
   const taxaCartaoNumero = Number(pedido.taxa_cartao ?? 0);
