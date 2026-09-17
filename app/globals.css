@@ -541,3 +541,100 @@ select option {
   background-color: #18181b;
   color: #ffffff;
 }
+
+@keyframes admin-float {
+  0%,
+  100% {
+    transform: translate3d(0, 0, 0);
+  }
+
+  50% {
+    transform: translate3d(0, -22px, 0);
+  }
+}
+
+@keyframes admin-glow {
+  0%,
+  100% {
+    opacity: 0.25;
+    transform: scale(1);
+  }
+
+  50% {
+    opacity: 0.55;
+    transform: scale(1.12);
+  }
+}
+
+@keyframes admin-light-sweep {
+  0% {
+    transform: translateX(-130%) rotate(-18deg);
+    opacity: 0;
+  }
+
+  25% {
+    opacity: 0.12;
+  }
+
+  65% {
+    opacity: 0.06;
+  }
+
+  100% {
+    transform: translateX(180%) rotate(-18deg);
+    opacity: 0;
+  }
+}
+
+@keyframes adminFloat {
+  0% {
+    transform: translateY(0px) rotate(-6deg);
+  }
+  50% {
+    transform: translateY(-10px) rotate(-4deg);
+  }
+  100% {
+    transform: translateY(0px) rotate(-6deg);
+  }
+}
+
+@keyframes adminBubble {
+  0% {
+    transform: translateY(0px) scale(0.95);
+    opacity: 0;
+  }
+  20% {
+    opacity: 0.45;
+  }
+  100% {
+    transform: translateY(-36px) scale(1.08);
+    opacity: 0;
+  }
+}
+
+.admin-float {
+  animation: adminFloat 6s ease-in-out infinite;
+}
+
+.admin-bubble {
+  animation: adminBubble 3.4s ease-in-out infinite;
+}
+
+.admin-bubble-delayed {
+  animation: adminBubble 4.2s ease-in-out infinite;
+  animation-delay: 1.2s;
+}
+
+.admin-bubble-slow {
+  animation: adminBubble 5s ease-in-out infinite;
+  animation-delay: 2s;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .admin-float,
+  .admin-bubble,
+  .admin-bubble-delayed,
+  .admin-bubble-slow {
+    animation: none !important;
+  }
+}
