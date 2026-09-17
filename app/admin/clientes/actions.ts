@@ -150,7 +150,11 @@ export async function gerarCupomReativacao(formData: FormData) {
   });
 
   if (erroCriacao) {
-    console.error("Erro ao gerar cupom de reativação:", erroCriacao);
+    if (process.env.NODE_ENV === "development") {
+      console.error("Erro ao gerar cupom de reativação:", erroCriacao);
+    } else {
+      console.error("Erro ao gerar cupom de reativação.");
+    }
 
     throw new Error("Não foi possível gerar o cupom.");
   }

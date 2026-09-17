@@ -40,7 +40,11 @@ export default async function EntradaEstoquePage({
     });
 
   if (error) {
-    console.error("Erro ao carregar produtos:", error);
+    if (process.env.NODE_ENV === "development") {
+      console.error("Erro ao carregar produtos:", error);
+    } else {
+      console.error("Erro ao carregar produtos.");
+    }
   }
 
   return (
