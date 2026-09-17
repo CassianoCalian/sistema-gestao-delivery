@@ -166,7 +166,27 @@ export default async function ProductSection({
         : "Os queridinhos do Zé";
 
   return (
-    <section id="produtos" className="scroll-mt-28 pb-20">
+    <section id="produtos" className="relative isolate scroll-mt-28 pb-20 pt-4">
+      {/* PROFUNDIDADE VISUAL DOS PRODUTOS */}
+      <div
+        aria-hidden="true"
+        className="pointer-events-none absolute -inset-x-6 -top-3 -z-10 h-[85%] rounded-[40px] bg-[radial-gradient(circle_at_15%_8%,rgba(245,158,11,0.075),transparent_30%),radial-gradient(circle_at_90%_45%,rgba(249,115,22,0.05),transparent_28%),linear-gradient(180deg,rgba(255,255,255,0.012),transparent_70%)]"
+      />
+
+      <div
+        aria-hidden="true"
+        className="pointer-events-none absolute left-1/2 top-0 -z-10 h-px w-[88%] -translate-x-1/2 bg-gradient-to-r from-transparent via-amber-400/15 to-transparent"
+      />
+
+      <div
+        aria-hidden="true"
+        className="pointer-events-none absolute -left-20 top-40 -z-10 h-52 w-52 rounded-full bg-amber-500/[0.035] blur-[90px]"
+      />
+
+      <div
+        aria-hidden="true"
+        className="pointer-events-none absolute -right-20 top-[45%] -z-10 h-56 w-56 rounded-full bg-orange-500/[0.035] blur-[100px]"
+      />
       {/* CABEÇALHO */}
       <div className="mb-7 flex items-end justify-between gap-4">
         <div className="animate-slide-up min-w-0">

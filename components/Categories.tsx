@@ -47,7 +47,30 @@ const categorias = [
 
 export default function Categories() {
   return (
-    <section className="py-10 md:py-14">
+    <section
+      id="categorias"
+      className="relative isolate scroll-mt-24 py-10 md:py-14"
+    >
+      {/* PROFUNDIDADE VISUAL DA SEÇÃO */}
+      <div
+        aria-hidden="true"
+        className="pointer-events-none absolute -inset-x-6 top-4 -z-10 h-[82%] rounded-[36px] bg-[radial-gradient(circle_at_50%_0%,rgba(245,158,11,0.10),transparent_42%),linear-gradient(180deg,rgba(255,255,255,0.018),transparent_75%)]"
+      />
+
+      <div
+        aria-hidden="true"
+        className="pointer-events-none absolute left-1/2 top-0 -z-10 h-px w-[88%] -translate-x-1/2 bg-gradient-to-r from-transparent via-amber-400/20 to-transparent"
+      />
+
+      <div
+        aria-hidden="true"
+        className="pointer-events-none absolute -left-16 top-24 -z-10 h-40 w-40 rounded-full bg-orange-500/[0.05] blur-[70px]"
+      />
+
+      <div
+        aria-hidden="true"
+        className="pointer-events-none absolute -right-16 top-44 -z-10 h-44 w-44 rounded-full bg-amber-400/[0.05] blur-[80px]"
+      />
       {/* CABEÇALHO */}
       <div className="mb-6 flex items-end justify-between gap-4">
         <div className="animate-slide-up">

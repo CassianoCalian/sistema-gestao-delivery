@@ -9,7 +9,16 @@ export default function Footer() {
   );
 
   return (
-    <footer className="relative overflow-hidden border-t border-white/[0.06] bg-zinc-950 text-white">
+    <footer
+      className="relative overflow-hidden border-t border-amber-400/[0.08] bg-[#070707] text-white"
+      style={{
+        backgroundImage: `
+      radial-gradient(circle at 18% 0%, rgba(245,158,11,0.09), transparent 28%),
+      radial-gradient(circle at 88% 65%, rgba(249,115,22,0.05), transparent 30%),
+      linear-gradient(180deg, #0b0907 0%, #070707 55%, #050505 100%)
+    `,
+      }}
+    >
       {/* LUZES DE FUNDO */}
       <div
         aria-hidden="true"
