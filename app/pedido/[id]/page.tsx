@@ -352,7 +352,17 @@ pagamento_confirmado,
   ];
 
   return (
-    <main className="relative min-h-screen overflow-hidden bg-zinc-950 text-white">
+    <main
+      className="relative min-h-screen overflow-hidden bg-[#070707] text-white"
+      style={{
+        backgroundImage: `
+      radial-gradient(circle at 50% 6%, rgba(245,158,11,0.11), transparent 25%),
+      radial-gradient(circle at 6% 42%, rgba(249,115,22,0.055), transparent 25%),
+      radial-gradient(circle at 94% 72%, rgba(245,158,11,0.05), transparent 28%),
+      linear-gradient(180deg, #080808 0%, #0b0907 48%, #070707 100%)
+    `,
+      }}
+    >
       <PedidoAutoRefresh statusAtual={pedido.status} />
 
       {/* GLOWS DE FUNDO */}
