@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
@@ -18,36 +18,36 @@ export default function AdminNavigation() {
     {
       href: "/admin",
       label: "Dashboard",
-      descricao: "Visão geral",
-      icone: "⌂",
+      descricao: "VisÃ£o geral",
+      icone: "âŒ‚",
       ativo: dashboardAtivo,
     },
     {
       href: "/admin/pedidos",
       label: "Pedidos",
-      descricao: "Operação",
-      icone: "📦",
+      descricao: "OperaÃ§Ã£o",
+      icone: "ðŸ“¦",
       ativo: pedidosAtivo,
     },
     {
       href: "/admin/produtos",
       label: "Produtos",
-      descricao: "Catálogo",
-      icone: "🍺",
+      descricao: "CatÃ¡logo",
+      icone: "ðŸº",
       ativo: produtosAtivo,
     },
     {
       href: "/admin/estoque",
       label: "Estoque",
       descricao: "Controle",
-      icone: "📊",
+      icone: "ðŸ“Š",
       ativo: estoqueAtivo,
     },
     {
       href: "/admin/clientes",
       label: "Clientes",
       descricao: "CRM",
-      icone: "👥",
+      icone: "ðŸ‘¥",
       ativo: clientesAtivo,
     },
   ];
@@ -80,7 +80,7 @@ export default function AdminNavigation() {
               <span className="h-px w-5 bg-amber-400" />
 
               <p className="text-[8px] font-black uppercase tracking-[0.2em] text-amber-400">
-                Depósito do Zé
+                DepÃ³sito do ZÃ©
               </p>
             </div>
 
@@ -109,9 +109,9 @@ export default function AdminNavigation() {
         </div>
       </div>
 
-      {/* NAVEGAÇÃO */}
+      {/* NAVEGAÃ‡ÃƒO */}
       <nav className="relative p-3 sm:p-4">
-        <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-5">
+        <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-6">
           {itensNavegacao.map((item) => (
             <Link
               key={item.href}
@@ -175,7 +175,7 @@ export default function AdminNavigation() {
                     item.ativo ? "text-amber-400" : "text-zinc-700"
                   }`}
                 >
-                  →
+                  â†’
                 </span>
               </div>
 
@@ -192,18 +192,18 @@ export default function AdminNavigation() {
         </div>
       </nav>
 
-      {/* RODAPÉ DA NAVEGAÇÃO */}
+      {/* RODAPÃ‰ DA NAVEGAÃ‡ÃƒO */}
       <div className="relative flex items-center justify-between border-t border-white/[0.045] px-5 py-2.5">
         <div className="flex items-center gap-2">
           <span className="h-1.5 w-1.5 rounded-full bg-amber-400" />
 
           <span className="text-[7px] font-black uppercase tracking-[0.14em] text-zinc-700">
-            Central de gestão
+            Central de gestÃ£o
           </span>
         </div>
 
         <span className="text-[7px] font-black uppercase tracking-[0.14em] text-zinc-800">
-          Área restrita
+          Ãrea restrita
         </span>
       </div>
     </header>
