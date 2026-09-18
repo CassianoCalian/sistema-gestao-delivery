@@ -1,4 +1,4 @@
-import Link from "next/link";
+﻿import Link from "next/link";
 import { redirect } from "next/navigation";
 
 import { supabaseAdmin } from "../../../../lib/supabaseAdmin";
@@ -7,13 +7,47 @@ import AdminNavigation from "../../../../components/AdminNavigation";
 
 export const dynamic = "force-dynamic";
 
-function formatarData(data: string) {
-  return new Intl.DateTimeFormat("pt-BR", {
-    timeZone: "America/Sao_Paulo",
-    dateStyle: "short",
-    timeStyle: "short",
-  }).format(new Date(data));
-}
+type TipoMovimentacao =
+  | "venda"
+  | "cancelamento"
+  | "ajuste_manual"
+  | "entrada";
+
+type MovimentacaoLegada = {
+  id: number;
+  created_at: string;
+  produto_id: number;
+  pedido_id: number | null;
+  tipo: string;
+  quantidade: number;
+  estoque_anterior: number;
+  estoque_novo: number;
+  observacao: string | null;
+};
+
+type MovimentacaoCompartilhada = {
+  id: number;
+  created_at: string;
+  estoque_compartilhado_id: number;
+  pedido_id: number | null;
+  quantidade_anterior: number;
+  quantidade_nova: number;
+  unidades_consumidas: number;
+  observacao: string | null;
+};
+
+type MovimentacaoUnificada = {
+  chave: string;
+  created_at: string;
+  origem: "produto" | "compartilhado";
+  itemNome: string;
+  pedido_id: number | null;
+  tipo: TipoMovimentacao;
+  quantidade: number;
+  estoque_anterior: number;
+  estoque_novo: number;
+  observacao: string | null;
+};
 
 type MovimentacoesEstoquePageProps = {
   searchParams: Promise<{
@@ -24,24 +58,202 @@ type MovimentacoesEstoquePageProps = {
   }>;
 };
 
-function formatarTipo(tipo: string) {
+function formatarData(data: string) {
+  return new Intl.DateTimeFormat("pt-BR", {
+    timeZone: "America/Sao_Paulo",
+    dateStyle: "short",
+    timeStyle: "short",
+  }).format(new Date(data));
+}
+
+function formatarTipo(tipo: TipoMovimentacao) {
   if (tipo === "venda") {
-    return "🛒 Venda";
+    return "Venda";
   }
 
   if (tipo === "cancelamento") {
-    return "↩️ Cancelamento";
+    return "Cancelamento";
   }
 
   if (tipo === "ajuste_manual") {
-    return "🛠️ Ajuste manual";
+    return "Ajuste manual";
   }
 
   if (tipo === "entrada") {
-    return "📥 Entrada";
+    return "Entrada";
   }
 
   return tipo;
+}
+
+function classeTipo(tipo: TipoMovimentacao) {
+  if (tipo === "venda") {
+    return "border-blue-900/60 bg-blue-950/40 text-blue-300";
+  }
+
+  if (tipo === "cancelamento") {
+    return "border-purple-900/60 bg-purple-950/40 text-purple-300";
+  }
+
+  if (tipo === "entrada") {
+    return "border-emerald-900/60 bg-emerald-950/40 text-emerald-300";
+  }
+
+  return "border-amber-900/60 bg-amber-950/40 text-amber-300";
+}
+
+function descobrirTipoCompartilhado(
+  movimentacao: MovimentacaoCompartilhada,
+): TipoMovimentacao {
+  if (Number(movimentacao.unidades_consumidas) > 0) {
+    return "venda";
+  }
+
+  const observacao = (movimentacao.observacao ?? "")
+    .toLocaleLowerCase("pt-BR");
+
+  if (observacao.includes("cancelamento")) {
+    return "cancelamento";
+  }
+
+  if (
+    observacao.includes("entrada física") ||
+    observacao.includes("entrada fisica")
+  ) {
+    return "entrada";
+  }
+
+  return "ajuste_manual";
+}
+
+function tipoValido(tipo: string): tipo is TipoMovimentacao {
+  return (
+    tipo === "venda" ||
+    tipo === "cancelamento" ||
+    tipo === "ajuste_manual" ||
+    tipo === "entrada"
+  );
+}
+
+async function buscarTodasMovimentacoesLegadas(
+  produtoId: number | null,
+  pedidoId: number | null,
+) {
+  const resultado: MovimentacaoLegada[] = [];
+  const tamanhoPagina = 1000;
+  let inicio = 0;
+
+  while (true) {
+    let consulta = supabaseAdmin
+      .from("movimentacoes_estoque")
+      .select(
+        `
+          id,
+          created_at,
+          produto_id,
+          pedido_id,
+          tipo,
+          quantidade,
+          estoque_anterior,
+          estoque_novo,
+          observacao
+        `,
+      )
+      .order("created_at", {
+        ascending: false,
+      })
+      .range(inicio, inicio + tamanhoPagina - 1);
+
+    if (produtoId !== null) {
+      consulta = consulta.eq("produto_id", produtoId);
+    }
+
+    if (pedidoId !== null) {
+      consulta = consulta.eq("pedido_id", pedidoId);
+    }
+
+    const { data, error } = await consulta;
+
+    if (error) {
+      throw new Error(error.message);
+    }
+
+    const lote = (data ?? []) as MovimentacaoLegada[];
+
+    resultado.push(...lote);
+
+    if (lote.length < tamanhoPagina) {
+      break;
+    }
+
+    inicio += tamanhoPagina;
+  }
+
+  return resultado;
+}
+
+async function buscarTodasMovimentacoesCompartilhadas(
+  estoqueCompartilhadoId: number | null,
+  pedidoId: number | null,
+  deveBuscar: boolean,
+) {
+  if (!deveBuscar) {
+    return [] as MovimentacaoCompartilhada[];
+  }
+
+  const resultado: MovimentacaoCompartilhada[] = [];
+  const tamanhoPagina = 1000;
+  let inicio = 0;
+
+  while (true) {
+    let consulta = supabaseAdmin
+      .from("movimentacoes_estoque_compartilhado")
+      .select(
+        `
+          id,
+          created_at,
+          estoque_compartilhado_id,
+          pedido_id,
+          quantidade_anterior,
+          quantidade_nova,
+          unidades_consumidas,
+          observacao
+        `,
+      )
+      .order("created_at", {
+        ascending: false,
+      })
+      .range(inicio, inicio + tamanhoPagina - 1);
+
+    if (estoqueCompartilhadoId !== null) {
+      consulta = consulta.eq(
+        "estoque_compartilhado_id",
+        estoqueCompartilhadoId,
+      );
+    }
+
+    if (pedidoId !== null) {
+      consulta = consulta.eq("pedido_id", pedidoId);
+    }
+
+    const { data, error } = await consulta;
+
+    if (error) {
+      throw new Error(error.message);
+    }
+
+    const lote = (data ?? []) as MovimentacaoCompartilhada[];
+
+    resultado.push(...lote);
+
+    if (lote.length < tamanhoPagina) {
+      break;
+    }
+
+    inicio += tamanhoPagina;
+  }
+
+  return resultado;
 }
 
 export default async function MovimentacoesEstoquePage({
@@ -56,74 +268,71 @@ export default async function MovimentacoesEstoquePage({
   const parametros = await searchParams;
 
   const produtoSelecionado = parametros.produto?.trim() ?? "";
-
   const tipoSelecionado = parametros.tipo?.trim() ?? "";
-
   const pedidoSelecionado = parametros.pedido?.trim() ?? "";
-  const paginaAtual = Math.max(1, Number(parametros.pagina) || 1);
+
+  const paginaAtual = Math.max(
+    1,
+    Number(parametros.pagina) || 1,
+  );
 
   const movimentacoesPorPagina = 20;
 
-  const inicioPagina = (paginaAtual - 1) * movimentacoesPorPagina;
+  const produtoNumero = Number(produtoSelecionado);
 
-  const fimPagina = inicioPagina + movimentacoesPorPagina - 1;
+  const produtoId =
+    Number.isInteger(produtoNumero) && produtoNumero > 0
+      ? produtoNumero
+      : null;
 
-  let consultaMovimentacoes = supabaseAdmin
-    .from("movimentacoes_estoque")
-    .select(
-      `
-    id,
-    created_at,
-    produto_id,
-    pedido_id,
-    tipo,
-    quantidade,
-    estoque_anterior,
-    estoque_novo,
-    observacao
-  `,
-      {
-        count: "exact",
-      },
-    )
-    .order("created_at", {
-      ascending: false,
-    });
+  const pedidoNumero = Number(pedidoSelecionado);
 
-  const produtoId = Number(produtoSelecionado);
+  const pedidoId =
+    Number.isInteger(pedidoNumero) && pedidoNumero > 0
+      ? pedidoNumero
+      : null;
 
-  if (Number.isInteger(produtoId) && produtoId > 0) {
-    consultaMovimentacoes = consultaMovimentacoes.eq("produto_id", produtoId);
-  }
+  const [
+    produtosResultado,
+    configuracoesResultado,
+    estoquesCompartilhadosResultado,
+  ] = await Promise.all([
+    supabaseAdmin
+      .from("produtos")
+      .select("id, nome")
+      .order("nome", {
+        ascending: true,
+      }),
+
+    supabaseAdmin
+      .from("produto_estoque_config")
+      .select(
+        `
+          produto_id,
+          estoque_compartilhado_id,
+          quantidade_por_venda
+        `,
+      ),
+
+    supabaseAdmin
+      .from("estoques_compartilhados")
+      .select("id, nome")
+      .order("nome", {
+        ascending: true,
+      }),
+  ]);
 
   if (
-    tipoSelecionado === "venda" ||
-    tipoSelecionado === "cancelamento" ||
-    tipoSelecionado === "ajuste_manual" ||
-    tipoSelecionado === "entrada"
+    produtosResultado.error ||
+    configuracoesResultado.error ||
+    estoquesCompartilhadosResultado.error
   ) {
-    consultaMovimentacoes = consultaMovimentacoes.eq("tipo", tipoSelecionado);
-  }
-
-  const pedidoId = Number(pedidoSelecionado);
-
-  if (Number.isInteger(pedidoId) && pedidoId > 0) {
-    consultaMovimentacoes = consultaMovimentacoes.eq("pedido_id", pedidoId);
-  }
-  consultaMovimentacoes = consultaMovimentacoes.range(inicioPagina, fimPagina);
-
-  const {
-    data: movimentacoes,
-    error,
-    count: totalMovimentacoes,
-  } = await consultaMovimentacoes;
-  const totalPaginas = Math.max(
-    1,
-    Math.ceil((totalMovimentacoes ?? 0) / movimentacoesPorPagina),
-  );
-
-  if (error) {
-    console.error("Erro ao buscar movimentações de estoque:", error);
+    console.error(
+      "Erro ao carregar informações auxiliares do estoque:",
+      produtosResultado.error ??
+        configuracoesResultado.error ??
+        estoquesCompartilhadosResultado.error,
+    );
 
     return (
       <main className="min-h-screen bg-zinc-950 px-6 py-12 text-white">
@@ -137,23 +346,295 @@ export default async function MovimentacoesEstoquePage({
       </main>
     );
   }
+
+  const produtos = produtosResultado.data ?? [];
+  const configuracoes = configuracoesResultado.data ?? [];
+  const estoquesCompartilhados =
+    estoquesCompartilhadosResultado.data ?? [];
+
+  const produtosPorId = new Map(
+    produtos.map((produto) => [
+      Number(produto.id),
+      produto.nome,
+    ]),
+  );
+
+  const estoquesCompartilhadosPorId = new Map(
+    estoquesCompartilhados.map((estoque) => [
+      Number(estoque.id),
+      estoque.nome,
+    ]),
+  );
+
+  const configuracaoPorProduto = new Map(
+    configuracoes.map((configuracao) => [
+      Number(configuracao.produto_id),
+      {
+        estoqueCompartilhadoId: Number(
+          configuracao.estoque_compartilhado_id,
+        ),
+        quantidadePorVenda: Number(
+          configuracao.quantidade_por_venda,
+        ),
+      },
+    ]),
+  );
+
+  const configuracaoProdutoSelecionado =
+    produtoId !== null
+      ? configuracaoPorProduto.get(produtoId)
+      : undefined;
+
+  const estoqueCompartilhadoSelecionado =
+    configuracaoProdutoSelecionado?.estoqueCompartilhadoId ??
+    null;
+
+  const deveBuscarCompartilhado =
+    produtoId === null ||
+    configuracaoProdutoSelecionado !== undefined;
+
+  let movimentacoesLegadas: MovimentacaoLegada[] = [];
+  let movimentacoesCompartilhadas: MovimentacaoCompartilhada[] =
+    [];
+
+  try {
+    [
+      movimentacoesLegadas,
+      movimentacoesCompartilhadas,
+    ] = await Promise.all([
+      buscarTodasMovimentacoesLegadas(
+        produtoId,
+        pedidoId,
+      ),
+
+      buscarTodasMovimentacoesCompartilhadas(
+        estoqueCompartilhadoSelecionado,
+        pedidoId,
+        deveBuscarCompartilhado,
+      ),
+    ]);
+  } catch (erro) {
+    console.error(
+      "Erro ao buscar movimentações de estoque:",
+      erro,
+    );
+
+    return (
+      <main className="min-h-screen bg-zinc-950 px-6 py-12 text-white">
+        <div className="mx-auto max-w-7xl">
+          <AdminNavigation />
+
+          <div className="rounded-2xl border border-red-900 bg-red-950/40 p-6 text-red-300">
+            Não foi possível carregar o histórico de estoque.
+          </div>
+        </div>
+      </main>
+    );
+  }
+
+  /*
+   * Descobrimos a primeira movimentação física de cada estoque
+   * compartilhado.
+   *
+   * A partir desse ponto, o histórico físico é a fonte oficial.
+   * Assim evitamos mostrar duas vezes a mesma venda/entrada:
+   *
+   * movimentacoes_estoque
+   * +
+   * movimentacoes_estoque_compartilhado
+   */
+  const primeiraMovimentacaoFisicaPorEstoque = new Map<
+    number,
+    number
+  >();
+
+  for (const movimentacao of movimentacoesCompartilhadas) {
+    const estoqueId = Number(
+      movimentacao.estoque_compartilhado_id,
+    );
+
+    const timestamp = new Date(
+      movimentacao.created_at,
+    ).getTime();
+
+    const atual =
+      primeiraMovimentacaoFisicaPorEstoque.get(
+        estoqueId,
+      );
+
+    if (atual === undefined || timestamp < atual) {
+      primeiraMovimentacaoFisicaPorEstoque.set(
+        estoqueId,
+        timestamp,
+      );
+    }
+  }
+
+  const movimentacoes: MovimentacaoUnificada[] = [];
+
+  for (const movimentacao of movimentacoesLegadas) {
+    const produtoMovimentacaoId = Number(
+      movimentacao.produto_id,
+    );
+
+    const configuracao =
+      configuracaoPorProduto.get(
+        produtoMovimentacaoId,
+      );
+
+    if (configuracao) {
+      const primeiraMovimentacaoFisica =
+        primeiraMovimentacaoFisicaPorEstoque.get(
+          configuracao.estoqueCompartilhadoId,
+        );
+
+      if (
+        primeiraMovimentacaoFisica !== undefined &&
+        new Date(
+          movimentacao.created_at,
+        ).getTime() >= primeiraMovimentacaoFisica
+      ) {
+        continue;
+      }
+    }
+
+    const tipo = tipoValido(movimentacao.tipo)
+      ? movimentacao.tipo
+      : "ajuste_manual";
+
+    movimentacoes.push({
+      chave: `produto-${movimentacao.id}`,
+      created_at: movimentacao.created_at,
+      origem: "produto",
+      itemNome:
+        produtosPorId.get(
+          produtoMovimentacaoId,
+        ) ??
+        `Produto #${produtoMovimentacaoId}`,
+      pedido_id: movimentacao.pedido_id,
+      tipo,
+      quantidade:
+        Number(movimentacao.estoque_novo) -
+        Number(movimentacao.estoque_anterior),
+      estoque_anterior: Number(
+        movimentacao.estoque_anterior,
+      ),
+      estoque_novo: Number(
+        movimentacao.estoque_novo,
+      ),
+      observacao: movimentacao.observacao,
+    });
+  }
+
+  for (const movimentacao of movimentacoesCompartilhadas) {
+    const estoqueId = Number(
+      movimentacao.estoque_compartilhado_id,
+    );
+
+    movimentacoes.push({
+      chave: `compartilhado-${movimentacao.id}`,
+      created_at: movimentacao.created_at,
+      origem: "compartilhado",
+      itemNome:
+        estoquesCompartilhadosPorId.get(
+          estoqueId,
+        ) ??
+        `Estoque físico #${estoqueId}`,
+      pedido_id: movimentacao.pedido_id,
+      tipo: descobrirTipoCompartilhado(
+        movimentacao,
+      ),
+      quantidade:
+        Number(movimentacao.quantidade_nova) -
+        Number(movimentacao.quantidade_anterior),
+      estoque_anterior: Number(
+        movimentacao.quantidade_anterior,
+      ),
+      estoque_novo: Number(
+        movimentacao.quantidade_nova,
+      ),
+      observacao: movimentacao.observacao,
+    });
+  }
+
+  const movimentacoesFiltradas =
+    movimentacoes
+      .filter((movimentacao) => {
+        if (
+          tipoSelecionado &&
+          tipoValido(tipoSelecionado) &&
+          movimentacao.tipo !== tipoSelecionado
+        ) {
+          return false;
+        }
+
+        return true;
+      })
+      .sort(
+        (a, b) =>
+          new Date(b.created_at).getTime() -
+          new Date(a.created_at).getTime(),
+      );
+
+  const totalMovimentacoes =
+    movimentacoesFiltradas.length;
+
+  const totalPaginas = Math.max(
+    1,
+    Math.ceil(
+      totalMovimentacoes /
+        movimentacoesPorPagina,
+    ),
+  );
+
+  const paginaSegura = Math.min(
+    paginaAtual,
+    totalPaginas,
+  );
+
+  const inicioPagina =
+    (paginaSegura - 1) *
+    movimentacoesPorPagina;
+
+  const fimPagina =
+    inicioPagina +
+    movimentacoesPorPagina;
+
+  const movimentacoesPagina =
+    movimentacoesFiltradas.slice(
+      inicioPagina,
+      fimPagina,
+    );
+
   function criarUrlPagina(pagina: number) {
     const params = new URLSearchParams();
 
     if (produtoSelecionado) {
-      params.set("produto", produtoSelecionado);
+      params.set(
+        "produto",
+        produtoSelecionado,
+      );
     }
 
     if (tipoSelecionado) {
-      params.set("tipo", tipoSelecionado);
+      params.set(
+        "tipo",
+        tipoSelecionado,
+      );
     }
 
     if (pedidoSelecionado) {
-      params.set("pedido", pedidoSelecionado);
+      params.set(
+        "pedido",
+        pedidoSelecionado,
+      );
     }
 
     if (pagina > 1) {
-      params.set("pagina", String(pagina));
+      params.set(
+        "pagina",
+        String(pagina),
+      );
     }
 
     const query = params.toString();
@@ -162,15 +643,6 @@ export default async function MovimentacoesEstoquePage({
       ? `/admin/estoque/movimentacoes?${query}`
       : "/admin/estoque/movimentacoes";
   }
-
-  const { data: produtos } = await supabaseAdmin
-    .from("produtos")
-    .select("id, nome")
-    .order("nome", { ascending: true });
-
-  const produtosPorId = new Map(
-    (produtos ?? []).map((produto) => [Number(produto.id), produto.nome]),
-  );
 
   return (
     <main className="min-h-screen bg-zinc-950 px-6 py-12 text-white">
@@ -186,8 +658,10 @@ export default async function MovimentacoesEstoquePage({
             Histórico de movimentações
           </h1>
 
-          <p className="mt-2 text-zinc-400">
-            Consulte todas as entradas e saídas registradas no estoque.
+          <p className="mt-2 max-w-3xl text-zinc-400">
+            Consulte entradas, vendas, cancelamentos
+            e ajustes do estoque normal e do estoque
+            físico compartilhado.
           </p>
 
           <form
@@ -199,13 +673,35 @@ export default async function MovimentacoesEstoquePage({
               defaultValue={produtoSelecionado}
               className="rounded-xl border border-zinc-700 bg-zinc-950 px-4 py-3 outline-none transition focus:border-amber-400"
             >
-              <option value="">Todos os produtos</option>
+              <option value="">
+                Todos os produtos
+              </option>
 
-              {produtos?.map((produto) => (
-                <option key={produto.id} value={produto.id}>
-                  {produto.nome}
-                </option>
-              ))}
+              {produtos.map((produto) => {
+                const configuracao =
+                  configuracaoPorProduto.get(
+                    Number(produto.id),
+                  );
+
+                const nomeEstoque =
+                  configuracao
+                    ? estoquesCompartilhadosPorId.get(
+                        configuracao.estoqueCompartilhadoId,
+                      )
+                    : null;
+
+                return (
+                  <option
+                    key={produto.id}
+                    value={produto.id}
+                  >
+                    {produto.nome}
+                    {nomeEstoque
+                      ? ` — estoque físico: ${nomeEstoque}`
+                      : ""}
+                  </option>
+                );
+              })}
             </select>
 
             <select
@@ -213,15 +709,25 @@ export default async function MovimentacoesEstoquePage({
               defaultValue={tipoSelecionado}
               className="rounded-xl border border-zinc-700 bg-zinc-950 px-4 py-3 outline-none transition focus:border-amber-400"
             >
-              <option value="">Todos os tipos</option>
+              <option value="">
+                Todos os tipos
+              </option>
 
-              <option value="venda">🛒 Venda</option>
+              <option value="venda">
+                Venda
+              </option>
 
-              <option value="cancelamento">↩️ Cancelamento</option>
+              <option value="cancelamento">
+                Cancelamento
+              </option>
 
-              <option value="ajuste_manual">🛠️ Ajuste manual</option>
+              <option value="ajuste_manual">
+                Ajuste manual
+              </option>
 
-              <option value="entrada">📥 Entrada</option>
+              <option value="entrada">
+                Entrada
+              </option>
             </select>
 
             <input
@@ -241,171 +747,235 @@ export default async function MovimentacoesEstoquePage({
             </button>
           </form>
 
-          {(produtoSelecionado || tipoSelecionado || pedidoSelecionado) && (
+          {(
+            produtoSelecionado ||
+            tipoSelecionado ||
+            pedidoSelecionado
+          ) && (
             <div className="mt-3">
               <Link
                 href="/admin/estoque/movimentacoes"
                 className="text-sm font-bold text-zinc-400 transition hover:text-amber-400"
               >
-                ✕ Limpar filtros
+                Limpar filtros
               </Link>
             </div>
           )}
         </div>
 
-        <div className="mt-8 flex items-center justify-between">
+        <div className="mt-8 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
           <div>
             <p className="text-sm text-zinc-400">
-              {totalMovimentacoes ?? 0} movimentações encontradas
+              {totalMovimentacoes} movimentações
+              encontradas
             </p>
 
-            {(totalMovimentacoes ?? 0) > 0 && (
+            {totalMovimentacoes > 0 && (
               <p className="mt-1 text-xs text-zinc-500">
-                Mostrando {inicioPagina + 1}–
-                {Math.min(fimPagina + 1, totalMovimentacoes ?? 0)} de{" "}
-                {totalMovimentacoes}
+                Mostrando{" "}
+                {inicioPagina + 1}–
+                {Math.min(
+                  fimPagina,
+                  totalMovimentacoes,
+                )}{" "}
+                de {totalMovimentacoes}
               </p>
             )}
           </div>
 
-          <div className="flex items-center gap-4">
+          <div className="flex flex-wrap items-center gap-3">
+            <Link
+              href="/admin/estoque/compartilhado"
+              className="rounded-xl border border-zinc-700 px-4 py-2 text-sm font-bold text-zinc-300 transition hover:border-amber-400 hover:text-amber-400"
+            >
+              Estoque compartilhado
+            </Link>
+
             <Link
               href="/admin/estoque/entrada"
               className="rounded-xl bg-amber-400 px-4 py-2 text-sm font-black text-zinc-950 transition hover:bg-amber-300"
             >
-              📥 Registrar entrada
+              Registrar entrada
             </Link>
 
             <Link
-              href="/admin/produtos"
+              href="/admin/estoque"
               className="text-sm font-bold text-zinc-400 transition hover:text-amber-400"
             >
-              ← Voltar ao estoque
+              Voltar ao estoque
             </Link>
           </div>
         </div>
 
-        {!movimentacoes || movimentacoes.length === 0 ? (
-          <div className="mt-6 rounded-2xl border border-zinc-800 bg-zinc-900 p-10 text-center">
-            <p className="text-xl font-black">
-              Nenhuma movimentação registrada.
+        {movimentacoesPagina.length === 0 ? (
+          <div className="mt-8 rounded-2xl border border-zinc-800 bg-zinc-900 p-8 text-center">
+            <p className="font-bold text-zinc-300">
+              Nenhuma movimentação encontrada.
             </p>
 
-            <p className="mt-2 text-sm text-zinc-400">
-              Vendas, cancelamentos e ajustes de estoque aparecerão aqui.
+            <p className="mt-2 text-sm text-zinc-500">
+              Altere os filtros ou registre uma nova
+              movimentação de estoque.
             </p>
           </div>
         ) : (
-          <div className="mt-6 overflow-hidden rounded-2xl border border-zinc-800 bg-zinc-900">
-            <div className="overflow-x-auto">
-              <table className="w-full min-w-[1000px] text-left text-sm">
-                <thead className="border-b border-zinc-800 bg-zinc-950 text-xs uppercase tracking-wider text-zinc-500">
-                  <tr>
-                    <th className="px-5 py-4">Data</th>
-                    <th className="px-5 py-4">Produto</th>
-                    <th className="px-5 py-4">Tipo</th>
-                    <th className="px-5 py-4">Quantidade</th>
-                    <th className="px-5 py-4">Antes</th>
-                    <th className="px-5 py-4">Depois</th>
-                    <th className="px-5 py-4">Pedido</th>
-                    <th className="px-5 py-4">Observação</th>
-                  </tr>
-                </thead>
-
-                <tbody className="divide-y divide-zinc-800">
-                  {movimentacoes.map((movimentacao) => (
-                    <tr
-                      key={movimentacao.id}
-                      className="transition hover:bg-zinc-800/40"
-                    >
-                      <td className="whitespace-nowrap px-5 py-4 text-zinc-400">
-                        {formatarData(movimentacao.created_at)}
-                      </td>
-
-                      <td className="px-5 py-4 font-bold">
-                        {produtosPorId.get(Number(movimentacao.produto_id)) ??
-                          `Produto #${movimentacao.produto_id}`}
-                      </td>
-
-                      <td className="whitespace-nowrap px-5 py-4 font-bold">
-                        {formatarTipo(movimentacao.tipo)}
-                      </td>
-
-                      <td className="px-5 py-4">
+          <div className="mt-8 space-y-3">
+            {movimentacoesPagina.map(
+              (movimentacao) => (
+                <div
+                  key={movimentacao.chave}
+                  className="rounded-2xl border border-zinc-800 bg-zinc-900 p-5"
+                >
+                  <div className="flex flex-col gap-5 lg:flex-row lg:items-center lg:justify-between">
+                    <div className="min-w-0 flex-1">
+                      <div className="flex flex-wrap items-center gap-2">
                         <span
-                          className={`inline-flex rounded-full px-3 py-1 font-black ${
-                            movimentacao.quantidade > 0
-                              ? "bg-green-500/10 text-green-400"
-                              : "bg-red-500/10 text-red-400"
+                          className={`rounded-full border px-3 py-1 text-xs font-black ${classeTipo(
+                            movimentacao.tipo,
+                          )}`}
+                        >
+                          {formatarTipo(
+                            movimentacao.tipo,
+                          )}
+                        </span>
+
+                        <span
+                          className={
+                            movimentacao.origem ===
+                            "compartilhado"
+                              ? "rounded-full border border-amber-900/60 bg-amber-950/30 px-3 py-1 text-xs font-bold text-amber-300"
+                              : "rounded-full border border-zinc-700 bg-zinc-800 px-3 py-1 text-xs font-bold text-zinc-300"
+                          }
+                        >
+                          {movimentacao.origem ===
+                          "compartilhado"
+                            ? "Estoque físico"
+                            : "Produto"}
+                        </span>
+                      </div>
+
+                      <h2 className="mt-3 truncate text-lg font-black text-white">
+                        {movimentacao.itemNome}
+                      </h2>
+
+                      <div className="mt-2 flex flex-wrap gap-x-5 gap-y-1 text-sm text-zinc-400">
+                        <span>
+                          {formatarData(
+                            movimentacao.created_at,
+                          )}
+                        </span>
+
+                        {movimentacao.pedido_id && (
+                          <span>
+                            Pedido #
+                            {
+                              movimentacao.pedido_id
+                            }
+                          </span>
+                        )}
+                      </div>
+
+                      {movimentacao.observacao && (
+                        <p className="mt-3 text-sm text-zinc-500">
+                          {
+                            movimentacao.observacao
+                          }
+                        </p>
+                      )}
+                    </div>
+
+                    <div className="grid min-w-[280px] grid-cols-3 gap-3">
+                      <div className="rounded-xl bg-zinc-950 p-3 text-center">
+                        <p className="text-[11px] font-bold uppercase tracking-wide text-zinc-500">
+                          Antes
+                        </p>
+
+                        <p className="mt-1 text-lg font-black">
+                          {
+                            movimentacao.estoque_anterior
+                          }
+                        </p>
+                      </div>
+
+                      <div className="rounded-xl bg-zinc-950 p-3 text-center">
+                        <p className="text-[11px] font-bold uppercase tracking-wide text-zinc-500">
+                          Movimento
+                        </p>
+
+                        <p
+                          className={`mt-1 text-lg font-black ${
+                            movimentacao.quantidade >
+                            0
+                              ? "text-emerald-400"
+                              : movimentacao.quantidade <
+                                  0
+                                ? "text-red-400"
+                                : "text-zinc-400"
                           }`}
                         >
-                          {movimentacao.quantidade > 0
-                            ? `+${movimentacao.quantidade}`
-                            : movimentacao.quantidade}
-                        </span>
-                      </td>
+                          {movimentacao.quantidade >
+                          0
+                            ? "+"
+                            : ""}
+                          {
+                            movimentacao.quantidade
+                          }
+                        </p>
+                      </div>
 
-                      <td className="px-5 py-4 text-zinc-400">
-                        {movimentacao.estoque_anterior}
-                      </td>
+                      <div className="rounded-xl bg-zinc-950 p-3 text-center">
+                        <p className="text-[11px] font-bold uppercase tracking-wide text-zinc-500">
+                          Depois
+                        </p>
 
-                      <td className="px-5 py-4 font-black">
-                        {movimentacao.estoque_novo}
-                      </td>
-
-                      <td className="px-5 py-4">
-                        {movimentacao.pedido_id ? (
-                          <Link
-                            href={`/admin/pedidos/${movimentacao.pedido_id}`}
-                            className="font-bold text-amber-400 transition hover:text-amber-300"
-                          >
-                            #{movimentacao.pedido_id}
-                          </Link>
-                        ) : (
-                          <span className="text-zinc-600">—</span>
-                        )}
-                      </td>
-
-                      <td className="max-w-xs px-5 py-4 text-zinc-400">
-                        {movimentacao.observacao || "—"}
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
+                        <p className="mt-1 text-lg font-black">
+                          {
+                            movimentacao.estoque_novo
+                          }
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              ),
+            )}
           </div>
         )}
+
         {totalPaginas > 1 && (
-          <div className="mt-8 flex flex-col items-center justify-between gap-4 rounded-2xl border border-zinc-800 bg-zinc-900 p-4 sm:flex-row">
-            {paginaAtual > 1 ? (
+          <div className="mt-8 flex items-center justify-center gap-4">
+            {paginaSegura > 1 ? (
               <Link
-                href={criarUrlPagina(paginaAtual - 1)}
-                className="rounded-xl border border-zinc-700 bg-zinc-950 px-5 py-3 text-sm font-black transition hover:border-amber-400 hover:text-amber-400"
+                href={criarUrlPagina(
+                  paginaSegura - 1,
+                )}
+                className="rounded-xl border border-zinc-700 px-5 py-3 text-sm font-bold text-zinc-300 transition hover:border-amber-400 hover:text-amber-400"
               >
-                ← Anterior
+                Anterior
               </Link>
             ) : (
-              <span className="cursor-not-allowed rounded-xl border border-zinc-800 bg-zinc-950 px-5 py-3 text-sm font-black text-zinc-600">
-                ← Anterior
+              <span className="rounded-xl border border-zinc-800 px-5 py-3 text-sm font-bold text-zinc-700">
+                Anterior
               </span>
             )}
 
-            <p className="text-sm font-bold text-zinc-400">
-              Página <span className="text-white">{paginaAtual}</span> de{" "}
-              <span className="text-white">{totalPaginas}</span>
-            </p>
+            <span className="text-sm font-bold text-zinc-400">
+              Página {paginaSegura} de{" "}
+              {totalPaginas}
+            </span>
 
-            {paginaAtual < totalPaginas ? (
+            {paginaSegura < totalPaginas ? (
               <Link
-                href={criarUrlPagina(paginaAtual + 1)}
-                className="rounded-xl border border-zinc-700 bg-zinc-950 px-5 py-3 text-sm font-black transition hover:border-amber-400 hover:text-amber-400"
+                href={criarUrlPagina(
+                  paginaSegura + 1,
+                )}
+                className="rounded-xl border border-zinc-700 px-5 py-3 text-sm font-bold text-zinc-300 transition hover:border-amber-400 hover:text-amber-400"
               >
-                Próxima →
+                Próxima
               </Link>
             ) : (
-              <span className="cursor-not-allowed rounded-xl border border-zinc-800 bg-zinc-950 px-5 py-3 text-sm font-black text-zinc-600">
-                Próxima →
+              <span className="rounded-xl border border-zinc-800 px-5 py-3 text-sm font-bold text-zinc-700">
+                Próxima
               </span>
             )}
           </div>
