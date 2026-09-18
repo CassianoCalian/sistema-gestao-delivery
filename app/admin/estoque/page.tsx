@@ -7,13 +7,6 @@ import AdminNavigation from "../../../components/AdminNavigation";
 
 export const dynamic = "force-dynamic";
 
-function formatarPreco(valor: number) {
-  return valor.toLocaleString("pt-BR", {
-    style: "currency",
-    currency: "BRL",
-  });
-}
-
 export default async function AdminEstoquePage() {
   const autorizado = await verificarAdmin();
 
@@ -21,26 +14,57 @@ export default async function AdminEstoquePage() {
     redirect("/admin/login");
   }
 
-  const { data: produtos, error } = await supabaseAdmin
-    .from("produtos")
-    .select(
-      `
-      id,
-      nome,
-      estoque,
-      estoque_minimo,
-      ativo,
-      preco,
-      preco_promocional,
-      em_promocao
-    `,
-    )
-    .order("nome", {
-      ascending: true,
-    });
+  const [
+    { data: produtos, error: erroProdutos },
+    { data: configuracoesEstoque, error: erroConfiguracoesEstoque },
+    { data: estoquesCompartilhados, error: erroEstoquesCompartilhados },
+  ] = await Promise.all([
+    supabaseAdmin
+      .from("produtos")
+      .select(
+        `
+          id,
+          nome,
+          estoque,
+          estoque_minimo,
+          ativo,
+          preco,
+          preco_promocional,
+          em_promocao
+        `,
+      )
+      .order("nome", {
+        ascending: true,
+      }),
 
-  if (error) {
-    console.error("Erro ao carregar resumo de estoque:", error);
+    supabaseAdmin.from("produto_estoque_config").select(
+      `
+          produto_id,
+          estoque_compartilhado_id,
+          quantidade_por_venda
+        `,
+    ),
+
+    supabaseAdmin
+      .from("estoques_compartilhados")
+      .select(
+        `
+          id,
+          nome,
+          quantidade_total
+        `,
+      )
+      .order("nome", {
+        ascending: true,
+      }),
+  ]);
+
+  if (erroProdutos || erroConfiguracoesEstoque || erroEstoquesCompartilhados) {
+    console.error("Erro ao carregar resumo de estoque:", {
+      erroProdutos,
+      erroConfiguracoesEstoque,
+      erroEstoquesCompartilhados,
+    });
 
     return (
       <main className="min-h-screen bg-zinc-950 px-6 py-12 text-white">
@@ -59,11 +83,55 @@ export default async function AdminEstoquePage() {
 
   const quantidadeProdutosAtivos = produtosAtivos.length;
 
-  const totalUnidades = produtosAtivos.reduce(
-    (total, produto) => total + Number(produto.estoque),
+  /*
+   * IDs dos produtos que utilizam estoque físico compartilhado.
+   *
+   * Esses produtos NÃO podem ser somados normalmente,
+   * porque unidade, promoção e pack podem representar
+   * o mesmo estoque físico.
+   */
+  const idsProdutosCompartilhados = new Set(
+    (configuracoesEstoque ?? []).map((configuracao) =>
+      Number(configuracao.produto_id),
+    ),
+  );
+
+  /*
+   * Soma somente produtos tradicionais, que possuem
+   * estoque próprio e independente.
+   */
+  const totalUnidadesProdutosNormais = produtosAtivos
+    .filter((produto) => !idsProdutosCompartilhados.has(Number(produto.id)))
+    .reduce((total, produto) => total + Number(produto.estoque), 0);
+
+  /*
+   * Cada estoque compartilhado entra apenas uma vez,
+   * usando sua quantidade física real.
+   *
+   * Exemplo:
+   *
+   * BRAHMA:
+   * unidade = 240
+   * promoção = 48
+   * pack = 20
+   *
+   * Estoque físico = 240, e não 308.
+   */
+  const totalUnidadesCompartilhadas = (estoquesCompartilhados ?? []).reduce(
+    (total, estoque) => total + Number(estoque.quantidade_total),
     0,
   );
 
+  const totalUnidades =
+    totalUnidadesProdutosNormais + totalUnidadesCompartilhadas;
+
+  /*
+   * Baixo estoque e esgotados continuam sendo
+   * calculados por formato de venda.
+   *
+   * Para produtos compartilhados, produtos.estoque
+   * já contém a quantidade derivada sincronizada.
+   */
   const estoqueBaixo = produtosAtivos.filter(
     (produto) =>
       Number(produto.estoque) > 0 &&
@@ -74,21 +142,7 @@ export default async function AdminEstoquePage() {
     (produto) => Number(produto.estoque) === 0,
   );
 
-  const valorPotencialEstoque = produtosAtivos.reduce((total, produto) => {
-    const precoNormal = Number(produto.preco);
-
-    const precoPromocional =
-      produto.preco_promocional !== null
-        ? Number(produto.preco_promocional)
-        : null;
-
-    const precoAtual =
-      produto.em_promocao && precoPromocional !== null
-        ? precoPromocional
-        : precoNormal;
-
-    return total + precoAtual * Number(produto.estoque);
-  }, 0);
+  const quantidadeEstoquesCompartilhados = estoquesCompartilhados?.length ?? 0;
 
   return (
     <main className="min-h-screen bg-zinc-950 px-6 py-12 text-white">
@@ -117,6 +171,13 @@ export default async function AdminEstoquePage() {
             </Link>
 
             <Link
+              href="/admin/estoque/compartilhado"
+              className="rounded-xl border border-amber-400/40 bg-amber-400/5 px-5 py-3 text-sm font-black text-amber-400 transition hover:bg-amber-400/10"
+            >
+              🔗 Estoque compartilhado
+            </Link>
+
+            <Link
               href="/admin/estoque/movimentacoes"
               className="rounded-xl border border-zinc-700 bg-zinc-900 px-5 py-3 text-sm font-black transition hover:border-amber-400 hover:text-amber-400"
             >
@@ -138,10 +199,14 @@ export default async function AdminEstoquePage() {
 
           <div className="rounded-2xl border border-zinc-800 bg-zinc-900 p-5">
             <p className="text-sm font-black text-zinc-400">
-              🧮 Unidades em estoque
+              🧮 Unidades físicas em estoque
             </p>
 
             <p className="mt-2 text-3xl font-black">{totalUnidades}</p>
+
+            <p className="mt-1 text-xs text-zinc-500">
+              Sem duplicar unidade, promoção ou pack.
+            </p>
           </div>
 
           <Link
@@ -169,19 +234,31 @@ export default async function AdminEstoquePage() {
           </Link>
         </div>
 
-        <div className="mt-4 rounded-2xl border border-green-900/60 bg-green-950/20 p-6">
-          <p className="text-sm font-black text-green-400">
-            💰 Valor potencial de venda do estoque
-          </p>
+        <Link
+          href="/admin/estoque/compartilhado"
+          className="mt-4 block rounded-2xl border border-amber-900/60 bg-amber-950/20 p-6 transition hover:border-amber-400"
+        >
+          <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+            <div>
+              <p className="text-sm font-black text-amber-400">
+                🔗 Estoques físicos compartilhados
+              </p>
 
-          <p className="mt-2 text-4xl font-black">
-            {formatarPreco(valorPotencialEstoque)}
-          </p>
+              <p className="mt-2 text-4xl font-black text-white">
+                {quantidadeEstoquesCompartilhados}
+              </p>
 
-          <p className="mt-2 text-sm text-zinc-500">
-            Calculado pelo preço atual de venda dos produtos ativos.
-          </p>
-        </div>
+              <p className="mt-2 text-sm text-zinc-500">
+                Grupos físicos controlando unidade, promoção, pack e outros
+                formatos de venda.
+              </p>
+            </div>
+
+            <span className="text-sm font-black text-amber-400">
+              Gerenciar →
+            </span>
+          </div>
+        </Link>
 
         {(estoqueBaixo.length > 0 || esgotados.length > 0) && (
           <div className="mt-8 rounded-2xl border border-zinc-800 bg-zinc-900 p-6">
@@ -203,6 +280,12 @@ export default async function AdminEstoquePage() {
                         Atual: {produto.estoque} • Mínimo:{" "}
                         {produto.estoque_minimo}
                       </p>
+
+                      {idsProdutosCompartilhados.has(Number(produto.id)) && (
+                        <p className="mt-1 text-xs font-bold text-amber-400">
+                          🔗 Estoque derivado de um grupo físico compartilhado
+                        </p>
+                      )}
                     </div>
 
                     <span

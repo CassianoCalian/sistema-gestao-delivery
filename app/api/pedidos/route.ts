@@ -479,7 +479,7 @@ export async function POST(request: Request) {
     // dentro de uma única transação no PostgreSQL.
 
     const { data, error } = await supabaseAdmin.rpc(
-      "criar_pedido_com_estoque",
+      "criar_pedido_com_estoque_v2",
       {
         p_nome: nome.trim(),
         p_telefone: telefone.trim(),
@@ -574,6 +574,15 @@ export async function POST(request: Request) {
             erro: nomeProduto
               ? `${nomeProduto} não está mais disponível.`
               : "Um dos produtos não está mais disponível.",
+          },
+          { status: 400 },
+        );
+      }
+
+      if (mensagem.includes("ESTOQUE_COMPARTILHADO_INSUFICIENTE")) {
+        return NextResponse.json(
+          {
+            erro: "Não há estoque físico suficiente para atender este pedido. Atualize o carrinho e tente novamente.",
           },
           { status: 400 },
         );
