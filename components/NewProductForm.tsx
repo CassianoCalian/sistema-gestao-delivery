@@ -37,6 +37,35 @@ export default function NewProductForm({ categorias }: NewProductFormProps) {
   const [previewImagem, setPreviewImagem] = useState("");
 
   const [enviandoImagem, setEnviandoImagem] = useState(false);
+  const [opcoes, setOpcoes] = useState<string[]>([]);
+  const [novaOpcao, setNovaOpcao] = useState("");
+
+  function adicionarOpcao() {
+    const opcaoLimpa = novaOpcao.trim();
+
+    if (!opcaoLimpa) {
+      return;
+    }
+
+    const opcaoJaExiste = opcoes.some(
+      (opcao) => opcao.toLowerCase() === opcaoLimpa.toLowerCase(),
+    );
+
+    if (opcaoJaExiste) {
+      setErro("Essa opção já foi adicionada.");
+      return;
+    }
+
+    setOpcoes((opcoesAtuais) => [...opcoesAtuais, opcaoLimpa]);
+    setNovaOpcao("");
+    setErro("");
+  }
+
+  function removerOpcao(indice: number) {
+    setOpcoes((opcoesAtuais) =>
+      opcoesAtuais.filter((_, indiceAtual) => indiceAtual !== indice),
+    );
+  }
 
   const [produtoEncontrado, setProdutoEncontrado] =
     useState<ProdutoEncontrado | null>(null);
@@ -180,6 +209,7 @@ export default function NewProductForm({ categorias }: NewProductFormProps) {
 
         estoque: formData.get("estoque")?.toString() ?? "",
         estoque_minimo: formData.get("estoque_minimo")?.toString() ?? "",
+        unidades_por_item: formData.get("unidades_por_item")?.toString() ?? "0",
 
         imagem_url: imagemFinal,
 
@@ -188,6 +218,8 @@ export default function NewProductForm({ categorias }: NewProductFormProps) {
         em_promocao: formData.get("em_promocao") === "on",
         permite_abaixo_minimo: formData.get("permite_abaixo_minimo") === "on",
         categoria_id: formData.get("categoria_id")?.toString() ?? "",
+
+        opcoes: opcoes,
       };
 
       const resposta = await fetch("/api/admin/produtos", {
@@ -341,6 +373,64 @@ export default function NewProductForm({ categorias }: NewProductFormProps) {
             className="w-full resize-none rounded-xl border border-zinc-700 bg-zinc-950 px-4 py-3 outline-none focus:border-amber-400"
           />
         </div>
+        <div className="md:col-span-2">
+          <label className="mb-2 block text-sm font-bold">
+            Sabores / opções
+          </label>
+
+          <p className="mb-3 text-xs text-zinc-500">
+            Use quando o produto possuir opções, como Gelo de Coco, Morango,
+            Maracujá ou outros sabores. Se não possuir, deixe vazio.
+          </p>
+
+          <div className="flex flex-col gap-3 sm:flex-row">
+            <input
+              type="text"
+              value={novaOpcao}
+              onChange={(event) => setNovaOpcao(event.target.value)}
+              onKeyDown={(event) => {
+                if (event.key === "Enter") {
+                  event.preventDefault();
+                  adicionarOpcao();
+                }
+              }}
+              placeholder="Ex: Coco"
+              className="flex-1 rounded-xl border border-zinc-700 bg-zinc-950 px-4 py-3 outline-none focus:border-amber-400"
+            />
+
+            <button
+              type="button"
+              onClick={adicionarOpcao}
+              className="rounded-xl border border-amber-400 px-5 py-3 font-black text-amber-400 transition hover:bg-amber-400 hover:text-zinc-950"
+            >
+              + Adicionar
+            </button>
+          </div>
+
+          {opcoes.length > 0 && (
+            <div className="mt-4 flex flex-wrap gap-2">
+              {opcoes.map((opcao, indice) => (
+                <div
+                  key={`${opcao}-${indice}`}
+                  className="flex items-center gap-2 rounded-full border border-amber-400/30 bg-amber-400/10 px-4 py-2"
+                >
+                  <span className="text-sm font-bold text-amber-300">
+                    {opcao}
+                  </span>
+
+                  <button
+                    type="button"
+                    onClick={() => removerOpcao(indice)}
+                    aria-label={`Remover opção ${opcao}`}
+                    className="font-black text-red-400 transition hover:text-red-300"
+                  >
+                    ✕
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
 
         <div>
           <label className="mb-2 block text-sm font-bold">Preço normal</label>
@@ -402,6 +492,26 @@ export default function NewProductForm({ categorias }: NewProductFormProps) {
 
           <p className="mt-2 text-xs text-zinc-500">
             O sistema avisará quando o estoque chegar a este limite.
+          </p>
+        </div>
+
+        <div>
+          <label className="mb-2 block text-sm font-bold">
+            Unidades de opções por item
+          </label>
+
+          <input
+            type="number"
+            name="unidades_por_item"
+            required
+            min="0"
+            step="1"
+            defaultValue={0}
+            className="w-full rounded-xl border border-zinc-700 bg-zinc-950 px-4 py-3 outline-none focus:border-amber-400"
+          />
+
+          <p className="mt-2 text-xs text-zinc-500">
+            Use 0 para produto normal. Ex.: promoção com 4 gelos = 4.
           </p>
         </div>
 

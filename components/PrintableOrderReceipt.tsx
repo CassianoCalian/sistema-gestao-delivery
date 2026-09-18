@@ -4,6 +4,7 @@ type ItemPedido = {
   preco_unitario: number;
   quantidade: number;
   subtotal: number;
+  opcoes_selecionadas?: unknown;
 };
 
 type PedidoImpressao = {
@@ -181,6 +182,38 @@ export default function PrintableOrderReceipt({
                 <p className="text-[11px]">
                   {formatarPreco(Number(item.preco_unitario))} cada
                 </p>
+                {Array.isArray(item.opcoes_selecionadas) &&
+                  item.opcoes_selecionadas.length > 0 && (
+                    <div className="mt-1 pl-2 text-[11px]">
+                      <p className="font-black uppercase">Sabores / opções</p>
+
+                      {item.opcoes_selecionadas.map((opcao, index) => {
+                        if (
+                          typeof opcao !== "object" ||
+                          opcao === null ||
+                          Array.isArray(opcao)
+                        ) {
+                          return null;
+                        }
+
+                        const nome =
+                          "nome" in opcao && typeof opcao.nome === "string"
+                            ? opcao.nome
+                            : "Opção";
+
+                        const quantidade =
+                          "quantidade" in opcao
+                            ? Number(opcao.quantidade ?? 0)
+                            : 0;
+
+                        return (
+                          <p key={`${nome}-${index}`}>
+                            - {nome}: {quantidade}
+                          </p>
+                        );
+                      })}
+                    </div>
+                  )}
               </div>
             ))}
           </div>

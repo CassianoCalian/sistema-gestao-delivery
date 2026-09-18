@@ -2,7 +2,7 @@
 
 import Image from "next/image";
 
-import { useRef, useState, type FormEvent } from "react";
+import { useEffect, useRef, useState, type FormEvent } from "react";
 
 import { useRouter } from "next/navigation";
 
@@ -28,6 +28,182 @@ export default function CheckoutPage() {
   const router = useRouter();
 
   const { itens, quantidadeTotal, valorTotal, limparCarrinho } = useCart();
+  const [opcoesSelecionadas, setOpcoesSelecionadas] = useState<
+    Record<number, Record<number, number>>
+  >({});
+
+  const [configuracoesAtuais, setConfiguracoesAtuais] = useState<
+    Record<
+      number,
+      {
+        unidades_por_item: number;
+        opcoes: {
+          id: number;
+          nome: string;
+          ativo: boolean;
+          ordem: number;
+        }[];
+      }
+    >
+  >({});
+
+  const [configuracoesCarregadas, setConfiguracoesCarregadas] = useState(false);
+  useEffect(() => {
+    const ids = [...new Set(itens.map((item) => item.id))];
+
+    if (ids.length === 0) {
+      return;
+    }
+
+    const controller = new AbortController();
+
+    async function carregarConfiguracoesAtuais() {
+      try {
+        const resposta = await fetch("/api/checkout/produtos", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({ ids }),
+          cache: "no-store",
+          signal: controller.signal,
+        });
+
+        if (!resposta.ok) {
+          throw new Error("Não foi possível carregar as configurações atuais.");
+        }
+
+        const dados = (await resposta.json()) as {
+          produtos: {
+            id: number;
+            unidades_por_item: number;
+            opcoes: {
+              id: number;
+              nome: string;
+              ativo: boolean;
+              ordem: number;
+            }[];
+          }[];
+        };
+
+        const novasConfiguracoes = Object.fromEntries(
+          dados.produtos.map((produto) => [
+            produto.id,
+            {
+              unidades_por_item: produto.unidades_por_item,
+              opcoes: produto.opcoes,
+            },
+          ]),
+        );
+
+        setConfiguracoesAtuais(novasConfiguracoes);
+        setConfiguracoesCarregadas(true);
+      } catch (error) {
+        if (error instanceof DOMException && error.name === "AbortError") {
+          return;
+        }
+
+        console.error("Erro ao atualizar opções do checkout:", error);
+        setConfiguracoesCarregadas(false);
+      }
+    }
+
+    carregarConfiguracoesAtuais();
+
+    window.addEventListener("focus", carregarConfiguracoesAtuais);
+
+    return () => {
+      window.removeEventListener("focus", carregarConfiguracoesAtuais);
+      controller.abort();
+    };
+  }, [itens]);
+  function obterUnidadesPorItemAtual(item: (typeof itens)[number]) {
+    return (
+      configuracoesAtuais[item.id]?.unidades_por_item ??
+      Number(item.unidades_por_item ?? 0)
+    );
+  }
+
+  function obterOpcoesAtuais(item: (typeof itens)[number]) {
+    return configuracoesAtuais[item.id]?.opcoes ?? item.opcoes ?? [];
+  }
+
+  function alterarQuantidadeOpcao(
+    produtoId: number,
+    opcaoId: number,
+    alteracao: 1 | -1,
+  ) {
+    const item = itens.find((item) => item.id === produtoId);
+
+    if (!item) {
+      return;
+    }
+
+    const totalNecessario = item.quantidade * obterUnidadesPorItemAtual(item);
+
+    setOpcoesSelecionadas((selecoesAtuais) => {
+      const selecoesDoProduto = selecoesAtuais[produtoId] ?? {};
+
+      const totalSelecionado = Object.values(selecoesDoProduto).reduce(
+        (total, quantidade) => total + quantidade,
+        0,
+      );
+
+      const quantidadeAtual = selecoesDoProduto[opcaoId] ?? 0;
+
+      if (alteracao === 1 && totalSelecionado >= totalNecessario) {
+        return selecoesAtuais;
+      }
+
+      if (alteracao === -1 && quantidadeAtual <= 0) {
+        return selecoesAtuais;
+      }
+
+      const novaQuantidade = quantidadeAtual + alteracao;
+
+      return {
+        ...selecoesAtuais,
+        [produtoId]: {
+          ...selecoesDoProduto,
+          [opcaoId]: novaQuantidade,
+        },
+      };
+    });
+  }
+  function totalOpcoesSelecionadas(produtoId: number) {
+    const item = itens.find((item) => item.id === produtoId);
+
+    if (!item) {
+      return 0;
+    }
+
+    const opcoesAtivas = new Set(
+      obterOpcoesAtuais(item)
+        .filter((opcao) => opcao.ativo)
+        .map((opcao) => opcao.id),
+    );
+
+    const selecoesDoProduto = opcoesSelecionadas[produtoId] ?? {};
+
+    return Object.entries(selecoesDoProduto).reduce(
+      (total, [opcaoId, quantidade]) =>
+        opcoesAtivas.has(Number(opcaoId)) ? total + quantidade : total,
+      0,
+    );
+  }
+
+  const opcoesCompletas = itens.every((item) => {
+    const unidadesPorItem = obterUnidadesPorItemAtual(item);
+
+    if (unidadesPorItem <= 0) {
+      return true;
+    }
+
+    const totalNecessario = item.quantidade * unidadesPorItem;
+    const totalSelecionado = totalOpcoesSelecionadas(item.id);
+
+    return totalSelecionado === totalNecessario;
+  });
 
   const [formaPagamento, setFormaPagamento] = useState("pix");
 
@@ -308,6 +484,25 @@ export default function CheckoutPage() {
 
     setErro("");
 
+    if (!configuracoesCarregadas) {
+      setErro(
+        "Estamos atualizando a disponibilidade dos produtos. Aguarde um instante e tente novamente.",
+      );
+
+      envioEmAndamentoRef.current = false;
+      return;
+    }
+
+    if (!opcoesCompletas) {
+      setErro(
+        "Selecione todos os sabores/opções obrigatórios antes de finalizar o pedido.",
+      );
+
+      envioEmAndamentoRef.current = false;
+
+      return;
+    }
+
     if (valorFaltanteMinimo > 0) {
       setErro(
         `Adicione mais ${formatarPreco(
@@ -386,6 +581,19 @@ export default function CheckoutPage() {
         itens: itens.map((item) => ({
           id: item.id,
           quantidade: item.quantidade,
+
+          opcoes_selecionadas: Object.entries(opcoesSelecionadas[item.id] ?? {})
+            .filter(([opcaoId, quantidade]) => {
+              const opcaoAindaAtiva = obterOpcoesAtuais(item).some(
+                (opcao) => opcao.ativo && opcao.id === Number(opcaoId),
+              );
+
+              return quantidade > 0 && opcaoAindaAtiva;
+            })
+            .map(([opcaoId, quantidade]) => ({
+              opcao_id: Number(opcaoId),
+              quantidade,
+            })),
         })),
       };
 
@@ -1498,6 +1706,87 @@ export default function CheckoutPage() {
                     <p className="mt-1 text-[10px] text-zinc-600">
                       {item.quantidade}x {formatarPreco(item.preco)}
                     </p>
+
+                    {obterUnidadesPorItemAtual(item) > 0 && (
+                      <div className="mt-3 rounded-xl border border-amber-400/15 bg-amber-400/[0.04] p-3">
+                        <div className="mb-3 flex items-center justify-between gap-2">
+                          <p className="text-[10px] font-black text-amber-300">
+                            Escolha os sabores
+                          </p>
+
+                          <span className="text-[9px] font-bold text-zinc-400">
+                            {totalOpcoesSelecionadas(item.id)} de{" "}
+                            {item.quantidade * obterUnidadesPorItemAtual(item)}
+                          </span>
+                        </div>
+
+                        <div className="space-y-2">
+                          {obterOpcoesAtuais(item)
+                            .filter((opcao) => opcao.ativo)
+                            .map((opcao) => {
+                              const quantidadeOpcao =
+                                opcoesSelecionadas[item.id]?.[opcao.id] ?? 0;
+
+                              const totalNecessario =
+                                item.quantidade *
+                                obterUnidadesPorItemAtual(item);
+
+                              const totalSelecionado = totalOpcoesSelecionadas(
+                                item.id,
+                              );
+
+                              return (
+                                <div
+                                  key={opcao.id}
+                                  className="flex items-center justify-between gap-2"
+                                >
+                                  <span className="text-[10px] font-bold text-zinc-300">
+                                    {opcao.nome}
+                                  </span>
+
+                                  <div className="flex items-center gap-1.5">
+                                    <button
+                                      type="button"
+                                      onClick={() =>
+                                        alterarQuantidadeOpcao(
+                                          item.id,
+                                          opcao.id,
+                                          -1,
+                                        )
+                                      }
+                                      disabled={quantidadeOpcao <= 0}
+                                      className="flex h-6 w-6 items-center justify-center rounded-md border border-white/[0.08] bg-white/[0.04] text-xs font-black text-white disabled:opacity-30"
+                                    >
+                                      −
+                                    </button>
+
+                                    <span className="min-w-4 text-center text-[10px] font-black text-white">
+                                      {quantidadeOpcao}
+                                    </span>
+
+                                    <button
+                                      type="button"
+                                      onClick={() =>
+                                        alterarQuantidadeOpcao(
+                                          item.id,
+                                          opcao.id,
+                                          1,
+                                        )
+                                      }
+                                      disabled={
+                                        totalSelecionado >= totalNecessario
+                                      }
+                                      className="flex h-6 w-6 items-center justify-center rounded-md border border-amber-400/20 bg-amber-400/10 text-xs font-black text-amber-300 disabled:opacity-30"
+                                    >
+                                      +
+                                    </button>
+                                  </div>
+                                </div>
+                              );
+                            })}
+                        </div>
+                      </div>
+                    )}
                   </div>
 
                   <p className="shrink-0 text-xs font-black text-zinc-300">
@@ -1607,8 +1896,10 @@ export default function CheckoutPage() {
                 form="checkout-form"
                 disabled={
                   enviando ||
+                  !configuracoesCarregadas ||
                   bairroSelecionado === "outro" ||
-                  valorFaltanteMinimo > 0
+                  valorFaltanteMinimo > 0 ||
+                  !opcoesCompletas
                 }
                 className="brand-button pressable group mt-5 flex min-h-14 w-full items-center justify-center gap-3 rounded-2xl px-5 py-4 text-sm font-black uppercase tracking-[0.06em] disabled:cursor-not-allowed disabled:opacity-40"
               >

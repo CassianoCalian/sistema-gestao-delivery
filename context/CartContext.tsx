@@ -9,6 +9,19 @@ export type ProdutoCarrinho = {
   imagem_url?: string | null;
   estoque: number;
   permite_abaixo_minimo?: boolean;
+
+  unidades_por_item?: number;
+
+  opcoes?:
+    | {
+        id: number;
+        nome: string;
+        ativo: boolean;
+        ordem: number;
+      }[]
+    | null;
+
+  opcao_selecionada?: string | null;
 };
 
 export type ItemCarrinho = ProdutoCarrinho & {
@@ -18,9 +31,11 @@ export type ItemCarrinho = ProdutoCarrinho & {
 type CartContextType = {
   itens: ItemCarrinho[];
   adicionarProduto: (produto: ProdutoCarrinho) => void;
-  removerProduto: (id: number) => void;
-  aumentarQuantidade: (id: number) => void;
-  diminuirQuantidade: (id: number) => void;
+  removerProduto: (id: number, opcaoSelecionada?: string | null) => void;
+
+  aumentarQuantidade: (id: number, opcaoSelecionada?: string | null) => void;
+
+  diminuirQuantidade: (id: number, opcaoSelecionada?: string | null) => void;
   limparCarrinho: () => void;
   quantidadeTotal: number;
   valorTotal: number;
@@ -28,22 +43,44 @@ type CartContextType = {
 
 const CartContext = createContext<CartContextType | undefined>(undefined);
 
+function normalizarOpcao(opcao?: string | null) {
+  return typeof opcao === "string" ? opcao.trim().toLowerCase() : "";
+}
+
+function mesmoItemCarrinho(
+  item: ProdutoCarrinho,
+  id: number,
+  opcaoSelecionada?: string | null,
+) {
+  return (
+    item.id === id &&
+    normalizarOpcao(item.opcao_selecionada) ===
+      normalizarOpcao(opcaoSelecionada)
+  );
+}
+
 export function CartProvider({ children }: { children: ReactNode }) {
   const [itens, setItens] = useState<ItemCarrinho[]>([]);
 
   function adicionarProduto(produto: ProdutoCarrinho) {
     setItens((itensAtuais) => {
-      const produtoExistente = itensAtuais.find(
-        (item) => item.id === produto.id,
+      const opcaoSelecionada = produto.opcao_selecionada?.trim() || null;
+
+      const quantidadeTotalDoProduto = itensAtuais
+        .filter((item) => item.id === produto.id)
+        .reduce((total, item) => total + item.quantidade, 0);
+
+      if (quantidadeTotalDoProduto >= produto.estoque) {
+        return itensAtuais;
+      }
+
+      const produtoExistente = itensAtuais.find((item) =>
+        mesmoItemCarrinho(item, produto.id, opcaoSelecionada),
       );
 
       if (produtoExistente) {
-        if (produtoExistente.quantidade >= produto.estoque) {
-          return itensAtuais;
-        }
-
         return itensAtuais.map((item) =>
-          item.id === produto.id
+          mesmoItemCarrinho(item, produto.id, opcaoSelecionada)
             ? {
                 ...item,
                 quantidade: item.quantidade + 1,
@@ -60,24 +97,33 @@ export function CartProvider({ children }: { children: ReactNode }) {
         ...itensAtuais,
         {
           ...produto,
+          opcao_selecionada: opcaoSelecionada,
           quantidade: 1,
         },
       ];
     });
   }
 
-  function removerProduto(id: number) {
-    setItens((itensAtuais) => itensAtuais.filter((item) => item.id !== id));
+  function removerProduto(id: number, opcaoSelecionada?: string | null) {
+    setItens((itensAtuais) =>
+      itensAtuais.filter(
+        (item) => !mesmoItemCarrinho(item, id, opcaoSelecionada),
+      ),
+    );
   }
 
-  function aumentarQuantidade(id: number) {
-    setItens((itensAtuais) =>
-      itensAtuais.map((item) => {
-        if (item.id !== id) {
+  function aumentarQuantidade(id: number, opcaoSelecionada?: string | null) {
+    setItens((itensAtuais) => {
+      const quantidadeTotalDoProduto = itensAtuais
+        .filter((item) => item.id === id)
+        .reduce((total, item) => total + item.quantidade, 0);
+
+      return itensAtuais.map((item) => {
+        if (!mesmoItemCarrinho(item, id, opcaoSelecionada)) {
           return item;
         }
 
-        if (item.quantidade >= item.estoque) {
+        if (quantidadeTotalDoProduto >= item.estoque) {
           return item;
         }
 
@@ -85,15 +131,15 @@ export function CartProvider({ children }: { children: ReactNode }) {
           ...item,
           quantidade: item.quantidade + 1,
         };
-      }),
-    );
+      });
+    });
   }
 
-  function diminuirQuantidade(id: number) {
+  function diminuirQuantidade(id: number, opcaoSelecionada?: string | null) {
     setItens((itensAtuais) =>
       itensAtuais
         .map((item) =>
-          item.id === id
+          mesmoItemCarrinho(item, id, opcaoSelecionada)
             ? {
                 ...item,
                 quantidade: item.quantidade - 1,

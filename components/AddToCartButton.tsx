@@ -11,7 +11,16 @@ type AddToCartButtonProps = {
     preco: number;
     imagem_url: string | null;
     estoque: number;
+    unidades_por_item: number;
     permite_abaixo_minimo: boolean;
+    opcoes?:
+      | {
+          id: number;
+          nome: string;
+          ativo: boolean;
+          ordem: number;
+        }[]
+      | null;
   };
 
   indisponivel?: boolean;
@@ -25,11 +34,11 @@ export default function AddToCartButton({
 
   const [adicionado, setAdicionado] = useState(false);
 
-  const itemNoCarrinho = itens.find((item) => item.id === produto.id);
+  const quantidadeNoCarrinho = itens
+    .filter((item) => item.id === produto.id)
+    .reduce((total, item) => total + item.quantidade, 0);
 
-  const limiteAtingido = itemNoCarrinho
-    ? itemNoCarrinho.quantidade >= produto.estoque
-    : false;
+  const limiteAtingido = quantidadeNoCarrinho >= produto.estoque;
 
   const botaoBloqueado = indisponivel || limiteAtingido;
 
@@ -175,7 +184,17 @@ export default function AddToCartButton({
 
     animarProdutoAteCarrinho(event);
 
-    adicionarProduto(produto);
+    adicionarProduto({
+      id: produto.id,
+      nome: produto.nome,
+      preco: produto.preco,
+      imagem_url: produto.imagem_url,
+      estoque: produto.estoque,
+      permite_abaixo_minimo: produto.permite_abaixo_minimo,
+      unidades_por_item: produto.unidades_por_item,
+      opcoes: produto.opcoes ?? [],
+      opcao_selecionada: null,
+    });
 
     setAdicionado(true);
 
@@ -185,16 +204,17 @@ export default function AddToCartButton({
   }
 
   return (
-    <button
-      type="button"
-      disabled={botaoBloqueado}
-      onClick={adicionar}
-      aria-label={
-        limiteAtingido
-          ? `Limite de estoque atingido para ${produto.nome}`
-          : `Adicionar ${produto.nome} ao carrinho`
-      }
-      className={`
+    <>
+      <button
+        type="button"
+        disabled={botaoBloqueado}
+        onClick={adicionar}
+        aria-label={
+          limiteAtingido
+            ? `Limite de estoque atingido para ${produto.nome}`
+            : `Adicionar ${produto.nome} ao carrinho`
+        }
+        className={`
         pressable group relative flex h-12 w-12 shrink-0
         items-center justify-center overflow-hidden
         rounded-2xl border font-black transition duration-300
@@ -212,23 +232,23 @@ export default function AddToCartButton({
         disabled:text-zinc-600
         disabled:shadow-none
       `}
-    >
-      {!botaoBloqueado && !adicionado && (
-        <span
-          aria-hidden="true"
-          className="pointer-events-none absolute -left-8 top-0 h-full w-6 rotate-12 bg-white/35 blur-sm transition-transform duration-700 group-hover:translate-x-20"
-        />
-      )}
+      >
+        {!botaoBloqueado && !adicionado && (
+          <span
+            aria-hidden="true"
+            className="pointer-events-none absolute -left-8 top-0 h-full w-6 rotate-12 bg-white/35 blur-sm transition-transform duration-700 group-hover:translate-x-20"
+          />
+        )}
 
-      {adicionado && (
-        <span
-          aria-hidden="true"
-          className="absolute inset-0 animate-ping rounded-2xl border border-emerald-300/40 opacity-40"
-        />
-      )}
+        {adicionado && (
+          <span
+            aria-hidden="true"
+            className="absolute inset-0 animate-ping rounded-2xl border border-emerald-300/40 opacity-40"
+          />
+        )}
 
-      <span
-        className={`
+        <span
+          className={`
           relative flex items-center justify-center
           text-xl transition-all duration-300
 
@@ -238,13 +258,16 @@ export default function AddToCartButton({
               : "scale-100 rotate-0 group-hover:rotate-90"
           }
         `}
-      >
-        {adicionado ? "✓" : "+"}
-      </span>
+        >
+          {adicionado ? "✓" : "+"}
+        </span>
 
-      <span className="sr-only" aria-live="polite">
-        {adicionado ? `${produto.nome} adicionado ao carrinho` : ""}
-      </span>
-    </button>
+        <span className="sr-only" aria-live="polite">
+          {adicionado ? `${produto.nome} adicionado ao carrinho` : ""}
+        </span>
+      </button>
+
+     
+    </>
   );
 }

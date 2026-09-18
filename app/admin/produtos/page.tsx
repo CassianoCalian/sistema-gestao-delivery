@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
+import DeleteProductButton from "../../../components/DeleteProductButton";
 
 import { supabaseAdmin } from "../../../lib/supabaseAdmin";
 import { verificarAdmin } from "../../../lib/supabase/requireAdmin";
@@ -62,6 +63,7 @@ export default async function AdminProdutosPage({
     categoria_id
   `,
     )
+    .eq("ativo", true)
     .order("nome", { ascending: true });
 
   if (busca) {
@@ -321,6 +323,10 @@ export default async function AdminProdutosPage({
               >
                 ✏️ Editar produto
               </Link>
+              <DeleteProductButton
+                produtoId={produto.id}
+                produtoNome={produto.nome}
+              />
             </div>
           ))}
         </div>

@@ -166,8 +166,9 @@ pagamento_confirmado,
         id,
         nome_produto,
         preco_unitario,
-        quantidade,
-        subtotal
+    quantidade,
+subtotal,
+opcoes_selecionadas
       `,
     )
     .eq("pedido_id", pedidoId);
@@ -234,6 +235,7 @@ pagamento_confirmado,
           preco_unitario: Number(item.preco_unitario),
           quantidade: Number(item.quantidade),
           subtotal: Number(item.subtotal),
+          opcoes_selecionadas: item.opcoes_selecionadas,
         }))}
       />
 
@@ -626,6 +628,45 @@ pagamento_confirmado,
                       <p className="mt-1 text-sm text-zinc-500">
                         {formatarPreco(Number(item.preco_unitario))} cada
                       </p>
+                      {Array.isArray(item.opcoes_selecionadas) &&
+                        item.opcoes_selecionadas.length > 0 && (
+                          <div className="mt-3 rounded-xl border border-amber-400/15 bg-amber-400/[0.05] p-3">
+                            <p className="text-[10px] font-black uppercase tracking-[0.08em] text-amber-400">
+                              Sabores / opções
+                            </p>
+
+                            <div className="mt-2 space-y-1">
+                              {item.opcoes_selecionadas.map((opcao, index) => {
+                                if (
+                                  typeof opcao !== "object" ||
+                                  opcao === null ||
+                                  Array.isArray(opcao)
+                                ) {
+                                  return null;
+                                }
+
+                                const nome =
+                                  typeof opcao.nome === "string"
+                                    ? opcao.nome
+                                    : "Opção";
+
+                                const quantidade =
+                                  typeof opcao.quantidade === "number"
+                                    ? opcao.quantidade
+                                    : Number(opcao.quantidade ?? 0);
+
+                                return (
+                                  <p
+                                    key={`${nome}-${index}`}
+                                    className="text-xs font-bold text-zinc-300"
+                                  >
+                                    {nome} — {quantidade}
+                                  </p>
+                                );
+                              })}
+                            </div>
+                          </div>
+                        )}
                     </div>
 
                     <p className="font-black">

@@ -12,9 +12,18 @@ type Produto = {
   preco_promocional: number | null;
   imagem_url: string | null;
   estoque: number;
+  unidades_por_item: number;
   destaque: boolean;
   em_promocao: boolean;
   permite_abaixo_minimo: boolean;
+  opcoes:
+    | {
+        id: number;
+        nome: string;
+        ativo: boolean;
+        ordem: number;
+      }[]
+    | null;
 
   categoria:
     | {
@@ -96,13 +105,20 @@ export default async function ProductSection({
       preco_promocional,
       imagem_url,
       estoque,
+      unidades_por_item,
       destaque,
       em_promocao,
       categoria_id,
        permite_abaixo_minimo,
       categoria:categorias (
-        nome
-      )
+  nome
+),
+opcoes:produto_opcoes (
+  id,
+  nome,
+  ativo,
+  ordem
+)
     `,
     )
     .eq("ativo", true)
@@ -147,7 +163,12 @@ export default async function ProductSection({
     );
   }
 
-  const produtos = (data ?? []) as unknown as Produto[];
+  const produtos = ((data ?? []) as unknown as Produto[]).map((produto) => ({
+    ...produto,
+    opcoes: (produto.opcoes ?? [])
+      .filter((opcao) => opcao.ativo)
+      .sort((a, b) => a.ordem - b.ordem),
+  }));
 
   const tituloSuperior = busca
     ? "Resultados da busca"
@@ -441,7 +462,9 @@ export default async function ProductSection({
                           : Number(produto.preco),
                         imagem_url: produto.imagem_url,
                         estoque: produto.estoque,
+                        unidades_por_item: produto.unidades_por_item,
                         permite_abaixo_minimo: produto.permite_abaixo_minimo,
+                        opcoes: produto.opcoes,
                       }}
                     />
                   </div>

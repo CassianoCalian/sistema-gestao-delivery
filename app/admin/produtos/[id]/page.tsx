@@ -39,8 +39,9 @@ export default async function EditarProdutoPage({
       preco_promocional,
       imagem_url,
       estoque,
-      estoque_minimo,
-      ativo,
+estoque_minimo,
+unidades_por_item,
+ativo,
       destaque,
       em_promocao,
       permite_abaixo_minimo,
@@ -52,6 +53,18 @@ export default async function EditarProdutoPage({
 
   if (error || !produto) {
     notFound();
+  }
+
+  const { data: opcoesProduto, error: erroOpcoes } = await supabaseAdmin
+    .from("produto_opcoes")
+    .select("id, nome, ativo, ordem")
+    .eq("produto_id", produtoId)
+    .eq("ativo", true)
+    .order("ordem", { ascending: true })
+    .order("id", { ascending: true });
+
+  if (erroOpcoes) {
+    console.error("Erro ao carregar opções do produto:", erroOpcoes);
   }
 
   const { data: categorias } = await supabaseAdmin
@@ -104,6 +117,7 @@ export default async function EditarProdutoPage({
 
             estoque: produto.estoque,
             estoque_minimo: Number(produto.estoque_minimo),
+            unidades_por_item: Number(produto.unidades_por_item ?? 0),
             ativo: produto.ativo,
             imagem_url: produto.imagem_url,
             destaque: produto.destaque,
@@ -114,6 +128,10 @@ export default async function EditarProdutoPage({
               produto.categoria_id !== null
                 ? Number(produto.categoria_id)
                 : null,
+            opcoes: (opcoesProduto ?? []).map((opcao) => ({
+              id: Number(opcao.id),
+              nome: opcao.nome,
+            })),
           }}
         />
       </div>

@@ -212,7 +212,8 @@ pagamento_confirmado,
         nome_produto,
         preco_unitario,
         quantidade,
-        subtotal
+subtotal,
+opcoes_selecionadas
       `,
     )
     .eq("pedido_id", pedido.id);
@@ -269,12 +270,42 @@ pagamento_confirmado,
   const pontosFidelidadeUsados = Number(pedido.pontos_fidelidade_usados ?? 0);
   const itensMensagem =
     itens
-      ?.map(
-        (item) =>
-          `${item.quantidade}x ${item.nome_produto} - ${formatarPreco(
-            Number(item.subtotal),
-          )}`,
-      )
+      ?.map((item) => {
+        const linhaProduto = `${item.quantidade}x ${item.nome_produto} - ${formatarPreco(
+          Number(item.subtotal),
+        )}`;
+
+        if (
+          !Array.isArray(item.opcoes_selecionadas) ||
+          item.opcoes_selecionadas.length === 0
+        ) {
+          return linhaProduto;
+        }
+
+        const linhasOpcoes = item.opcoes_selecionadas
+          .map((opcao) => {
+            if (
+              typeof opcao !== "object" ||
+              opcao === null ||
+              Array.isArray(opcao)
+            ) {
+              return null;
+            }
+
+            const nome = typeof opcao.nome === "string" ? opcao.nome : "Opção";
+
+            const quantidade =
+              typeof opcao.quantidade === "number"
+                ? opcao.quantidade
+                : Number(opcao.quantidade ?? 0);
+
+            return `   • ${nome}: ${quantidade}`;
+          })
+          .filter(Boolean)
+          .join("\n");
+
+        return `${linhaProduto}\n${linhasOpcoes}`;
+      })
       .join("\n") ?? "";
 
   const mensagemWhatsApp = [
@@ -831,6 +862,45 @@ pagamento_confirmado,
                   <p className="mt-2 text-[10px] text-zinc-600">
                     {formatarPreco(Number(item.preco_unitario))} cada
                   </p>
+                  {Array.isArray(item.opcoes_selecionadas) &&
+                    item.opcoes_selecionadas.length > 0 && (
+                      <div className="mt-3 rounded-xl border border-amber-400/15 bg-amber-400/[0.05] p-3">
+                        <p className="text-[9px] font-black uppercase tracking-[0.08em] text-amber-400">
+                          Sabores / opções
+                        </p>
+
+                        <div className="mt-2 flex flex-wrap gap-2">
+                          {item.opcoes_selecionadas.map((opcao, index) => {
+                            if (
+                              typeof opcao !== "object" ||
+                              opcao === null ||
+                              Array.isArray(opcao)
+                            ) {
+                              return null;
+                            }
+
+                            const nome =
+                              typeof opcao.nome === "string"
+                                ? opcao.nome
+                                : "Opção";
+
+                            const quantidade =
+                              typeof opcao.quantidade === "number"
+                                ? opcao.quantidade
+                                : Number(opcao.quantidade ?? 0);
+
+                            return (
+                              <span
+                                key={`${nome}-${index}`}
+                                className="rounded-lg border border-white/[0.06] bg-white/[0.035] px-2.5 py-1.5 text-[10px] font-black text-zinc-300"
+                              >
+                                {nome} — {quantidade}
+                              </span>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    )}
                 </div>
 
                 <p className="shrink-0 text-sm font-black text-zinc-300">

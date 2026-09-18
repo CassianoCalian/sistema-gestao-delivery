@@ -22,13 +22,28 @@ export async function POST(request: Request) {
       preco_promocional,
       estoque,
       estoque_minimo,
+      unidades_por_item,
       imagem_url,
       ativo,
       em_promocao,
       permite_abaixo_minimo,
+      opcoes,
     } = body;
 
     const categoriaIdNumero = Number(categoria_id);
+    const unidadesPorItemNumero =
+      unidades_por_item === undefined || unidades_por_item === ""
+        ? 0
+        : Number(unidades_por_item);
+
+    if (!Number.isInteger(unidadesPorItemNumero) || unidadesPorItemNumero < 0) {
+      return NextResponse.json(
+        {
+          erro: "Unidades de opções por item deve ser um número inteiro igual ou maior que 0.",
+        },
+        { status: 400 },
+      );
+    }
 
     if (!Number.isInteger(categoriaIdNumero) || categoriaIdNumero <= 0) {
       return NextResponse.json(
@@ -99,6 +114,36 @@ export async function POST(request: Request) {
     if (typeof nome !== "string" || !nome.trim()) {
       return NextResponse.json(
         { erro: "Informe o nome do produto." },
+        { status: 400 },
+      );
+    }
+    const opcoesNormalizadas = Array.isArray(opcoes)
+      ? opcoes
+          .filter((opcao): opcao is string => typeof opcao === "string")
+          .map((opcao) => opcao.trim())
+          .filter(Boolean)
+          .filter(
+            (opcao, indice, lista) =>
+              lista.findIndex(
+                (item) => item.toLowerCase() === opcao.toLowerCase(),
+              ) === indice,
+          )
+      : [];
+
+    if (opcoesNormalizadas.some((opcao) => opcao.length > 60)) {
+      return NextResponse.json(
+        {
+          erro: "Cada sabor/opção deve ter no máximo 60 caracteres.",
+        },
+        { status: 400 },
+      );
+    }
+
+    if (opcoesNormalizadas.length > 30) {
+      return NextResponse.json(
+        {
+          erro: "Um produto pode ter no máximo 30 sabores/opções.",
+        },
         { status: 400 },
       );
     }
@@ -226,6 +271,56 @@ export async function POST(request: Request) {
         },
         { status: 500 },
       );
+    }
+
+    const { error: erroUnidadesPorItem } = await supabaseAdmin
+      .from("produtos")
+      .update({
+        unidades_por_item: unidadesPorItemNumero,
+      })
+      .eq("id", produto.id);
+
+    if (erroUnidadesPorItem) {
+      console.error(
+        "Erro ao salvar unidades de opções por item:",
+        erroUnidadesPorItem,
+      );
+
+      return NextResponse.json(
+        {
+          erro: "O produto foi cadastrado, mas não foi possível salvar a quantidade de opções por item.",
+        },
+        { status: 500 },
+      );
+    }
+
+    if (opcoesNormalizadas.length > 0) {
+      const opcoesParaCadastrar = opcoesNormalizadas.map(
+        (nomeOpcao, indice) => ({
+          produto_id: produto.id,
+          nome: nomeOpcao,
+          ativo: true,
+          ordem: indice,
+        }),
+      );
+
+      const { error: erroOpcoes } = await supabaseAdmin
+        .from("produto_opcoes")
+        .insert(opcoesParaCadastrar);
+
+      if (erroOpcoes) {
+        console.error(
+          "Erro ao cadastrar sabores/opções do produto:",
+          erroOpcoes,
+        );
+
+        return NextResponse.json(
+          {
+            erro: "O produto foi cadastrado, mas não foi possível salvar os sabores/opções.",
+          },
+          { status: 500 },
+        );
+      }
     }
 
     return NextResponse.json(

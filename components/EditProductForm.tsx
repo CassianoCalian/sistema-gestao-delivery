@@ -19,12 +19,18 @@ type EditProductFormProps = {
     preco_promocional: number | null;
     estoque: number;
     estoque_minimo: number;
+    unidades_por_item: number;
     imagem_url: string | null;
     ativo: boolean;
     destaque: boolean;
     em_promocao: boolean;
     permite_abaixo_minimo: boolean;
     categoria_id: number | null;
+
+    opcoes: {
+      id: number;
+      nome: string;
+    }[];
   };
 };
 
@@ -42,6 +48,38 @@ export default function EditProductForm({
   const [previewImagem, setPreviewImagem] = useState("");
 
   const [enviandoImagem, setEnviandoImagem] = useState(false);
+  const [opcoes, setOpcoes] = useState<string[]>(
+    produto.opcoes.map((opcao) => opcao.nome),
+  );
+
+  const [novaOpcao, setNovaOpcao] = useState("");
+
+  function adicionarOpcao() {
+    const opcaoLimpa = novaOpcao.trim();
+
+    if (!opcaoLimpa) {
+      return;
+    }
+
+    const opcaoJaExiste = opcoes.some(
+      (opcao) => opcao.toLowerCase() === opcaoLimpa.toLowerCase(),
+    );
+
+    if (opcaoJaExiste) {
+      setErro("Essa opção já foi adicionada.");
+      return;
+    }
+
+    setOpcoes((opcoesAtuais) => [...opcoesAtuais, opcaoLimpa]);
+    setNovaOpcao("");
+    setErro("");
+  }
+
+  function removerOpcao(indice: number) {
+    setOpcoes((opcoesAtuais) =>
+      opcoesAtuais.filter((_, indiceAtual) => indiceAtual !== indice),
+    );
+  }
 
   function selecionarImagem(event: ChangeEvent<HTMLInputElement>) {
     setErro("");
@@ -121,6 +159,7 @@ export default function EditProductForm({
 
         estoque: formData.get("estoque")?.toString() ?? "",
         estoque_minimo: formData.get("estoque_minimo")?.toString() ?? "",
+        unidades_por_item: formData.get("unidades_por_item")?.toString() ?? "0",
 
         imagem_url: imagemFinal,
 
@@ -131,6 +170,7 @@ export default function EditProductForm({
         em_promocao: formData.get("em_promocao") === "on",
         permite_abaixo_minimo: formData.get("permite_abaixo_minimo") === "on",
         categoria_id: formData.get("categoria_id")?.toString() ?? "",
+        opcoes,
       };
 
       const resposta = await fetch(`/api/admin/produtos/${produto.id}`, {
@@ -219,6 +259,64 @@ export default function EditProductForm({
           />
         </div>
 
+        <div className="md:col-span-2">
+          <label className="mb-2 block text-sm font-bold">
+            Sabores / opções
+          </label>
+
+          <p className="mb-3 text-xs text-zinc-500">
+            Adicione ou remova os sabores/opções disponíveis para este produto.
+          </p>
+
+          <div className="flex flex-col gap-3 sm:flex-row">
+            <input
+              type="text"
+              value={novaOpcao}
+              onChange={(event) => setNovaOpcao(event.target.value)}
+              onKeyDown={(event) => {
+                if (event.key === "Enter") {
+                  event.preventDefault();
+                  adicionarOpcao();
+                }
+              }}
+              placeholder="Ex: Coco"
+              className="flex-1 rounded-xl border border-zinc-700 bg-zinc-950 px-4 py-3 outline-none focus:border-amber-400"
+            />
+
+            <button
+              type="button"
+              onClick={adicionarOpcao}
+              className="rounded-xl border border-amber-400 px-5 py-3 font-black text-amber-400 transition hover:bg-amber-400 hover:text-zinc-950"
+            >
+              + Adicionar
+            </button>
+          </div>
+
+          {opcoes.length > 0 && (
+            <div className="mt-4 flex flex-wrap gap-2">
+              {opcoes.map((opcao, indice) => (
+                <div
+                  key={`${opcao}-${indice}`}
+                  className="flex items-center gap-2 rounded-full border border-amber-400/30 bg-amber-400/10 px-4 py-2"
+                >
+                  <span className="text-sm font-bold text-amber-300">
+                    {opcao}
+                  </span>
+
+                  <button
+                    type="button"
+                    onClick={() => removerOpcao(indice)}
+                    aria-label={`Remover opção ${opcao}`}
+                    className="font-black text-red-400 transition hover:text-red-300"
+                  >
+                    ✕
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+
         <div>
           <label className="mb-2 block text-sm font-bold">Preço normal</label>
 
@@ -282,6 +380,26 @@ export default function EditProductForm({
 
           <p className="mt-2 text-xs text-zinc-500">
             O sistema avisará quando o estoque chegar a este limite.
+          </p>
+        </div>
+
+        <div>
+          <label className="mb-2 block text-sm font-bold">
+            Unidades de opções por item
+          </label>
+
+          <input
+            type="number"
+            name="unidades_por_item"
+            required
+            min="0"
+            step="1"
+            defaultValue={produto.unidades_por_item}
+            className="w-full rounded-xl border border-zinc-700 bg-zinc-950 px-4 py-3 outline-none focus:border-amber-400"
+          />
+
+          <p className="mt-2 text-xs text-zinc-500">
+            Use 0 para produto normal. Ex.: promoção com 4 gelos = 4.
           </p>
         </div>
 

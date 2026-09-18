@@ -8,6 +8,11 @@ export const runtime = "nodejs";
 type ItemRecebido = {
   id: number;
   quantidade: number;
+
+  opcoes_selecionadas?: {
+    opcao_id: number;
+    quantidade: number;
+  }[];
 };
 
 type PedidoRecebido = {
@@ -405,6 +410,28 @@ export async function POST(request: Request) {
           { status: 400 },
         );
       }
+
+      const opcoesSelecionadasItem = item.opcoes_selecionadas ?? [];
+
+      if (!Array.isArray(opcoesSelecionadasItem)) {
+        return NextResponse.json(
+          { erro: "As opções selecionadas de um item são inválidas." },
+          { status: 400 },
+        );
+      }
+
+      for (const opcao of opcoesSelecionadasItem) {
+        if (
+          !Number.isInteger(opcao.opcao_id) ||
+          !Number.isInteger(opcao.quantidade) ||
+          opcao.quantidade <= 0
+        ) {
+          return NextResponse.json(
+            { erro: "Existe uma opção inválida no pedido." },
+            { status: 400 },
+          );
+        }
+      }
     }
 
     const pontosFidelidadeNumero = Number(pontos_fidelidade ?? 0);
@@ -468,6 +495,7 @@ export async function POST(request: Request) {
         p_itens: itens.map((item) => ({
           id: item.id,
           quantidade: item.quantidade,
+          opcoes_selecionadas: item.opcoes_selecionadas ?? [],
         })),
 
         p_pontos_fidelidade: pontosFidelidadeNumero,
@@ -497,6 +525,36 @@ export async function POST(request: Request) {
       if (mensagem.includes("ITEM_INVALIDO")) {
         return NextResponse.json(
           { erro: "Existe um item inválido no carrinho." },
+          { status: 400 },
+        );
+      }
+
+      if (mensagem.includes("QUANTIDADE_OPCOES_INCORRETA")) {
+        return NextResponse.json(
+          {
+            erro: "A quantidade de sabores/opções selecionada não corresponde à quantidade exigida para este produto. Revise as opções e tente novamente.",
+          },
+          { status: 400 },
+        );
+      }
+
+      if (
+        mensagem.includes("OPCAO_INVALIDA") ||
+        mensagem.includes("OPCAO_NAO_PERTENCE_AO_PRODUTO")
+      ) {
+        return NextResponse.json(
+          {
+            erro: "Uma das opções selecionadas não está mais disponível para este produto. Atualize o pedido e escolha novamente.",
+          },
+          { status: 400 },
+        );
+      }
+
+      if (mensagem.includes("OPCOES_FORMATO_INVALIDO")) {
+        return NextResponse.json(
+          {
+            erro: "As opções deste produto estão em um formato inválido. Atualize a página e tente selecionar novamente.",
+          },
           { status: 400 },
         );
       }
