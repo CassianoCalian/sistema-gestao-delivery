@@ -130,6 +130,9 @@ export async function POST(request: Request) {
           )
       : [];
 
+    const unidadesPorItemEfetivas =
+      opcoesNormalizadas.length > 0 ? Math.max(1, unidadesPorItemNumero) : 0;
+
     if (opcoesNormalizadas.some((opcao) => opcao.length > 60)) {
       return NextResponse.json(
         {
@@ -276,7 +279,7 @@ export async function POST(request: Request) {
     const { error: erroUnidadesPorItem } = await supabaseAdmin
       .from("produtos")
       .update({
-        unidades_por_item: unidadesPorItemNumero,
+        unidades_por_item: unidadesPorItemEfetivas,
       })
       .eq("id", produto.id);
 

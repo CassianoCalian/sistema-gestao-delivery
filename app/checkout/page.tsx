@@ -1707,86 +1707,87 @@ export default function CheckoutPage() {
                       {item.quantidade}x {formatarPreco(item.preco)}
                     </p>
 
-                    {obterUnidadesPorItemAtual(item) > 0 && (
-                      <div className="mt-3 rounded-xl border border-amber-400/15 bg-amber-400/[0.04] p-3">
-                        <div className="mb-3 flex items-center justify-between gap-2">
-                          <p className="text-[10px] font-black text-amber-300">
-                            Escolha os sabores
-                          </p>
+                    {obterUnidadesPorItemAtual(item) > 0 &&
+                      obterOpcoesAtuais(item).some((opcao) => opcao.ativo) && (
+                        <div className="mt-3 rounded-xl border border-amber-400/15 bg-amber-400/[0.04] p-3">
+                          <div className="mb-3 flex items-center justify-between gap-2">
+                            <p className="text-[10px] font-black text-amber-300">
+                              Escolha os sabores
+                            </p>
 
-                          <span className="text-[9px] font-bold text-zinc-400">
-                            {totalOpcoesSelecionadas(item.id)} de{" "}
-                            {item.quantidade * obterUnidadesPorItemAtual(item)}
-                          </span>
-                        </div>
+                            <span className="text-[9px] font-bold text-zinc-400">
+                              {totalOpcoesSelecionadas(item.id)} de{" "}
+                              {item.quantidade *
+                                obterUnidadesPorItemAtual(item)}
+                            </span>
+                          </div>
 
-                        <div className="space-y-2">
-                          {obterOpcoesAtuais(item)
-                            .filter((opcao) => opcao.ativo)
-                            .map((opcao) => {
-                              const quantidadeOpcao =
-                                opcoesSelecionadas[item.id]?.[opcao.id] ?? 0;
+                          <div className="space-y-2">
+                            {obterOpcoesAtuais(item)
+                              .filter((opcao) => opcao.ativo)
+                              .map((opcao) => {
+                                const quantidadeOpcao =
+                                  opcoesSelecionadas[item.id]?.[opcao.id] ?? 0;
 
-                              const totalNecessario =
-                                item.quantidade *
-                                obterUnidadesPorItemAtual(item);
+                                const totalNecessario =
+                                  item.quantidade *
+                                  obterUnidadesPorItemAtual(item);
 
-                              const totalSelecionado = totalOpcoesSelecionadas(
-                                item.id,
-                              );
+                                const totalSelecionado =
+                                  totalOpcoesSelecionadas(item.id);
 
-                              return (
-                                <div
-                                  key={opcao.id}
-                                  className="flex items-center justify-between gap-2"
-                                >
-                                  <span className="text-[10px] font-bold text-zinc-300">
-                                    {opcao.nome}
-                                  </span>
-
-                                  <div className="flex items-center gap-1.5">
-                                    <button
-                                      type="button"
-                                      onClick={() =>
-                                        alterarQuantidadeOpcao(
-                                          item.id,
-                                          opcao.id,
-                                          -1,
-                                        )
-                                      }
-                                      disabled={quantidadeOpcao <= 0}
-                                      className="flex h-6 w-6 items-center justify-center rounded-md border border-white/[0.08] bg-white/[0.04] text-xs font-black text-white disabled:opacity-30"
-                                    >
-                                      −
-                                    </button>
-
-                                    <span className="min-w-4 text-center text-[10px] font-black text-white">
-                                      {quantidadeOpcao}
+                                return (
+                                  <div
+                                    key={opcao.id}
+                                    className="flex items-center justify-between gap-2"
+                                  >
+                                    <span className="text-[10px] font-bold text-zinc-300">
+                                      {opcao.nome}
                                     </span>
 
-                                    <button
-                                      type="button"
-                                      onClick={() =>
-                                        alterarQuantidadeOpcao(
-                                          item.id,
-                                          opcao.id,
-                                          1,
-                                        )
-                                      }
-                                      disabled={
-                                        totalSelecionado >= totalNecessario
-                                      }
-                                      className="flex h-6 w-6 items-center justify-center rounded-md border border-amber-400/20 bg-amber-400/10 text-xs font-black text-amber-300 disabled:opacity-30"
-                                    >
-                                      +
-                                    </button>
+                                    <div className="flex items-center gap-1.5">
+                                      <button
+                                        type="button"
+                                        onClick={() =>
+                                          alterarQuantidadeOpcao(
+                                            item.id,
+                                            opcao.id,
+                                            -1,
+                                          )
+                                        }
+                                        disabled={quantidadeOpcao <= 0}
+                                        className="flex h-6 w-6 items-center justify-center rounded-md border border-white/[0.08] bg-white/[0.04] text-xs font-black text-white disabled:opacity-30"
+                                      >
+                                        −
+                                      </button>
+
+                                      <span className="min-w-4 text-center text-[10px] font-black text-white">
+                                        {quantidadeOpcao}
+                                      </span>
+
+                                      <button
+                                        type="button"
+                                        onClick={() =>
+                                          alterarQuantidadeOpcao(
+                                            item.id,
+                                            opcao.id,
+                                            1,
+                                          )
+                                        }
+                                        disabled={
+                                          totalSelecionado >= totalNecessario
+                                        }
+                                        className="flex h-6 w-6 items-center justify-center rounded-md border border-amber-400/20 bg-amber-400/10 text-xs font-black text-amber-300 disabled:opacity-30"
+                                      >
+                                        +
+                                      </button>
+                                    </div>
                                   </div>
-                                </div>
-                              );
-                            })}
+                                );
+                              })}
+                          </div>
                         </div>
-                      </div>
-                    )}
+                      )}
                   </div>
 
                   <p className="shrink-0 text-xs font-black text-zinc-300">
