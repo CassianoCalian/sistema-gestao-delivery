@@ -484,6 +484,18 @@ export default function CheckoutPage() {
 
     setErro("");
 
+    if (consultandoCep) {
+      setErro("Aguarde alguns segundos enquanto validamos o CEP.");
+      envioEmAndamentoRef.current = false;
+      return;
+    }
+
+    if (erroCep) {
+      setErro("Confira o CEP informado antes de finalizar o pedido.");
+      envioEmAndamentoRef.current = false;
+      return;
+    }
+
     if (!configuracoesCarregadas) {
       setErro(
         "Estamos atualizando a disponibilidade dos produtos. Aguarde um instante e tente novamente.",

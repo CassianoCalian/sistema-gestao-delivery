@@ -44,10 +44,10 @@ type ViaCepResponse = {
   erro?: boolean;
 };
 
-const LIMITE_IP = 15;
+const LIMITE_IP = 60;
 const JANELA_IP_SEGUNDOS = 10 * 60;
 
-const LIMITE_TELEFONE = 6;
+const LIMITE_TELEFONE = 12;
 const JANELA_TELEFONE_SEGUNDOS = 15 * 60;
 
 type ResultadoRateLimit = {
@@ -218,33 +218,12 @@ export async function POST(request: Request) {
       );
     }
 
-    const telefoneNormalizadoRateLimit = normalizarTelefoneRateLimit(telefone);
-
-    if (
-      telefoneNormalizadoRateLimit.length >= 10 &&
-      telefoneNormalizadoRateLimit.length <= 11
-    ) {
-      const chaveTelefone = `pedido:telefone:${criarHashRateLimit(
-        telefoneNormalizadoRateLimit,
-      )}`;
-
-      const limiteTelefone = await verificarRateLimit(
-        chaveTelefone,
-        LIMITE_TELEFONE,
-        JANELA_TELEFONE_SEGUNDOS,
-      );
-
-      if (!limiteTelefone.permitido) {
-        return respostaRateLimit(limiteTelefone.tentarNovamenteEm);
-      }
-    }
-
-    if (!cep?.trim() || !rua?.trim() || !numero?.trim() || !bairro?.trim()) {
-      return NextResponse.json(
-        { erro: "Preencha o endereço de entrega." },
-        { status: 400 },
-      );
-    }
+   if (!cep?.trim() || !numero?.trim()) {
+  return NextResponse.json(
+    { erro: "Informe o CEP e o número do endereço de entrega." },
+    { status: 400 },
+  );
+}
     const uuidValido =
       typeof chave_idempotencia === "string" &&
       /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(
@@ -363,7 +342,19 @@ export async function POST(request: Request) {
 
     const bairroConfirmado = bairroCep;
 
-    const ruaConfirmada = enderecoCep.logradouro?.trim() || rua.trim();
+    const ruaConfirmada =
+  enderecoCep.logradouro?.trim() || rua?.trim() || "";
+
+  if (!ruaConfirmada) {
+  return NextResponse.json(
+    {
+      erro: "Não foi possível identificar a rua deste CEP. Informe a rua manualmente.",
+    },
+    {
+      status: 400,
+    },
+  );
+}
 
     const formasPermitidas = ["pix", "cartao_entrega", "dinheiro"];
 
@@ -477,6 +468,28 @@ export async function POST(request: Request) {
     // A partir daqui, criação do pedido, cálculo dos preços,
     // gravação dos itens e baixa de estoque acontecem
     // dentro de uma única transação no PostgreSQL.
+
+        const telefoneNormalizadoRateLimit = normalizarTelefoneRateLimit(telefone);
+
+    if (
+      telefoneNormalizadoRateLimit.length >= 10 &&
+      telefoneNormalizadoRateLimit.length <= 11
+    ) {
+      const chaveTelefone = `pedido:telefone:${criarHashRateLimit(
+        telefoneNormalizadoRateLimit,
+      )}`;
+
+      const limiteTelefone = await verificarRateLimit(
+        chaveTelefone,
+        LIMITE_TELEFONE,
+        JANELA_TELEFONE_SEGUNDOS,
+      );
+
+      if (!limiteTelefone.permitido) {
+        return respostaRateLimit(limiteTelefone.tentarNovamenteEm);
+      }
+    }
+
 
     const { data, error } = await supabaseAdmin.rpc(
       "criar_pedido_com_estoque_v2",
