@@ -122,7 +122,7 @@ export default function PromoCarousel({ produtos }: PromoCarouselProps) {
   }
 
   return (
-    <section className="animate-fade-in relative mt-6 overflow-hidden rounded-[28px] border border-white/[0.08] bg-zinc-950 shadow-[0_24px_80px_rgba(0,0,0,0.45)] md:mt-8 md:rounded-[36px]">
+    <section className="mobile-static-effects  animate-fade-in relative mt-6 overflow-hidden rounded-[28px] border border-white/[0.08] bg-zinc-950 shadow-[0_24px_80px_rgba(0,0,0,0.45)] md:mt-8 md:rounded-[36px]">
       {/* LUZES */}
       <div
         aria-hidden="true"

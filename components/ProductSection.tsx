@@ -202,12 +202,12 @@ opcoes:produto_opcoes (
 
       <div
         aria-hidden="true"
-        className="pointer-events-none absolute -left-20 top-40 -z-10 h-52 w-52 rounded-full bg-amber-500/[0.035] blur-[90px]"
+        className="pointer-events-none absolute -left-20 top-40 -z-10 hidden h-52 w-52 rounded-full bg-amber-500/[0.035] blur-[90px] md:block"
       />
 
       <div
         aria-hidden="true"
-        className="pointer-events-none absolute -right-20 top-[45%] -z-10 h-56 w-56 rounded-full bg-orange-500/[0.035] blur-[100px]"
+        className="pointer-events-none absolute -right-20 top-[45%] -z-10 hidden h-56 w-56 rounded-full bg-orange-500/[0.035] blur-[100px] md:block"
       />
       {/* CABEÇALHO */}
       <div className="mb-7 flex items-end justify-between gap-4">
@@ -308,7 +308,7 @@ opcoes:produto_opcoes (
             return (
               <article
                 key={produto.id}
-                className={`premium-card interactive-card group animate-slide-up relative flex min-w-0 flex-col overflow-hidden rounded-[24px] sm:rounded-[28px] ${
+                className={`mobile-product-card premium-card interactive-card group animate-slide-up relative flex min-w-0 flex-col overflow-hidden rounded-[24px] sm:rounded-[28px] ${
                   produtos.length % 2 === 1 && index === produtos.length - 1
                     ? "col-span-2 mx-auto w-[calc(50%_-_0.375rem)] sm:col-span-1 sm:w-full"
                     : ""
@@ -319,7 +319,7 @@ opcoes:produto_opcoes (
                   {/* GLOW */}
                   <div
                     aria-hidden="true"
-                    className="pointer-events-none absolute left-1/2 top-1/2 h-24 w-24 -translate-x-1/2 -translate-y-1/2 rounded-full bg-amber-400/[0.055] blur-3xl transition duration-500 group-hover:scale-150"
+                    className="pointer-events-none absolute left-1/2 top-1/2 hidden h-24 w-24 -translate-x-1/2 -translate-y-1/2 rounded-full bg-amber-400/[0.055] blur-3xl transition duration-500 sm:block sm:group-hover:scale-150"
                   />
 
                   {/* TEXTURA */}
@@ -477,7 +477,7 @@ opcoes:produto_opcoes (
                 {temPromocao && !indisponivel && (
                   <div
                     aria-hidden="true"
-                    className="pointer-events-none absolute -bottom-16 left-1/2 h-24 w-3/4 -translate-x-1/2 rounded-full bg-amber-400/[0.06] blur-3xl"
+                    className="pointer-events-none absolute -bottom-16 left-1/2 hidden h-24 w-3/4 -translate-x-1/2 rounded-full bg-amber-400/[0.06] blur-3xl sm:block"
                   />
                 )}
               </article>

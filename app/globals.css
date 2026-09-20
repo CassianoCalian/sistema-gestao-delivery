@@ -341,6 +341,28 @@ a:focus-visible {
 }
 
 /* =========================================================
+   OTIMIZAÇÃO MOBILE
+   Mantém os efeitos visuais, mas interrompe animações
+   decorativas contínuas em telas menores.
+   ========================================================= */
+
+@media (max-width: 767px) {
+  .mobile-static-particles > span {
+    animation: none !important;
+  }
+
+  .mobile-static-effects .animate-float,
+  .mobile-static-effects .animate-pulse-glow {
+    animation: none !important;
+  }
+
+  .mobile-product-card {
+    content-visibility: auto;
+    contain-intrinsic-size: auto 430px;
+  }
+}
+
+/* =========================================================
    STAGGER
    ========================================================= */
 

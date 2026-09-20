@@ -19,7 +19,7 @@ export default function Header({ buscaAtual = "" }: HeaderProps) {
 
   return (
     <>
-      <header className="sticky top-0 z-50 border-b border-white/[0.06] bg-zinc-950/80 shadow-[0_10px_40px_rgba(0,0,0,0.22)] backdrop-blur-xl">
+      <header className="sticky top-0 z-50 border-b border-white/[0.06] bg-zinc-950/80 shadow-[0_10px_40px_rgba(0,0,0,0.22)] backdrop-blur-sm md:backdrop-blur-xl">
         <div className="mx-auto flex max-w-7xl items-center gap-3 px-4 py-3 sm:px-6 md:gap-6 md:py-4">
           {/* MARCA */}
           <Link

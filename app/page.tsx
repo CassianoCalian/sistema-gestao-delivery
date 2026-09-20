@@ -36,7 +36,7 @@ export default async function Home({ searchParams }: HomeProps) {
       {/* PARTÍCULAS DECORATIVAS DO FUNDO */}
       <div
         aria-hidden="true"
-        className="pointer-events-none fixed inset-0 z-20 overflow-hidden"
+        className="mobile-static-particles pointer-events-none fixed inset-0 z-20 overflow-hidden"
       >
         <span
           className="absolute left-[4%] top-[18%] h-2.5 w-2.5 rounded-full border border-amber-300/40 bg-amber-300/10 shadow-[0_0_12px_rgba(252,211,77,0.25)]"
