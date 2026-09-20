@@ -1,3 +1,4 @@
+import Image from "next/image";
 import Link from "next/link";
 
 import { supabase } from "../lib/supabase";
@@ -333,14 +334,16 @@ opcoes:produto_opcoes (
                   />
 
                   {produto.imagem_url ? (
-                    <img
+                    <Image
                       src={produto.imagem_url}
                       alt={produto.nome}
-                      loading="lazy"
-                      className={`relative z-10 h-full w-full object-contain p-4 transition duration-500 sm:p-6 ${
+                      fill
+                      sizes="(max-width: 640px) 50vw, (max-width: 1024px) 33vw, 25vw"
+                      quality={60}
+                      className={`relative z-10 object-contain p-4 transition duration-300 sm:p-6 ${
                         indisponivel
                           ? "scale-95 opacity-35 grayscale"
-                          : "group-hover:scale-[1.06]"
+                          : "sm:group-hover:scale-[1.06]"
                       }`}
                     />
                   ) : (

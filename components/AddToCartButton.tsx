@@ -72,27 +72,46 @@ export default function AddToCartButton({
     const elemento = document.createElement("div");
 
     elemento.style.position = "fixed";
-    elemento.style.left = `${inicioX - 24}px`;
-    elemento.style.top = `${inicioY - 24}px`;
-    elemento.style.width = "48px";
-    elemento.style.height = "48px";
+    elemento.style.left = `${inicioX - 22}px`;
+    elemento.style.top = `${inicioY - 22}px`;
+    elemento.style.width = "44px";
+    elemento.style.height = "44px";
     elemento.style.zIndex = "9999";
     elemento.style.pointerEvents = "none";
-    elemento.style.borderRadius = "16px";
+    elemento.style.borderRadius = "15px";
     elemento.style.overflow = "hidden";
     elemento.style.background =
       "linear-gradient(135deg, #fde68a, #fbbf24, #f59e0b)";
     elemento.style.border = "1px solid rgba(253, 230, 138, 0.45)";
-    elemento.style.boxShadow = "0 12px 35px rgba(245, 158, 11, 0.35)";
+    elemento.style.boxShadow = "0 8px 22px rgba(245, 158, 11, 0.28)";
     elemento.style.display = "flex";
     elemento.style.alignItems = "center";
     elemento.style.justifyContent = "center";
+    elemento.style.willChange = "transform, opacity";
+    elemento.style.contain = "layout paint style";
 
-    if (produto.imagem_url) {
+    const imagemDoCard = event.currentTarget
+      .closest("article")
+      ?.querySelector("img");
+
+    if (imagemDoCard instanceof HTMLImageElement) {
+      const imagem = document.createElement("img");
+
+      imagem.src = imagemDoCard.currentSrc || imagemDoCard.src;
+      imagem.alt = "";
+      imagem.decoding = "async";
+      imagem.style.width = "100%";
+      imagem.style.height = "100%";
+      imagem.style.objectFit = "contain";
+      imagem.style.padding = "5px";
+
+      elemento.appendChild(imagem);
+    } else if (produto.imagem_url) {
       const imagem = document.createElement("img");
 
       imagem.src = produto.imagem_url;
       imagem.alt = "";
+      imagem.decoding = "async";
       imagem.style.width = "100%";
       imagem.style.height = "100%";
       imagem.style.objectFit = "contain";
@@ -101,14 +120,14 @@ export default function AddToCartButton({
       elemento.appendChild(imagem);
     } else {
       elemento.textContent = "🛒";
-      elemento.style.fontSize = "22px";
+      elemento.style.fontSize = "21px";
     }
 
     document.body.appendChild(elemento);
 
     const alturaCurva = Math.min(
-      120,
-      Math.max(60, Math.abs(deslocamentoY) * 0.2),
+      105,
+      Math.max(50, Math.abs(deslocamentoY) * 0.18),
     );
 
     const animacao = elemento.animate(
@@ -119,33 +138,24 @@ export default function AddToCartButton({
         },
         {
           transform: `translate3d(
-            ${deslocamentoX * 0.35}px,
-            ${deslocamentoY * 0.2 - alturaCurva}px,
-            0
-          ) scale(0.9) rotate(-8deg)`,
-          opacity: 1,
-          offset: 0.35,
+          ${deslocamentoX * 0.5}px,
+          ${deslocamentoY * 0.35 - alturaCurva}px,
+          0
+        ) scale(0.78) rotate(-6deg)`,
+          opacity: 0.98,
+          offset: 0.5,
         },
         {
           transform: `translate3d(
-            ${deslocamentoX * 0.72}px,
-            ${deslocamentoY * 0.62 - alturaCurva * 0.55}px,
-            0
-          ) scale(0.62) rotate(6deg)`,
-          opacity: 0.95,
-          offset: 0.72,
-        },
-        {
-          transform: `translate3d(
-            ${deslocamentoX}px,
-            ${deslocamentoY}px,
-            0
-          ) scale(0.18) rotate(12deg)`,
-          opacity: 0.1,
+          ${deslocamentoX}px,
+          ${deslocamentoY}px,
+          0
+        ) scale(0.18) rotate(10deg)`,
+          opacity: 0.08,
         },
       ],
       {
-        duration: 720,
+        duration: 520,
         easing: "cubic-bezier(0.22, 1, 0.36, 1)",
         fill: "forwards",
       },
@@ -160,17 +170,17 @@ export default function AddToCartButton({
             transform: "scale(1)",
           },
           {
-            transform: "scale(1.13) rotate(-3deg)",
+            transform: "scale(1.1) rotate(-2deg)",
           },
           {
-            transform: "scale(0.96) rotate(2deg)",
+            transform: "scale(0.97) rotate(1deg)",
           },
           {
             transform: "scale(1)",
           },
         ],
         {
-          duration: 380,
+          duration: 260,
           easing: "cubic-bezier(0.22, 1, 0.36, 1)",
         },
       );
@@ -266,8 +276,6 @@ export default function AddToCartButton({
           {adicionado ? `${produto.nome} adicionado ao carrinho` : ""}
         </span>
       </button>
-
-     
     </>
   );
 }

@@ -1,5 +1,8 @@
 "use client";
 
+"use client";
+
+import Image from "next/image";
 import { useEffect, useRef } from "react";
 
 import { useRouter } from "next/navigation";
@@ -62,15 +65,13 @@ export default function CartDrawer({ aberto, fechar }: CartDrawerProps) {
         [
           {
             opacity: 0,
-            backdropFilter: "blur(0px)",
           },
           {
             opacity: 1,
-            backdropFilter: "blur(8px)",
           },
         ],
         {
-          duration: 260,
+          duration: 220,
           easing: "ease-out",
           fill: "forwards",
         },
@@ -79,16 +80,16 @@ export default function CartDrawer({ aberto, fechar }: CartDrawerProps) {
       painel?.animate(
         [
           {
-            transform: "translateX(100%)",
-            opacity: 0.6,
+            transform: "translate3d(100%, 0, 0)",
+            opacity: 0.7,
           },
           {
-            transform: "translateX(0)",
+            transform: "translate3d(0, 0, 0)",
             opacity: 1,
           },
         ],
         {
-          duration: 420,
+          duration: 340,
           easing: "cubic-bezier(0.22, 1, 0.36, 1)",
           fill: "forwards",
         },
@@ -135,7 +136,7 @@ export default function CartDrawer({ aberto, fechar }: CartDrawerProps) {
         role="dialog"
         aria-modal="true"
         aria-label="Carrinho de compras"
-        className="absolute right-0 top-0 flex h-full w-full max-w-[430px] flex-col overflow-hidden border-l border-white/[0.07] bg-zinc-950 shadow-[-30px_0_80px_rgba(0,0,0,0.55)]"
+        className="absolute right-0 top-0 flex h-full w-full max-w-[430px] flex-col overflow-hidden border-l border-white/[0.07] bg-zinc-950 shadow-[-30px_0_80px_rgba(0,0,0,0.55)] [will-change:transform,opacity]"
       >
         {/* GLOW */}
         <div
@@ -246,10 +247,13 @@ export default function CartDrawer({ aberto, fechar }: CartDrawerProps) {
                       />
 
                       {item.imagem_url ? (
-                        <img
+                        <Image
                           src={item.imagem_url}
                           alt={item.nome}
-                          className="relative h-full w-full object-contain p-2.5"
+                          fill
+                          sizes="80px"
+                          quality={60}
+                          className="relative object-contain p-2.5"
                         />
                       ) : (
                         <span className="relative text-3xl">🥤</span>

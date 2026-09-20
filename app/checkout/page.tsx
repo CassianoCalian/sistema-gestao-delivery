@@ -48,16 +48,40 @@ export default function CheckoutPage() {
   >({});
 
   const [configuracoesCarregadas, setConfiguracoesCarregadas] = useState(false);
+  const ultimaAtualizacaoConfiguracoesRef = useRef<{
+    chaveIds: string;
+    horario: number;
+  } | null>(null);
+
   useEffect(() => {
-    const ids = [...new Set(itens.map((item) => item.id))];
+    const ids = [...new Set(itens.map((item) => item.id))].sort(
+      (a, b) => a - b,
+    );
 
     if (ids.length === 0) {
       return;
     }
 
+    const chaveIds = ids.join(",");
     const controller = new AbortController();
 
+    let requisicaoEmAndamento = false;
+
     async function carregarConfiguracoesAtuais() {
+      const agora = Date.now();
+      const ultimaAtualizacao = ultimaAtualizacaoConfiguracoesRef.current;
+
+      const mesmosProdutos = ultimaAtualizacao?.chaveIds === chaveIds;
+
+      const atualizacaoAindaRecente =
+        mesmosProdutos && agora - ultimaAtualizacao.horario < 30_000;
+
+      if (atualizacaoAindaRecente || requisicaoEmAndamento) {
+        return;
+      }
+
+      requisicaoEmAndamento = true;
+
       try {
         const resposta = await fetch("/api/checkout/produtos", {
           method: "POST",
@@ -98,22 +122,35 @@ export default function CheckoutPage() {
 
         setConfiguracoesAtuais(novasConfiguracoes);
         setConfiguracoesCarregadas(true);
+
+        ultimaAtualizacaoConfiguracoesRef.current = {
+          chaveIds,
+          horario: Date.now(),
+        };
       } catch (error) {
         if (error instanceof DOMException && error.name === "AbortError") {
           return;
         }
 
         console.error("Erro ao atualizar opções do checkout:", error);
+
         setConfiguracoesCarregadas(false);
+      } finally {
+        requisicaoEmAndamento = false;
       }
     }
 
-    carregarConfiguracoesAtuais();
+    void carregarConfiguracoesAtuais();
 
-    window.addEventListener("focus", carregarConfiguracoesAtuais);
+    function atualizarAoVoltarParaPagina() {
+      void carregarConfiguracoesAtuais();
+    }
+
+    window.addEventListener("focus", atualizarAoVoltarParaPagina);
 
     return () => {
-      window.removeEventListener("focus", carregarConfiguracoesAtuais);
+      window.removeEventListener("focus", atualizarAoVoltarParaPagina);
+
       controller.abort();
     };
   }, [itens]);
