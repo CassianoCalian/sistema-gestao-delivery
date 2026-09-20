@@ -13,7 +13,15 @@ export default async function HeroBanner() {
       preco,
       preco_promocional,
       imagem_url,
-      estoque
+      estoque,
+      unidades_por_item,
+      permite_abaixo_minimo,
+      opcoes:produto_opcoes (
+        id,
+        nome,
+        ativo,
+        ordem
+      )
     `,
     )
     .eq("ativo", true)

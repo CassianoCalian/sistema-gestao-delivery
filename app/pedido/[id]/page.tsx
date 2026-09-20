@@ -311,7 +311,6 @@ opcoes_selecionadas
   const mensagemWhatsApp = [
     `Olá! Acabei de fazer um pedido pelo site do Depósito do Zé. 🍺`,
     ``,
-    `📦 Pedido #${pedido.id}`,
     `👤 Cliente: ${pedido.nome_cliente}`,
     ``,
     `🛒 Itens:`,
@@ -487,7 +486,7 @@ opcoes_selecionadas
           </p>
 
           <h1 className="mt-2 text-3xl font-black tracking-[-0.045em] text-white sm:text-4xl">
-            Pedido #{pedido.id}
+            Seu pedido
           </h1>
 
           <p className="mx-auto mt-3 max-w-lg text-sm leading-6 text-zinc-400">

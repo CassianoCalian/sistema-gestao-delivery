@@ -1,6 +1,9 @@
 "use client";
 
+import Image from "next/image";
 import { useEffect, useState } from "react";
+
+import { useCart } from "../context/CartContext";
 
 export type ProdutoPromocional = {
   id: number;
@@ -10,6 +13,17 @@ export type ProdutoPromocional = {
   preco_promocional: number;
   imagem_url: string | null;
   estoque: number;
+  unidades_por_item: number;
+  permite_abaixo_minimo: boolean;
+
+  opcoes:
+    | {
+        id: number;
+        nome: string;
+        ativo: boolean;
+        ordem: number;
+      }[]
+    | null;
 };
 
 type PromoCarouselProps = {
@@ -33,6 +47,11 @@ function calcularDesconto(preco: number, promocional: number) {
 
 export default function PromoCarousel({ produtos }: PromoCarouselProps) {
   const [indiceAtual, setIndiceAtual] = useState(0);
+  const { adicionarProduto, itens } = useCart();
+
+  const [produtoAdicionadoId, setProdutoAdicionadoId] = useState<number | null>(
+    null,
+  );
 
   useEffect(() => {
     if (produtos.length <= 1) {
@@ -53,6 +72,13 @@ export default function PromoCarousel({ produtos }: PromoCarouselProps) {
   }
 
   const produto = produtos[indiceAtual];
+  const quantidadeNoCarrinho = itens
+    .filter((item) => item.id === produto.id)
+    .reduce((total, item) => total + item.quantidade, 0);
+
+  const limiteAtingido = quantidadeNoCarrinho >= produto.estoque;
+
+  const foiAdicionado = produtoAdicionadoId === produto.id;
 
   const desconto = calcularDesconto(
     Number(produto.preco),
@@ -69,6 +95,30 @@ export default function PromoCarousel({ produtos }: PromoCarouselProps) {
     setIndiceAtual((indiceAnterior) =>
       indiceAnterior === produtos.length - 1 ? 0 : indiceAnterior + 1,
     );
+  }
+
+  function adicionarPromocao() {
+    if (limiteAtingido) {
+      return;
+    }
+
+    adicionarProduto({
+      id: produto.id,
+      nome: produto.nome,
+      preco: Number(produto.preco_promocional),
+      imagem_url: produto.imagem_url,
+      estoque: produto.estoque,
+      unidades_por_item: Number(produto.unidades_por_item ?? 0),
+      permite_abaixo_minimo: produto.permite_abaixo_minimo,
+      opcoes: produto.opcoes ?? [],
+      opcao_selecionada: null,
+    });
+
+    setProdutoAdicionadoId(produto.id);
+
+    window.setTimeout(() => {
+      setProdutoAdicionadoId(null);
+    }, 1200);
   }
 
   return (
@@ -153,15 +203,24 @@ export default function PromoCarousel({ produtos }: PromoCarouselProps) {
                 </p>
               </div>
 
-              <a
-                href="#produtos"
-                className="brand-button pressable group flex min-h-14 w-full items-center justify-center gap-3 rounded-2xl px-6 py-4 text-sm font-black uppercase tracking-[0.06em] sm:w-auto"
+              <button
+                type="button"
+                onClick={adicionarPromocao}
+                disabled={limiteAtingido}
+                className="brand-button pressable group flex min-h-14 w-full items-center justify-center gap-3 rounded-2xl px-6 py-4 text-sm font-black uppercase tracking-[0.06em] disabled:cursor-not-allowed disabled:opacity-50 sm:w-auto"
               >
-                Pedir agora
-                <span className="transition-transform duration-300 group-hover:translate-x-1">
-                  →
-                </span>
-              </a>
+                {limiteAtingido
+                  ? "Limite atingido"
+                  : foiAdicionado
+                    ? "Adicionado ✓"
+                    : "Pedir agora"}
+
+                {!limiteAtingido && !foiAdicionado && (
+                  <span className="transition-transform duration-300 group-hover:translate-x-1">
+                    →
+                  </span>
+                )}
+              </button>
             </div>
           </div>
 
@@ -221,10 +280,13 @@ export default function PromoCarousel({ produtos }: PromoCarouselProps) {
             />
 
             {produto.imagem_url ? (
-              <img
+              <Image
                 src={produto.imagem_url}
                 alt={produto.nome}
-                className="relative z-10 h-[88%] w-[88%] object-contain drop-shadow-[0_24px_32px_rgba(0,0,0,0.55)] transition duration-500 hover:scale-[1.04]"
+                fill
+                sizes="(max-width: 640px) 190px, (max-width: 768px) 225px, 270px"
+                quality={60}
+                className="z-10 object-contain p-4 drop-shadow-[0_24px_32px_rgba(0,0,0,0.55)] transition duration-500 hover:scale-[1.04]"
               />
             ) : (
               <span className="relative z-10 text-[90px] drop-shadow-[0_20px_30px_rgba(0,0,0,0.45)]">

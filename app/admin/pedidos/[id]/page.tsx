@@ -70,40 +70,42 @@ function formatarStatus(status: string) {
 
   return status;
 }
-function gerarMensagemStatus(pedidoId: number, status: string) {
+function gerarMensagemStatus(status: string) {
   if (status === "recebido") {
-    return `Olá! Aqui é do Depósito do Zé. Recebemos seu pedido #${pedidoId} com sucesso! Já já começaremos a preparação.`;
+    return `Olá! Aqui é do Depósito do Zé. Recebemos seu pedido com sucesso! Já já começaremos a preparação.`;
   }
 
   if (status === "em_preparacao") {
-    return `Olá! Aqui é do Depósito do Zé. Seu pedido #${pedidoId} já está em preparação! Estamos separando tudo para você.`;
+    return `Olá! Aqui é do Depósito do Zé. Seu pedido já está em preparação! Estamos separando tudo para você.`;
   }
 
   if (status === "saiu_entrega") {
-    return `Olá! Aqui é do Depósito do Zé. Seu pedido #${pedidoId} saiu para entrega e já está a caminho!`;
+    return `Olá! Aqui é do Depósito do Zé. Seu pedido saiu para entrega e já está a caminho!`;
   }
 
   if (status === "entregue") {
-    return `Olá! Aqui é do Depósito do Zé. O pedido #${pedidoId} foi marcado como entregue. Obrigado pela preferência!`;
+    return `Olá! Aqui é do Depósito do Zé. Seu pedido foi marcado como entregue. Obrigado pela preferência!`;
   }
 
   if (status === "cancelado") {
-    return `Olá! Aqui é do Depósito do Zé. Precisamos falar com você sobre o cancelamento do pedido #${pedidoId}.`;
+    return `Olá! Aqui é do Depósito do Zé. Precisamos falar com você sobre o cancelamento do seu pedido.`;
   }
 
-  return `Olá! Aqui é do Depósito do Zé. Entramos em contato sobre o pedido #${pedidoId}.`;
+  return `Olá! Aqui é do Depósito do Zé. Entramos em contato sobre o seu pedido.`;
 }
 
-function gerarLinkWhatsApp(telefone: string, pedidoId: number, status: string) {
+function gerarLinkWhatsApp(telefone: string, status: string) {
   const telefoneLimpo = telefone.replace(/\D/g, "");
 
   const numeroWhatsApp = telefoneLimpo.startsWith("55")
     ? telefoneLimpo
     : `55${telefoneLimpo}`;
 
-  const mensagem = gerarMensagemStatus(pedidoId, status);
+  const mensagem = gerarMensagemStatus(status);
 
-  return `https://wa.me/${numeroWhatsApp}?text=${encodeURIComponent(mensagem)}`;
+  return `https://web.whatsapp.com/send?phone=${numeroWhatsApp}&text=${encodeURIComponent(
+    mensagem,
+  )}`;
 }
 
 export default async function AdminPedidoDetalhe({
@@ -153,11 +155,7 @@ pagamento_confirmado,
     notFound();
   }
 
-  const linkWhatsApp = gerarLinkWhatsApp(
-    pedido.telefone,
-    pedido.id,
-    pedido.status,
-  );
+  const linkWhatsApp = gerarLinkWhatsApp(pedido.telefone, pedido.status);
 
   const { data: itens, error: erroItens } = await supabaseAdmin
     .from("itens_pedido")
@@ -396,8 +394,8 @@ opcoes_selecionadas
 
                   <a
                     href={linkWhatsApp}
-                    target="_blank"
-                    rel="noopener noreferrer"
+                    target="depositoZeWhatsApp"
+                    referrerPolicy="no-referrer"
                     className="group/whatsapp relative mt-5 flex min-h-12 w-full items-center justify-center gap-3 overflow-hidden rounded-[16px] border border-emerald-300/20 bg-emerald-500 px-5 py-3 text-sm font-black text-white shadow-[0_12px_35px_rgba(16,185,129,0.12)] transition duration-300 hover:-translate-y-0.5 hover:bg-emerald-400 hover:shadow-[0_16px_45px_rgba(16,185,129,0.2)] sm:w-fit"
                   >
                     <span className="absolute -left-1/2 top-0 h-full w-1/3 skew-x-[-20deg] bg-white/20 transition-all duration-700 group-hover/whatsapp:left-[120%]" />

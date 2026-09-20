@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 type AdminAutoRefreshProps = {
   ultimoPedidoId: number;
 };
+const ALERTAS_STORAGE_KEY = "deposito-ze-alertas-ativos";
 
 export default function AdminAutoRefresh({
   ultimoPedidoId,
@@ -15,6 +16,19 @@ export default function AdminAutoRefresh({
   const [alertasAtivos, setAlertasAtivos] = useState(false);
 
   const audioContextRef = useRef<AudioContext | null>(null);
+  function obterAudioContext() {
+    const janela = window as Window & {
+      depositoZeAudioContext?: AudioContext;
+    };
+
+    if (!janela.depositoZeAudioContext) {
+      janela.depositoZeAudioContext = new AudioContext();
+    }
+
+    audioContextRef.current = janela.depositoZeAudioContext;
+
+    return janela.depositoZeAudioContext;
+  }
 
   const ultimoConhecidoRef = useRef(ultimoPedidoId);
 
@@ -22,18 +36,70 @@ export default function AdminAutoRefresh({
     ultimoConhecidoRef.current = ultimoPedidoId;
   }, [ultimoPedidoId]);
 
+  useEffect(() => {
+    const alertasSalvos =
+      window.localStorage.getItem(ALERTAS_STORAGE_KEY) === "true";
+
+    if (!alertasSalvos) {
+      return;
+    }
+
+    const frame = window.requestAnimationFrame(() => {
+      setAlertasAtivos(true);
+    });
+
+    const janela = window as Window & {
+      depositoZeAudioContext?: AudioContext;
+    };
+
+    if (janela.depositoZeAudioContext) {
+      audioContextRef.current = janela.depositoZeAudioContext;
+    }
+
+    async function desbloquearAudio() {
+      try {
+        const audioContext = obterAudioContext();
+
+        if (audioContext.state === "suspended") {
+          await audioContext.resume();
+        }
+      } catch (error) {
+        if (process.env.NODE_ENV === "development") {
+          console.error("Não foi possível reativar o áudio:", error);
+        }
+      }
+    }
+
+    if (
+      !janela.depositoZeAudioContext ||
+      janela.depositoZeAudioContext.state === "suspended"
+    ) {
+      window.addEventListener("pointerdown", desbloquearAudio, {
+        once: true,
+      });
+
+      window.addEventListener("keydown", desbloquearAudio, {
+        once: true,
+      });
+    }
+
+    return () => {
+      window.cancelAnimationFrame(frame);
+
+      window.removeEventListener("pointerdown", desbloquearAudio);
+      window.removeEventListener("keydown", desbloquearAudio);
+    };
+  }, []);
+
   async function ativarAlertas() {
     try {
-      let audioContext = audioContextRef.current;
-
-      if (!audioContext) {
-        audioContext = new AudioContext();
-        audioContextRef.current = audioContext;
-      }
+      const audioContext = obterAudioContext();
 
       if (audioContext.state === "suspended") {
         await audioContext.resume();
       }
+
+      window.localStorage.setItem(ALERTAS_STORAGE_KEY, "true");
 
       setAlertasAtivos(true);
 

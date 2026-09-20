@@ -49,11 +49,7 @@ const emojiCerveja = String.fromCodePoint(0x1f37a);
 const emojiEntrega = String.fromCodePoint(0x1f69a);
 const emojiLocalizacao = String.fromCodePoint(0x1f4cd);
 
-function gerarMensagemStatus(
-  pedidoId: number,
-  status: string,
-  codigoAcesso?: string,
-) {
+function gerarMensagemStatus(status: string, codigoAcesso?: string) {
   const linkAcompanhamento =
     codigoAcesso && typeof window !== "undefined"
       ? `${window.location.origin}/pedido/${codigoAcesso}`
@@ -62,32 +58,32 @@ function gerarMensagemStatus(
   const acompanhamento = linkAcompanhamento
     ? `\n\n${emojiLocalizacao} Acompanhe seu pedido em tempo real:\n${linkAcompanhamento}`
     : "";
+
   if (status === "recebido") {
-    return `Olá! Aqui é do Depósito do Zé ${emojiCerveja}. Recebemos seu pedido #${pedidoId} com sucesso! Em breve começaremos a preparação.${acompanhamento}`;
+    return `Olá! Aqui é do Depósito do Zé ${emojiCerveja}. Recebemos seu pedido com sucesso! Em breve começaremos a preparação.${acompanhamento}`;
   }
 
   if (status === "em_preparacao") {
-    return `Olá! Aqui é do Depósito do Zé ${emojiCerveja}. Seu pedido #${pedidoId} já está em preparação! Estamos separando tudo para você.${acompanhamento}`;
+    return `Olá! Aqui é do Depósito do Zé ${emojiCerveja}. Seu pedido já está em preparação! Estamos separando tudo para você.${acompanhamento}`;
   }
 
   if (status === "saiu_entrega") {
-    return `Olá! Aqui é do Depósito do Zé ${emojiEntrega}. Seu pedido #${pedidoId} saiu para entrega e já está a caminho!${acompanhamento}`;
+    return `Olá! Aqui é do Depósito do Zé ${emojiEntrega}. Seu pedido saiu para entrega e já está a caminho!${acompanhamento}`;
   }
 
   if (status === "entregue") {
-    return `Olá! Aqui é do Depósito do Zé ${emojiCerveja}. Seu pedido #${pedidoId} foi entregue. Muito obrigado pela preferência!${acompanhamento}`;
+    return `Olá! Aqui é do Depósito do Zé ${emojiCerveja}. Seu pedido foi entregue. Muito obrigado pela preferência!${acompanhamento}`;
   }
 
   if (status === "cancelado") {
-    return `Olá! Aqui é do Depósito do Zé. Precisamos falar com você sobre o cancelamento do pedido #${pedidoId}.${acompanhamento}`;
+    return `Olá! Aqui é do Depósito do Zé. Precisamos falar com você sobre o cancelamento do seu pedido.${acompanhamento}`;
   }
 
-  return `Olá! Aqui é do Depósito do Zé. Entramos em contato sobre o pedido #${pedidoId}.${acompanhamento}`;
+  return `Olá! Aqui é do Depósito do Zé. Entramos em contato sobre o seu pedido.${acompanhamento}`;
 }
 
 function gerarLinkWhatsApp(
   telefone: string,
-  pedidoId: number,
   status: string,
   codigoAcesso?: string,
 ) {
@@ -97,7 +93,7 @@ function gerarLinkWhatsApp(
     ? telefoneLimpo
     : `55${telefoneLimpo}`;
 
-  const mensagem = gerarMensagemStatus(pedidoId, status, codigoAcesso);
+  const mensagem = gerarMensagemStatus(status, codigoAcesso);
 
   const mensagemCodificada = encodeURIComponent(mensagem);
 
@@ -117,6 +113,7 @@ export default function OrderStatusButtons({
   const [carregando, setCarregando] = useState(false);
   const [erro, setErro] = useState("");
   const [statusAlterado, setStatusAlterado] = useState<string | null>(null);
+
   const pedidoEncerrado =
     statusAtual === "entregue" || statusAtual === "cancelado";
 
@@ -268,14 +265,9 @@ export default function OrderStatusButtons({
       {statusAlterado && (
         <div className="mt-5 rounded-xl border border-green-900 bg-green-950/20 p-4">
           <a
-            href={gerarLinkWhatsApp(
-              telefone,
-              pedidoId,
-              statusAlterado,
-              codigoAcesso,
-            )}
-            target="_blank"
-            rel="noopener noreferrer"
+            href={gerarLinkWhatsApp(telefone, statusAlterado, codigoAcesso)}
+            target="depositoZeWhatsApp"
+            referrerPolicy="no-referrer"
             className="mt-3 inline-block rounded-lg bg-green-500 px-4 py-3 text-sm font-black text-white transition hover:bg-green-400"
           >
             💬 Avisar cliente no WhatsApp
