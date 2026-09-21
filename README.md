@@ -1,21 +1,32 @@
 <div align="center">
 
 <img
-  width="100%"
-  src="https://capsule-render.vercel.app/api?type=waving&height=220&color=0:050505,45:191106,100:F5B301&text=Sistema%20de%20Gest%C3%A3o%20do%20Z%C3%A9&fontColor=FFFFFF&fontSize=38&fontAlignY=38&desc=Do%20pedido%20do%20cliente%20%C3%A0%20gest%C3%A3o%20da%20opera%C3%A7%C3%A3o.&descAlignY=58&animation=fadeIn"
+  src="./public/logo-deposito-ze.png"
+  width="190"
+  alt="Logo Depósito do Zé"
 />
 
+# 🍻 Sistema de Gestão do Zé
+
+### **Pedido fácil para o cliente. Controle completo para a operação.**
+
 <img
-  src="https://readme-typing-svg.demolab.com?font=Montserrat&weight=700&size=20&duration=2600&pause=800&color=F5B301&center=true&vCenter=true&width=950&lines=Cat%C3%A1logo+%E2%86%92+Carrinho+%E2%86%92+Checkout+%E2%86%92+Gest%C3%A3o;Cliente+e+opera%C3%A7%C3%A3o+conectados+em+um+%C3%BAnico+sistema;Tecnologia+aplicada+a+um+neg%C3%B3cio+real"
-  alt="Sistema de Gestão do Zé"
+  src="https://readme-typing-svg.demolab.com?font=Montserrat&weight=700&size=22&duration=2200&pause=850&color=FFB800&center=true&vCenter=true&width=900&lines=🍺+Abriu.+Escolheu.+Pediu.+Chegou.;🛒+Catálogo+→+Carrinho+→+Checkout;📦+Pedido+→+Painel+→+Operação;⚡+Tecnologia+trabalhando+no+ritmo+do+Zé"
+  alt="Apresentação animada do Sistema de Gestão do Zé"
 />
 
 <br>
 
-![Next.js](https://img.shields.io/badge/Next.js-16-000000?style=for-the-badge&logo=nextdotjs)
-![TypeScript](https://img.shields.io/badge/TypeScript-3178C6?style=for-the-badge&logo=typescript&logoColor=white)
-![Tailwind CSS](https://img.shields.io/badge/Tailwind_CSS-06B6D4?style=for-the-badge&logo=tailwindcss&logoColor=white)
-![Supabase](https://img.shields.io/badge/Supabase-3FCF8E?style=for-the-badge&logo=supabase&logoColor=white)
+![Cliente](https://img.shields.io/badge/CLIENTE-Catálogo%20•%20Carrinho%20•%20Checkout-FFB800?style=for-the-badge&labelColor=111111)
+![Admin](https://img.shields.io/badge/ADMIN-Pedidos%20•%20Estoque%20•%20Clientes-22C55E?style=for-the-badge&labelColor=111111)
+![Status](https://img.shields.io/badge/SISTEMA-ONLINE-00D084?style=for-the-badge&labelColor=111111)
+
+<br><br>
+
+![Next.js](https://img.shields.io/badge/Next.js-16-000000?style=flat-square&logo=nextdotjs)
+![TypeScript](https://img.shields.io/badge/TypeScript-3178C6?style=flat-square&logo=typescript&logoColor=white)
+![Tailwind CSS](https://img.shields.io/badge/Tailwind_CSS-06B6D4?style=flat-square&logo=tailwindcss&logoColor=white)
+![Supabase](https://img.shields.io/badge/Supabase-3FCF8E?style=flat-square&logo=supabase&logoColor=white)
 
 </div>
 
@@ -25,88 +36,163 @@
 
 O **Sistema de Gestão do Zé** foi desenvolvido para digitalizar a experiência de compra e apoiar a operação do **Depósito do Zé**.
 
-A aplicação conecta dois lados do negócio:
+O projeto conecta duas experiências dentro do mesmo produto:
 
 <table>
 <tr>
+
 <td width="50%" valign="top">
 
 ### 👤 Cliente
 
-Navega pelo catálogo, encontra promoções, monta o carrinho, informa os dados de entrega, escolhe a forma de pagamento e finaliza o pedido.
+O cliente navega pelo catálogo, encontra promoções, adiciona produtos ao carrinho, informa seus dados, endereço e forma de pagamento até concluir o pedido.
 
 </td>
 
 <td width="50%" valign="top">
 
-### 🧑‍💼 Administração
+### 🧑‍💼 Operação
 
-Centraliza pedidos, produtos, categorias, estoque, clientes e informações importantes para a operação do estabelecimento.
+A equipe utiliza um painel administrativo próprio para acompanhar pedidos, produtos, categorias, estoque, clientes e indicadores do negócio.
 
 </td>
+
 </tr>
 </table>
 
-> **Mais do que um catálogo online: uma solução criada para um negócio real.**
+> **Mais do que um catálogo online: uma solução construída para um negócio real.**
 
 ---
 
-# 📱 Experiência do cliente
+# 🍻 Vitrine digital
 
-<div align="center">
-
-<img src="./public/readme/cliente-home.png" width="205" alt="Página inicial" />
-<img src="./public/readme/cliente-catalogo.png" width="205" alt="Catálogo" />
-<img src="./public/readme/cliente-carrinho.png" width="205" alt="Carrinho" />
-<img src="./public/readme/cliente-checkout.png" width="205" alt="Checkout" />
-
-</div>
-
-<br>
-
-A jornada foi construída com foco principalmente em **dispositivos móveis**, utilizando uma identidade visual própria para tornar a experiência de compra simples e direta.
-
-### ✨ Recursos para o cliente
-
-`🔎 Busca de produtos`
-&nbsp;
-`🔥 Promoções`
-&nbsp;
-`🛒 Carrinho`
-
-`📍 Entrega`
-&nbsp;
-`💳 Pagamento`
-&nbsp;
-`✅ Finalização`
-
-O checkout permite trabalhar com diferentes formas de pagamento, endereço de entrega e regras específicas do negócio.
-
----
-
-# 🖥️ Painel administrativo
-
-O sistema também possui uma área exclusiva para a operação do Depósito do Zé.
-
-## 🔐 Área administrativa
+A experiência do cliente foi criada com foco em **mobile**, velocidade e facilidade na hora de comprar.
 
 <div align="center">
 
 <img
-  src="./public/readme/admin-login.png"
-  width="850"
-  alt="Tela de acesso ao painel administrativo"
+  src="./public/readme/home.png"
+  width="245"
+  alt="Página inicial do Depósito do Zé"
+/>
+
+<img
+  src="./public/readme/catalogo.png"
+  width="245"
+  alt="Catálogo do Depósito do Zé"
+/>
+
+<img
+  src="./public/readme/carrinho.png"
+  width="245"
+  alt="Carrinho do Depósito do Zé"
 />
 
 </div>
 
 <br>
 
-O acesso administrativo possui uma interface separada da experiência do cliente, mantendo a operação centralizada em um ambiente próprio.
+### ⚡ Uma jornada simples
+
+```text
+🔎 ENCONTRAR
+     ↓
+🍺 ESCOLHER
+     ↓
+🛒 ADICIONAR
+     ↓
+📦 REVISAR
+     ↓
+💳 FINALIZAR
+```
+
+### O cliente encontra
+
+`🔥 Promoções`
+&nbsp;&nbsp;
+`🔎 Busca`
+&nbsp;&nbsp;
+`🛒 Carrinho`
+&nbsp;&nbsp;
+`📱 Mobile First`
 
 ---
 
-## ⚡ Central de gestão
+# 🧾 Checkout em etapas
+
+O checkout foi dividido para deixar a finalização do pedido mais clara e reduzir atrito durante a compra.
+
+<div align="center">
+
+<img
+  src="./public/readme/checkout-dados.png"
+  width="245"
+  alt="Dados do cliente"
+/>
+
+<img
+  src="./public/readme/checkout-endereco.png"
+  width="245"
+  alt="Endereço de entrega"
+/>
+
+<img
+  src="./public/readme/checkout-pagamento.png"
+  width="245"
+  alt="Forma de pagamento"
+/>
+
+</div>
+
+<br>
+
+```text
+CARRINHO
+   ↓
+DADOS DO CLIENTE
+   ↓
+LOCAL DE ENTREGA
+   ↓
+FORMA DE PAGAMENTO
+   ↓
+RESUMO
+   ↓
+PEDIDO
+```
+
+### 💳 Formas de pagamento
+
+- 🟢 **PIX**
+- 💳 **Cartão na entrega**
+- 💵 **Dinheiro na entrega**
+
+O sistema também trabalha com regras específicas da operação, como **taxas, áreas de entrega e condições do pedido**.
+
+---
+
+# 🖥️ Balcão de controle
+
+Enquanto o cliente compra pelo celular, a equipe acompanha a operação por uma interface completamente separada.
+
+## 🔐 Acesso administrativo
+
+<div align="center">
+
+<img
+  src="./public/readme/admin-login.png"
+  width="900"
+  alt="Login do painel administrativo do Depósito do Zé"
+/>
+
+</div>
+
+<br>
+
+O painel possui uma área de acesso própria para separar a experiência do cliente da gestão do negócio.
+
+---
+
+## ⚡ Central da operação
 
 <div align="center">
 
@@ -120,78 +206,99 @@ O acesso administrativo possui uma interface separada da experiência do cliente
 
 <br>
 
-O painel reúne os principais setores da operação:
+A central administrativa organiza os principais setores da operação:
 
-| Área | Objetivo |
+| Área | Função |
 |---|---|
-| 📊 **Dashboard** | visão geral da operação |
-| 📦 **Pedidos** | acompanhamento dos pedidos |
+| 📊 **Dashboard** | visão geral do negócio |
+| 📦 **Pedidos** | acompanhamento da operação |
 | 🏷️ **Produtos** | gerenciamento do catálogo |
 | 🗂️ **Categorias** | organização dos produtos |
 | 📦 **Estoque** | acompanhamento de disponibilidade |
-| 👥 **Clientes** | organização da base de clientes |
+| 👥 **Clientes** | base e relacionamento com clientes |
 
-O dashboard também concentra informações operacionais como **pedidos recebidos, faturamento, ticket médio e status do sistema**, além da estrutura para alertas de novos pedidos.
+### 📡 Operação em tempo real
+
+O painel também possui estrutura para acompanhar:
+
+`🔔 Novos pedidos`
+
+`💰 Faturamento`
+
+`📈 Ticket médio`
+
+`🔄 Atualização automática`
+
+`🟢 Status do sistema`
 
 ---
 
-# ⚙️ Como o sistema funciona
+# ⚙️ Do pedido à operação
 
 ```mermaid
 flowchart LR
-    A["👤 Cliente"] --> B["📱 Catálogo"]
-    B --> C["🛒 Carrinho"]
-    C --> D["📍 Checkout"]
-    D --> E["💳 Pagamento"]
-    E --> F["⚙️ API"]
-    F --> G[("☁️ Supabase")]
-    G --> H["📥 Pedido"]
-    H --> I["🖥️ Painel Admin"]
-    I --> J["🔄 Gestão"]
-    J --> K["🚚 Operação"]
+
+    CLIENTE["👤 Cliente"]
+    CATALOGO["🍺 Catálogo"]
+    CARRINHO["🛒 Carrinho"]
+    CHECKOUT["🧾 Checkout"]
+    PAGAMENTO["💳 Pagamento"]
+    API["⚙️ API"]
+    BANCO[("☁️ Supabase")]
+    PEDIDO["📥 Pedido"]
+    ADMIN["🖥️ Painel Admin"]
+    OPERACAO["🚚 Operação"]
+
+    CLIENTE --> CATALOGO
+    CATALOGO --> CARRINHO
+    CARRINHO --> CHECKOUT
+    CHECKOUT --> PAGAMENTO
+    PAGAMENTO --> API
+    API --> BANCO
+    BANCO --> PEDIDO
+    PEDIDO --> ADMIN
+    ADMIN --> OPERACAO
 ```
 
 ---
 
-# 🚀 Principais funcionalidades
+# 🚀 Principais recursos
 
 <table>
 <tr>
 
 <td width="50%" valign="top">
 
-### 👤 Cliente
+### 🍺 Para o cliente
 
 - catálogo digital
+- produtos em promoção
 - busca de produtos
-- promoções e destaques
 - carrinho interativo
 - controle de quantidade
 - checkout em etapas
 - dados do cliente
 - endereço de entrega
-- seleção de bairro
-- PIX
-- cartão na entrega
-- dinheiro na entrega
+- regras por bairro
+- múltiplas formas de pagamento
 - experiência responsiva
 
 </td>
 
 <td width="50%" valign="top">
 
-### 🧑‍💼 Administração
+### ⚙️ Para a gestão
 
 - área administrativa
 - dashboard operacional
 - acompanhamento de pedidos
-- atualização de status
-- gerenciamento de produtos
+- produtos
 - categorias
-- controle de estoque
-- área de clientes
-- indicadores operacionais
+- estoque
+- clientes
+- indicadores do negócio
 - alertas de novos pedidos
+- atualização automática
 
 </td>
 
@@ -200,33 +307,11 @@ flowchart LR
 
 ---
 
-# 🧾 Jornada do pedido
-
-```text
-PRODUTO
-   ↓
-CARRINHO
-   ↓
-DADOS DO CLIENTE
-   ↓
-LOCAL DE ENTREGA
-   ↓
-FORMA DE PAGAMENTO
-   ↓
-RESUMO DO PEDIDO
-   ↓
-PEDIDO REGISTRADO
-   ↓
-PAINEL ADMINISTRATIVO
-```
-
----
-
 # 🛠️ Tecnologias
 
 <div align="center">
 
-| Tecnologia | Utilização |
+| Tecnologia | Uso no projeto |
 |---|---|
 | **Next.js** | aplicação, páginas, rotas e APIs |
 | **React** | componentes e interface |
@@ -234,26 +319,44 @@ PAINEL ADMINISTRATIVO
 | **Tailwind CSS** | design e responsividade |
 | **Supabase** | banco de dados e persistência |
 | **React Context** | gerenciamento do carrinho |
-| **Git & GitHub** | versionamento |
+| **Git / GitHub** | versionamento |
 
 </div>
 
 ---
 
-# 🧠 O desafio
+# 🎯 Por que esse projeto existe?
 
-O projeto não foi criado apenas como exercício de desenvolvimento.
+O projeto nasceu para resolver situações reais do dia a dia de um pequeno negócio.
 
-Ele nasceu para trabalhar problemas reais de uma operação comercial:
+Não se trata apenas de colocar produtos em uma página.
+
+O objetivo é conectar:
+
+```text
+CLIENTE
+   +
+PEDIDO
+   +
+DADOS
+   +
+OPERAÇÃO
+   +
+GESTÃO
+```
+
+para gerar uma experiência mais organizada tanto para quem compra quanto para quem administra.
+
+### O desafio envolve
 
 - reduzir processos manuais;
-- organizar pedidos;
 - facilitar compras pelo celular;
+- organizar os pedidos;
 - centralizar informações;
 - melhorar a experiência do cliente;
-- apoiar a gestão do estabelecimento.
+- apoiar a tomada de decisão da operação.
 
-> **Software como ferramenta para melhorar um negócio real.**
+> **Código aplicado a um problema real.**
 
 ---
 
@@ -265,49 +368,68 @@ Ele nasceu para trabalhar problemas reais de uma operação comercial:
 ✅ Carrinho
 ✅ Checkout
 ✅ Formas de pagamento
-✅ Integração com banco de dados
+✅ Banco de dados
 ✅ Painel administrativo
 ✅ Gestão de pedidos
 ✅ Produtos
 ✅ Categorias
 ✅ Estoque
+✅ Área de clientes
 
 🔄 CRM e métricas de clientes
 🔄 Histórico de compras
 🔄 Fidelidade
 🔄 Impressão térmica
 🔄 Automações operacionais
-🔄 Evolução dos relatórios
+🔄 Relatórios e indicadores
 ```
 
 ---
 
-# ▶️ Executando localmente
+# ▶️ Executando o projeto
 
 ```bash
 git clone https://github.com/CassianoCalian/sistema-gestao-delivery.git
+```
 
+```bash
 cd sistema-gestao-delivery
+```
 
+```bash
 npm install
+```
 
+```bash
 npm run dev
+```
+
+Depois acesse:
+
+```text
+http://localhost:3000
 ```
 
 ---
 
 <div align="center">
 
-<img
-  width="100%"
-  src="https://capsule-render.vercel.app/api?type=waving&height=110&section=footer&color=0:F5B301,60:171007,100:050505"
-/>
+## 🍺 Mais agilidade. Mais controle. Menos complicação.
 
-### 🍻 Mais agilidade. Mais controle. Mais experiência.
+**Sistema desenvolvido para o Depósito do Zé.**
+
+<br>
 
 Desenvolvido por **Cassiano Calian**
 
+<br><br>
+
 [![GitHub](https://img.shields.io/badge/GitHub-CassianoCalian-181717?style=for-the-badge&logo=github)](https://github.com/CassianoCalian)
+
 [![LinkedIn](https://img.shields.io/badge/LinkedIn-Cassiano_Calian-0A66C2?style=for-the-badge&logo=linkedin)](https://www.linkedin.com/in/cassianocalian/)
+
+<br>
+
+**🍻 BEBIDA GELADA • PEDIDO RÁPIDO • GESTÃO ORGANIZADA**
 
 </div>
