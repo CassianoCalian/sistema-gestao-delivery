@@ -27,12 +27,21 @@ type SpeechRecognitionLike = {
 
 type SpeechRecognitionConstructor = new () => SpeechRecognitionLike;
 
+type OpcaoConfiguracao = {
+  id: number;
+  nome: string;
+  ativo: boolean;
+  ordem: number;
+};
+
 type OpcaoProduto = {
   id: number;
   nome: string;
   preco: number;
   estoque: number;
   permite_abaixo_minimo: boolean;
+  unidades_por_item: number;
+  opcoes: OpcaoConfiguracao[];
 };
 
 type ItemInterpretado = {
@@ -43,6 +52,14 @@ type ItemInterpretado = {
   subtotal: number;
   estoque: number;
   permite_abaixo_minimo: boolean;
+  unidades_por_item: number;
+  opcoes: OpcaoConfiguracao[];
+};
+
+type OpcaoSelecionada = {
+  opcao_id: number;
+  nome: string;
+  quantidade: number;
 };
 
 type ItemCarrinho = {
@@ -52,6 +69,9 @@ type ItemCarrinho = {
   preco: number;
   estoque: number;
   permite_abaixo_minimo: boolean;
+  unidades_por_item: number;
+  opcoes: OpcaoConfiguracao[];
+  opcoes_selecionadas: OpcaoSelecionada[];
 };
 
 type Duvida = {
@@ -164,6 +184,9 @@ export default function PedidoFacilPage() {
   const [escolhas, setEscolhas] = useState<Record<number, OpcaoProduto>>({});
   const [quantidades, setQuantidades] = useState<Record<string, number>>({});
   const [carrinho, setCarrinho] = useState<ItemCarrinho[]>([]);
+  const [opcoesSelecionadasPedido, setOpcoesSelecionadasPedido] = useState<
+    Record<number, Record<number, number>>
+  >({});
 
   const [etapa, setEtapa] = useState<"pedido" | "dados">("pedido");
 
@@ -183,6 +206,12 @@ export default function PedidoFacilPage() {
   const [formaPagamento, setFormaPagamento] = useState<
     "" | "pix" | "cartao" | "dinheiro"
   >("");
+
+  const [trocoPara, setTrocoPara] = useState("");
+  const [enviandoPedido, setEnviandoPedido] = useState(false);
+  const [erroFinalizacao, setErroFinalizacao] = useState("");
+
+  const chaveIdempotenciaRef = useRef<string | null>(null);
 
   const [consultandoCep, setConsultandoCep] = useState(false);
   const [erroCep, setErroCep] = useState("");
@@ -437,6 +466,7 @@ export default function PedidoFacilPage() {
     setResultado(null);
     setEscolhas({});
     setQuantidades({});
+    setOpcoesSelecionadasPedido({});
 
     if (!pedido.trim()) {
       setErro("Escreva ou fale o que você deseja pedir.");
@@ -513,8 +543,96 @@ export default function PedidoFacilPage() {
     });
   }
 
+  function alterarOpcaoPedido(
+    item: ItemCarrinho,
+    opcaoId: number,
+    alteracao: 1 | -1,
+  ) {
+    const totalNecessario = item.quantidade * item.unidades_por_item;
+
+    setOpcoesSelecionadasPedido((estadoAtual) => {
+      const selecoesProduto = estadoAtual[item.id] ?? {};
+
+      const totalSelecionado = Object.values(selecoesProduto).reduce(
+        (total, quantidade) => total + quantidade,
+        0,
+      );
+
+      const quantidadeAtual = selecoesProduto[opcaoId] ?? 0;
+
+      if (alteracao === 1 && totalSelecionado >= totalNecessario) {
+        return estadoAtual;
+      }
+
+      if (alteracao === -1 && quantidadeAtual <= 0) {
+        return estadoAtual;
+      }
+
+      return {
+        ...estadoAtual,
+
+        [item.id]: {
+          ...selecoesProduto,
+
+          [opcaoId]: quantidadeAtual + alteracao,
+        },
+      };
+    });
+  }
+
+  function mesclarOpcoesSelecionadas(
+    atuais: OpcaoSelecionada[],
+    novas: OpcaoSelecionada[],
+  ) {
+    const mapa = new Map<number, OpcaoSelecionada>();
+
+    atuais.forEach((opcao) => {
+      mapa.set(opcao.opcao_id, { ...opcao });
+    });
+
+    novas.forEach((opcao) => {
+      const existente = mapa.get(opcao.opcao_id);
+
+      if (existente) {
+        mapa.set(opcao.opcao_id, {
+          ...existente,
+          quantidade: existente.quantidade + opcao.quantidade,
+        });
+
+        return;
+      }
+
+      mapa.set(opcao.opcao_id, { ...opcao });
+    });
+
+    return Array.from(mapa.values());
+  }
+
   function adicionarAoCarrinho() {
-    if (!resultado || !podeContinuar || itensFinais.length === 0) {
+    if (
+      !resultado ||
+      !podeContinuar ||
+      itensFinais.length === 0 ||
+      !opcoesCompletasParaAdicionar
+    ) {
+      return;
+    }
+
+    const produtoSemEstoqueSuficiente = itensFinais.find((item) => {
+      const existente = carrinho.find((produto) => produto.id === item.id);
+
+      if (!existente) {
+        return false;
+      }
+
+      return existente.quantidade + item.quantidade > item.estoque;
+    });
+
+    if (produtoSemEstoqueSuficiente) {
+      setErro(
+        `Você já possui ${produtoSemEstoqueSuficiente.nome} no carrinho e não há estoque suficiente para adicionar essa quantidade.`,
+      );
+
       return;
     }
 
@@ -533,9 +651,11 @@ export default function PedidoFacilPage() {
             ...existente,
             ...item,
 
-            quantidade: Math.min(
-              item.estoque,
-              existente.quantidade + item.quantidade,
+            quantidade: existente.quantidade + item.quantidade,
+
+            opcoes_selecionadas: mesclarOpcoesSelecionadas(
+              existente.opcoes_selecionadas,
+              item.opcoes_selecionadas,
             ),
           };
 
@@ -559,6 +679,7 @@ export default function PedidoFacilPage() {
     setResultado(null);
     setEscolhas({});
     setQuantidades({});
+    setOpcoesSelecionadasPedido({});
     setPedido("");
     setErro("");
 
@@ -660,6 +781,22 @@ export default function PedidoFacilPage() {
         preco: item.preco,
         estoque: item.estoque,
         permite_abaixo_minimo: item.permite_abaixo_minimo,
+        unidades_por_item: item.unidades_por_item ?? 0,
+        opcoes: item.opcoes ?? [],
+
+        opcoes_selecionadas: Object.entries(
+          opcoesSelecionadasPedido[item.id] ?? {},
+        )
+          .filter(([, quantidadeOpcao]) => quantidadeOpcao > 0)
+          .map(([opcaoId, quantidadeOpcao]) => ({
+            opcao_id: Number(opcaoId),
+
+            nome:
+              item.opcoes.find((opcao) => opcao.id === Number(opcaoId))?.nome ??
+              "Opção",
+
+            quantidade: quantidadeOpcao,
+          })),
       };
     });
 
@@ -685,12 +822,42 @@ export default function PedidoFacilPage() {
           preco: escolha.preco,
           estoque: escolha.estoque,
           permite_abaixo_minimo: escolha.permite_abaixo_minimo,
+          unidades_por_item: escolha.unidades_por_item ?? 0,
+          opcoes: escolha.opcoes ?? [],
+
+          opcoes_selecionadas: Object.entries(
+            opcoesSelecionadasPedido[escolha.id] ?? {},
+          )
+            .filter(([, quantidadeOpcao]) => quantidadeOpcao > 0)
+            .map(([opcaoId, quantidadeOpcao]) => ({
+              opcao_id: Number(opcaoId),
+
+              nome:
+                escolha.opcoes.find((opcao) => opcao.id === Number(opcaoId))
+                  ?.nome ?? "Opção",
+
+              quantidade: quantidadeOpcao,
+            })),
         };
       })
       .filter((item): item is ItemCarrinho => item !== null);
 
     return [...encontrados, ...escolhidos];
   })();
+
+  const opcoesCompletasParaAdicionar = itensFinais.every((item) => {
+    if (item.unidades_por_item <= 0) {
+      return true;
+    }
+
+    const totalNecessario = item.quantidade * item.unidades_por_item;
+
+    const totalSelecionado = Object.values(
+      opcoesSelecionadasPedido[item.id] ?? {},
+    ).reduce((total, quantidade) => total + quantidade, 0);
+
+    return totalSelecionado === totalNecessario;
+  });
 
   const VALOR_MINIMO_PEDIDO = 30;
 
@@ -700,6 +867,12 @@ export default function PedidoFacilPage() {
       0,
     );
   }, [carrinho]);
+
+  const TAXA_CARTAO = 2;
+
+  const taxaCartao = formaPagamento === "cartao" ? TAXA_CARTAO : 0;
+
+  const totalEstimado = subtotalCarrinho + taxaCartao;
 
   const temExcecaoPedidoMinimoCarrinho = carrinho.some(
     (item) => item.permite_abaixo_minimo,
@@ -716,14 +889,10 @@ export default function PedidoFacilPage() {
   const podeFinalizarCarrinho =
     carrinho.length > 0 && atingiuPedidoMinimoCarrinho;
 
-  // Compatibilidade temporária com a interface antiga.
-  // Amanhã este bloco será removido quando finalizarmos
-  // a interface do carrinho conversacional.
-  const temExcecaoPedidoMinimo = temExcecaoPedidoMinimoCarrinho;
-
-  const faltaParaPedidoMinimo = faltaParaPedidoMinimoCarrinho;
-
-  const podeAvancarParaDados = podeFinalizarCarrinho;
+  const quantidadeItensCarrinho = carrinho.reduce(
+    (total, item) => total + item.quantidade,
+    0,
+  );
 
   function continuarParaDados() {
     if (!podeFinalizarCarrinho) {
@@ -794,6 +963,194 @@ export default function PedidoFacilPage() {
       );
     } finally {
       setConsultandoCep(false);
+    }
+  }
+
+  function converterTrocoParaNumero(valor: string) {
+    const texto = valor.trim();
+
+    if (!texto) {
+      return null;
+    }
+
+    const normalizado = texto.includes(",")
+      ? texto.replace(/\./g, "").replace(",", ".")
+      : texto;
+
+    const numero = Number(normalizado);
+
+    return Number.isFinite(numero) ? numero : null;
+  }
+
+  async function finalizarPedido() {
+    if (enviandoPedido) {
+      return;
+    }
+
+    setErroFinalizacao("");
+
+    const telefoneLimpo = telefone.replace(/\D/g, "");
+    const cepLimpo = cep.replace(/\D/g, "");
+
+    if (!nome.trim()) {
+      setErroFinalizacao("Informe seu nome para finalizar o pedido.");
+      return;
+    }
+
+    if (telefoneLimpo.length < 10 || telefoneLimpo.length > 11) {
+      setErroFinalizacao("Confira o número do WhatsApp antes de finalizar.");
+      return;
+    }
+
+    if (cepLimpo.length !== 8) {
+      setErroFinalizacao("Informe um CEP válido.");
+      return;
+    }
+
+    if (!rua.trim() || !numero.trim() || !bairro.trim()) {
+      setErroFinalizacao("Complete o endereço de entrega antes de finalizar.");
+      return;
+    }
+
+    if (!formaPagamento) {
+      setErroFinalizacao("Escolha uma forma de pagamento.");
+      return;
+    }
+
+    if (carrinho.length === 0) {
+      setErroFinalizacao("Seu carrinho está vazio.");
+      return;
+    }
+
+    if (!podeFinalizarCarrinho) {
+      setErroFinalizacao("O pedido ainda não atingiu o valor mínimo.");
+      return;
+    }
+
+    const trocoNumero =
+      formaPagamento === "dinheiro"
+        ? converterTrocoParaNumero(trocoPara)
+        : null;
+
+    if (
+      formaPagamento === "dinheiro" &&
+      trocoPara.trim() &&
+      (trocoNumero === null || trocoNumero <= 0)
+    ) {
+      setErroFinalizacao("Informe um valor válido para o troco.");
+      return;
+    }
+
+    if (
+      formaPagamento === "dinheiro" &&
+      trocoNumero !== null &&
+      trocoNumero < totalEstimado
+    ) {
+      setErroFinalizacao(
+        `O valor para troco deve ser pelo menos ${formatarPreco(
+          totalEstimado,
+        )}.`,
+      );
+      return;
+    }
+
+    setEnviandoPedido(true);
+
+    try {
+      let chaveIdempotencia =
+        chaveIdempotenciaRef.current ??
+        window.sessionStorage.getItem(
+          "deposito-ze-pedido-facil-chave-idempotencia",
+        );
+
+      if (!chaveIdempotencia) {
+        chaveIdempotencia = crypto.randomUUID();
+
+        window.sessionStorage.setItem(
+          "deposito-ze-pedido-facil-chave-idempotencia",
+          chaveIdempotencia,
+        );
+      }
+
+      chaveIdempotenciaRef.current = chaveIdempotencia;
+
+      const formaPagamentoApi =
+        formaPagamento === "cartao" ? "cartao_entrega" : formaPagamento;
+
+      const pedidoFinal = {
+        chave_idempotencia: chaveIdempotencia,
+
+        nome: nome.trim(),
+        telefone: telefone.trim(),
+
+        cep: cep.trim(),
+        rua: rua.trim(),
+        numero: numero.trim(),
+
+        complemento: complemento.trim() || null,
+
+        bairro: bairro.trim(),
+
+        referencia: referencia.trim() || null,
+
+        forma_pagamento: formaPagamentoApi,
+
+        troco_para: formaPagamento === "dinheiro" ? trocoNumero : null,
+
+        itens: carrinho.map((item) => ({
+          id: item.id,
+
+          quantidade: item.quantidade,
+
+          opcoes_selecionadas: item.opcoes_selecionadas.map((opcao) => ({
+            opcao_id: opcao.opcao_id,
+            quantidade: opcao.quantidade,
+          })),
+        })),
+      };
+
+      const resposta = await fetch("/api/pedidos", {
+        method: "POST",
+
+        headers: {
+          "Content-Type": "application/json",
+        },
+
+        body: JSON.stringify(pedidoFinal),
+      });
+
+      const dados = (await resposta.json()) as {
+        sucesso?: boolean;
+        pedido_id?: number;
+        codigo_acesso?: string;
+        erro?: string;
+      };
+
+      if (!resposta.ok) {
+        throw new Error(dados.erro ?? "Não foi possível finalizar o pedido.");
+      }
+
+      if (!dados.codigo_acesso) {
+        throw new Error(
+          "O pedido foi processado, mas não recebemos o código de acesso.",
+        );
+      }
+
+      window.sessionStorage.removeItem(
+        "deposito-ze-pedido-facil-chave-idempotencia",
+      );
+
+      chaveIdempotenciaRef.current = null;
+
+      window.location.replace(`/pedido/${dados.codigo_acesso}`);
+    } catch (error) {
+      setErroFinalizacao(
+        error instanceof Error
+          ? error.message
+          : "Não foi possível finalizar o pedido.",
+      );
+    } finally {
+      setEnviandoPedido(false);
     }
   }
 
@@ -1014,7 +1371,9 @@ export default function PedidoFacilPage() {
 
                 <div className="max-w-[84%] rounded-3xl rounded-bl-md border border-white/10 bg-zinc-900 px-4 py-4">
                   <p className="text-base font-black text-white">
-                    O que você gostaria de pedir hoje?
+                    {carrinho.length === 0
+                      ? "O que você gostaria de pedir hoje?"
+                      : "Quer adicionar mais alguma coisa?"}
                   </p>
 
                   <p className="mt-2 text-sm text-zinc-400">
@@ -1023,7 +1382,7 @@ export default function PedidoFacilPage() {
                 </div>
               </div>
 
-              {!resultado && (
+              {!resultado && carrinho.length === 0 && (
                 <div className="ml-12 max-w-[82%] rounded-2xl border border-amber-400/15 bg-amber-400/[0.06] px-4 py-3">
                   <p className="text-sm font-semibold text-amber-300">
                     Exemplo de pedido
@@ -1053,7 +1412,10 @@ export default function PedidoFacilPage() {
               )}
 
               {/* CAMPO DO PEDIDO */}
-              <div className="mt-2 border-t border-white/10 pt-4">
+              <div
+                id="campo-pedido"
+                className="mt-2 border-t border-white/10 pt-4"
+              >
                 <div className="flex items-end gap-2 rounded-3xl border border-white/10 bg-zinc-900 p-2">
                   <button
                     type="button"
@@ -1070,7 +1432,11 @@ export default function PedidoFacilPage() {
                   <textarea
                     value={pedido}
                     onChange={(event) => setPedido(event.target.value)}
-                    placeholder="Digite seu pedido..."
+                    placeholder={
+                      carrinho.length === 0
+                        ? "Digite seu pedido..."
+                        : "Ex: coloca uma Coca 2L também"
+                    }
                     rows={1}
                     className="max-h-32 min-h-12 flex-1 resize-none bg-transparent px-2 py-3 text-base font-medium text-white outline-none placeholder:text-zinc-500"
                   />
@@ -1297,8 +1663,118 @@ export default function PedidoFacilPage() {
                 </div>
               </div>
             )}
+            {/* SABORES / OPÇÕES */}
+            {itensFinais
+              .filter((item) => item.unidades_por_item > 0)
+              .map((item, indice) => {
+                const totalNecessario =
+                  item.quantidade * item.unidades_por_item;
 
-            {/* RESUMO DO ATENDENTE */}
+                const selecoesProduto = opcoesSelecionadasPedido[item.id] ?? {};
+
+                const totalSelecionado = Object.values(selecoesProduto).reduce(
+                  (total, quantidade) => total + quantidade,
+                  0,
+                );
+
+                return (
+                  <div
+                    key={`sabores-${item.id}-${indice}`}
+                    className="flex items-end gap-3"
+                  >
+                    <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-amber-400 text-xl">
+                      🍺
+                    </div>
+
+                    <div className="w-full max-w-[84%] rounded-3xl rounded-bl-md border border-amber-400/20 bg-zinc-900 px-4 py-4">
+                      <p className="text-base font-black text-white">
+                        Escolha os sabores 👇
+                      </p>
+
+                      <p className="mt-1 text-sm font-semibold text-zinc-300">
+                        {item.nome}
+                      </p>
+
+                      <div className="mt-3 rounded-2xl border border-white/10 bg-black/30 p-3">
+                        <p className="text-sm text-zinc-300">
+                          Selecionados:{" "}
+                          <strong
+                            className={
+                              totalSelecionado === totalNecessario
+                                ? "text-emerald-400"
+                                : "text-amber-400"
+                            }
+                          >
+                            {totalSelecionado} de {totalNecessario}
+                          </strong>
+                        </p>
+                      </div>
+
+                      {item.opcoes.length === 0 ? (
+                        <p className="mt-3 text-sm font-bold text-red-300">
+                          Nenhum sabor disponível para este produto.
+                        </p>
+                      ) : (
+                        <div className="mt-4 space-y-2">
+                          {item.opcoes.map((opcao) => {
+                            const quantidade = selecoesProduto[opcao.id] ?? 0;
+
+                            return (
+                              <div
+                                key={opcao.id}
+                                className="flex items-center justify-between gap-3 rounded-2xl border border-white/10 bg-black/30 p-3"
+                              >
+                                <p className="min-w-0 flex-1 text-sm font-bold text-white">
+                                  {opcao.nome}
+                                </p>
+
+                                <div className="flex shrink-0 items-center gap-2">
+                                  <button
+                                    type="button"
+                                    disabled={quantidade <= 0}
+                                    onClick={() =>
+                                      alterarOpcaoPedido(item, opcao.id, -1)
+                                    }
+                                    className="flex h-11 w-11 items-center justify-center rounded-xl border border-white/10 bg-zinc-800 text-lg font-black text-white disabled:cursor-not-allowed disabled:opacity-30"
+                                    aria-label={`Diminuir ${opcao.nome}`}
+                                  >
+                                    −
+                                  </button>
+
+                                  <strong className="min-w-7 text-center text-lg font-black text-white">
+                                    {quantidade}
+                                  </strong>
+
+                                  <button
+                                    type="button"
+                                    disabled={
+                                      totalSelecionado >= totalNecessario
+                                    }
+                                    onClick={() =>
+                                      alterarOpcaoPedido(item, opcao.id, 1)
+                                    }
+                                    className="flex h-11 w-11 items-center justify-center rounded-xl bg-amber-400 text-lg font-black text-black disabled:cursor-not-allowed disabled:opacity-30"
+                                    aria-label={`Aumentar ${opcao.nome}`}
+                                  >
+                                    +
+                                  </button>
+                                </div>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      )}
+
+                      {totalSelecionado === totalNecessario && (
+                        <p className="mt-4 text-sm font-bold text-emerald-400">
+                          ✓ Sabores escolhidos
+                        </p>
+                      )}
+                    </div>
+                  </div>
+                );
+              })}
+            {/* ADICIONAR AO CARRINHO */}
             <div className="flex items-end gap-3">
               <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-amber-400 text-xl">
                 🍺
@@ -1307,7 +1783,7 @@ export default function PedidoFacilPage() {
               <div className="max-w-[84%] rounded-3xl rounded-bl-md border border-white/10 bg-zinc-900 px-4 py-4">
                 <div className="flex items-center justify-between gap-6">
                   <span className="text-sm font-bold text-zinc-300">
-                    Subtotal
+                    Total desta adição
                   </span>
 
                   <strong className="text-xl font-black text-amber-400">
@@ -1321,10 +1797,161 @@ export default function PedidoFacilPage() {
                   </p>
                 )}
 
-                {podeContinuar &&
-                  !temExcecaoPedidoMinimo &&
-                  subtotalCompleto < VALOR_MINIMO_PEDIDO && (
-                    <div className="mt-4 rounded-2xl border border-amber-400/20 bg-amber-400/[0.08] p-3">
+                {resultado.nao_encontrados.length > 0 && (
+                  <p className="mt-3 text-sm text-red-300">
+                    Resolva os produtos não encontrados antes de adicionar.
+                  </p>
+                )}
+                {podeContinuar && !opcoesCompletasParaAdicionar && (
+                  <p className="mt-3 text-sm font-bold text-amber-300">
+                    Escolha todos os sabores antes de adicionar ao carrinho.
+                  </p>
+                )}
+
+                <button
+                  type="button"
+                  disabled={
+                    !podeContinuar ||
+                    itensFinais.length === 0 ||
+                    !opcoesCompletasParaAdicionar
+                  }
+                  onClick={adicionarAoCarrinho}
+                  className="mt-4 h-12 w-full rounded-2xl bg-amber-400 text-sm font-black text-black transition hover:bg-amber-300 disabled:cursor-not-allowed disabled:opacity-30"
+                >
+                  🛒 Adicionar ao carrinho
+                </button>
+              </div>
+            </div>
+          </section>
+        )}
+        {carrinho.length > 0 && etapa === "pedido" && (
+          <section className="mt-5">
+            <div className="rounded-3xl border border-amber-400/20 bg-zinc-900 p-4">
+              <div className="flex items-center justify-between gap-3">
+                <div>
+                  <p className="text-lg font-black text-white">
+                    🛒 Seu carrinho
+                  </p>
+
+                  <p className="mt-1 text-xs text-zinc-500">
+                    Você pode continuar adicionando produtos.
+                  </p>
+                </div>
+
+                <span className="rounded-full bg-amber-400 px-3 py-1 text-xs font-black text-black">
+                  {quantidadeItensCarrinho}{" "}
+                  {quantidadeItensCarrinho === 1 ? "item" : "itens"}
+                </span>
+              </div>
+
+              <div className="mt-4 space-y-3">
+                {carrinho.map((item) => (
+                  <div
+                    key={item.id}
+                    className="rounded-2xl border border-white/10 bg-black/30 p-3"
+                  >
+                    <div className="flex items-start justify-between gap-3">
+                      <div>
+                        <p className="text-sm font-bold text-white">
+                          {item.nome}
+                        </p>
+
+                        <p className="mt-1 text-xs text-zinc-500">
+                          {formatarPreco(item.preco)} cada
+                        </p>
+                        {item.opcoes_selecionadas.length > 0 && (
+                          <div className="mt-3 rounded-xl border border-white/10 bg-zinc-900 p-3">
+                            <p className="mb-2 text-xs font-bold text-zinc-400">
+                              Sabores:
+                            </p>
+
+                            {item.opcoes_selecionadas.map((opcao) => (
+                              <p
+                                key={opcao.opcao_id}
+                                className="text-sm font-semibold text-zinc-200"
+                              >
+                                {opcao.quantidade}x {opcao.nome}
+                              </p>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+
+                      <button
+                        type="button"
+                        onClick={() => removerDoCarrinho(item.id)}
+                        className="flex h-10 w-10 items-center justify-center rounded-xl border border-red-500/20 bg-red-500/10 text-red-300 transition hover:bg-red-500/20"
+                        aria-label={`Remover ${item.nome}`}
+                      >
+                        ✕
+                      </button>
+                    </div>
+
+                    <div className="mt-3 flex items-center justify-between gap-3">
+                      <div className="flex items-center gap-2">
+                        <button
+                          type="button"
+                          onClick={() => alterarQuantidadeCarrinho(item.id, -1)}
+                          disabled={
+                            item.quantidade <= 1 || item.unidades_por_item > 0
+                          }
+                          className="flex h-11 w-11 items-center justify-center rounded-xl border border-white/10 bg-zinc-800 text-lg font-black text-white disabled:opacity-30"
+                          aria-label="Diminuir quantidade"
+                        >
+                          −
+                        </button>
+
+                        <strong className="min-w-8 text-center text-lg font-black text-white">
+                          {item.quantidade}
+                        </strong>
+
+                        <button
+                          type="button"
+                          onClick={() => alterarQuantidadeCarrinho(item.id, 1)}
+                          disabled={
+                            item.quantidade >= item.estoque ||
+                            item.unidades_por_item > 0
+                          }
+                          className="flex h-11 w-11 items-center justify-center rounded-xl bg-amber-400 text-lg font-black text-black disabled:opacity-30"
+                          aria-label="Aumentar quantidade"
+                        >
+                          +
+                        </button>
+                      </div>
+
+                      <strong className="text-base font-black text-amber-400">
+                        {formatarPreco(item.preco * item.quantidade)}
+                      </strong>
+                    </div>
+                  </div>
+                ))}
+              </div>
+
+              <button
+                type="button"
+                onClick={() =>
+                  document.getElementById("campo-pedido")?.scrollIntoView({
+                    behavior: "smooth",
+                    block: "center",
+                  })
+                }
+                className="mt-4 h-11 w-full rounded-2xl border border-amber-400/30 text-sm font-black text-amber-300 transition hover:bg-amber-400/10"
+              >
+                + Adicionar mais produtos
+              </button>
+
+              <div className="mt-5 border-t border-white/10 pt-4">
+                <div className="flex items-center justify-between">
+                  <span className="font-black text-white">Subtotal</span>
+
+                  <strong className="text-2xl font-black text-amber-400">
+                    {formatarPreco(subtotalCarrinho)}
+                  </strong>
+                </div>
+
+                {!temExcecaoPedidoMinimoCarrinho &&
+                  subtotalCarrinho < VALOR_MINIMO_PEDIDO && (
+                    <div className="mt-4 rounded-2xl border border-amber-400/20 bg-amber-400/10 p-3">
                       <p className="text-sm font-bold text-amber-300">
                         Pedido mínimo: R$ 30,00
                       </p>
@@ -1332,34 +1959,26 @@ export default function PedidoFacilPage() {
                       <p className="mt-1 text-sm text-zinc-300">
                         Faltam{" "}
                         <strong className="text-white">
-                          {formatarPreco(faltaParaPedidoMinimo)}
+                          {formatarPreco(faltaParaPedidoMinimoCarrinho)}
                         </strong>{" "}
-                        para continuar.
+                        para finalizar.
                       </p>
                     </div>
                   )}
 
-                {podeContinuar &&
-                  !temExcecaoPedidoMinimo &&
-                  subtotalCompleto >= VALOR_MINIMO_PEDIDO && (
-                    <p className="mt-4 text-sm font-bold text-emerald-400">
-                      ✓ Pedido mínimo atingido
-                    </p>
-                  )}
-
-                {podeContinuar && temExcecaoPedidoMinimo && (
+                {podeFinalizarCarrinho && (
                   <p className="mt-4 text-sm font-bold text-emerald-400">
-                    ✓ Este item permite pedido abaixo de R$ 30,00
+                    ✓ Pedido pronto para finalizar
                   </p>
                 )}
 
                 <button
                   type="button"
-                  disabled={!podeAvancarParaDados}
+                  disabled={!podeFinalizarCarrinho}
                   onClick={continuarParaDados}
-                  className="mt-4 h-12 w-full rounded-2xl bg-amber-400 text-sm font-black text-black transition hover:bg-amber-300 disabled:cursor-not-allowed disabled:opacity-30"
+                  className="mt-4 h-12 w-full rounded-2xl bg-emerald-500 text-sm font-black text-black transition hover:bg-emerald-400 disabled:cursor-not-allowed disabled:opacity-30"
                 >
-                  Continuar pedido →
+                  Finalizar pedido →
                 </button>
               </div>
             </div>
@@ -1631,6 +2250,50 @@ export default function PedidoFacilPage() {
                     );
                   })}
                 </div>
+                {formaPagamento === "dinheiro" && (
+                  <div className="mt-4 rounded-2xl border border-white/10 bg-black/30 p-3">
+                    <p className="text-sm font-bold text-white">
+                      Precisa de troco?
+                    </p>
+
+                    <p className="mt-1 text-xs text-zinc-500">
+                      Deixe em branco se não precisar.
+                    </p>
+
+                    <div className="mt-3 flex items-center gap-2">
+                      <span className="font-bold text-zinc-400">R$</span>
+
+                      <input
+                        type="text"
+                        inputMode="decimal"
+                        value={trocoPara}
+                        onChange={(event) =>
+                          setTrocoPara(
+                            event.target.value.replace(/[^0-9,.]/g, ""),
+                          )
+                        }
+                        placeholder="Ex: 50,00"
+                        className="h-12 min-w-0 flex-1 rounded-2xl border border-white/10 bg-zinc-950 px-4 text-base text-white outline-none placeholder:text-zinc-600 focus:border-amber-400/50"
+                      />
+                    </div>
+                  </div>
+                )}
+
+                {formaPagamento === "cartao" && (
+                  <div className="mt-4 rounded-2xl border border-amber-400/20 bg-amber-400/10 p-3">
+                    <p className="text-sm font-bold text-amber-300">
+                      Cartão na entrega
+                    </p>
+
+                    <p className="mt-1 text-sm text-zinc-300">
+                      Acréscimo de{" "}
+                      <strong className="text-white">
+                        {formatarPreco(TAXA_CARTAO)}
+                      </strong>{" "}
+                      no pedido.
+                    </p>
+                  </div>
+                )}
               </div>
             </div>
 
@@ -1646,7 +2309,7 @@ export default function PedidoFacilPage() {
                 </p>
 
                 <div className="mt-4 space-y-3">
-                  {itensFinais.map((item) => (
+                  {carrinho.map((item) => (
                     <div
                       key={`${item.id}-${item.nome}`}
                       className="flex items-start justify-between gap-3"
@@ -1668,25 +2331,58 @@ export default function PedidoFacilPage() {
                   ))}
                 </div>
 
-                <div className="mt-4 flex items-center justify-between border-t border-white/10 pt-4">
-                  <span className="font-black text-white">Subtotal</span>
+                <div className="mt-4 space-y-2 border-t border-white/10 pt-4">
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm font-bold text-zinc-400">
+                      Produtos
+                    </span>
 
-                  <strong className="text-xl font-black text-amber-400">
-                    {formatarPreco(subtotalCompleto)}
-                  </strong>
+                    <strong className="text-sm text-white">
+                      {formatarPreco(subtotalCarrinho)}
+                    </strong>
+                  </div>
+
+                  {taxaCartao > 0 && (
+                    <div className="flex items-center justify-between">
+                      <span className="text-sm font-bold text-zinc-400">
+                        Taxa do cartão
+                      </span>
+
+                      <strong className="text-sm text-white">
+                        {formatarPreco(taxaCartao)}
+                      </strong>
+                    </div>
+                  )}
+
+                  <div className="flex items-center justify-between border-t border-white/10 pt-3">
+                    <span className="font-black text-white">Total</span>
+
+                    <strong className="text-xl font-black text-amber-400">
+                      {formatarPreco(totalEstimado)}
+                    </strong>
+                  </div>
+
+                  {formaPagamento === "dinheiro" && trocoPara.trim() && (
+                    <p className="pt-2 text-sm text-zinc-400">
+                      Troco para:{" "}
+                      <strong className="text-white">R$ {trocoPara}</strong>
+                    </p>
+                  )}
                 </div>
+                {erroFinalizacao && (
+                  <div className="mt-4 rounded-2xl border border-red-500/20 bg-red-500/10 p-3 text-sm font-bold text-red-300">
+                    {erroFinalizacao}
+                  </div>
+                )}
 
                 <button
                   type="button"
-                  disabled
-                  className="mt-4 h-12 w-full cursor-not-allowed rounded-2xl bg-emerald-500 text-sm font-black text-black opacity-40"
+                  onClick={finalizarPedido}
+                  disabled={enviandoPedido}
+                  className="mt-4 h-12 w-full rounded-2xl bg-emerald-500 text-sm font-black text-black transition hover:bg-emerald-400 disabled:cursor-not-allowed disabled:opacity-40"
                 >
-                  Confirmar pedido
+                  {enviandoPedido ? "Enviando pedido..." : "Confirmar pedido"}
                 </button>
-
-                <p className="mt-2 text-center text-xs text-zinc-600">
-                  A confirmação final ainda está em teste.
-                </p>
               </div>
             </div>
           </section>

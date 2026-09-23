@@ -8,7 +8,11 @@ export default function PedidoFacilWidget() {
   const [minimizado, setMinimizado] = useState(false);
   const pathname = usePathname();
 
-  if (pathname === "/pedido-facil") {
+  if (
+    pathname === "/pedido-facil" ||
+    pathname.startsWith("/admin") ||
+    pathname.startsWith("/pedido/")
+  ) {
     return null;
   }
 

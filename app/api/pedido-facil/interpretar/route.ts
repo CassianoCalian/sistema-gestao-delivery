@@ -136,7 +136,7 @@ function separarItens(mensagem: string) {
    *
    * Assim a vírgula ainda existe.
    */
-  let texto = mensagem
+  const texto = mensagem
     .replace(
       /\b(vou pagar|pagamento|vou pagar no|vou pagar em|pagar no|pagar em)\b.*$/i,
       "",
@@ -463,8 +463,8 @@ export async function POST(request: Request) {
 
     const { data, error } = await supabaseAdmin
       .from("produtos")
-  .select(
-  `
+      .select(
+        `
     id,
     nome,
     descricao,
@@ -481,7 +481,7 @@ export async function POST(request: Request) {
       ordem
     )
   `,
-)
+      )
       .eq("ativo", true)
       .gt("estoque", 0)
       .order("nome", {
@@ -550,14 +550,18 @@ export async function POST(request: Request) {
           opcoes: candidatos
             .filter((candidato) => melhor.pontuacao - candidato.pontuacao <= 5)
             .slice(0, 5)
-         .map(({ produto }) => ({
-  id: produto.id,
-  nome: produto.nome,
-  preco: precoAtual(produto),
-  estoque: produto.estoque,
-  permite_abaixo_minimo:
-    produto.permite_abaixo_minimo,
-}))
+            .map(({ produto }) => ({
+              id: produto.id,
+              nome: produto.nome,
+              preco: precoAtual(produto),
+              estoque: produto.estoque,
+              permite_abaixo_minimo: produto.permite_abaixo_minimo,
+              unidades_por_item: produto.unidades_por_item ?? 0,
+              opcoes:
+                produto.opcoes
+                  ?.filter((opcao) => opcao.ativo)
+                  .sort((a, b) => a.ordem - b.ordem) ?? [],
+            })),
         });
 
         continue;
