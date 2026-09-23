@@ -640,7 +640,7 @@ export default function PedidoFacilPage() {
     todasDuvidasResolvidas &&
     (resultado?.nao_encontrados.length ?? 0) === 0;
 
-  const itensFinais = useMemo<ItemCarrinho[]>(() => {
+  const itensFinais: ItemCarrinho[] = (() => {
     if (!resultado) {
       return [];
     }
@@ -690,7 +690,7 @@ export default function PedidoFacilPage() {
       .filter((item): item is ItemCarrinho => item !== null);
 
     return [...encontrados, ...escolhidos];
-  }, [resultado, escolhas, quantidades]);
+  })();
 
   const VALOR_MINIMO_PEDIDO = 30;
 
@@ -715,6 +715,15 @@ export default function PedidoFacilPage() {
 
   const podeFinalizarCarrinho =
     carrinho.length > 0 && atingiuPedidoMinimoCarrinho;
+
+  // Compatibilidade temporária com a interface antiga.
+  // Amanhã este bloco será removido quando finalizarmos
+  // a interface do carrinho conversacional.
+  const temExcecaoPedidoMinimo = temExcecaoPedidoMinimoCarrinho;
+
+  const faltaParaPedidoMinimo = faltaParaPedidoMinimoCarrinho;
+
+  const podeAvancarParaDados = podeFinalizarCarrinho;
 
   function continuarParaDados() {
     if (!podeFinalizarCarrinho) {
