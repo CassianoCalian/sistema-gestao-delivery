@@ -11,7 +11,8 @@ type IconType =
   | "produtos"
   | "categorias"
   | "estoque"
-  | "clientes";
+  | "clientes"
+  | "pdv";
 
 function NavIcon({ type }: { type: IconType }) {
   const baseProps = {
@@ -78,6 +79,18 @@ function NavIcon({ type }: { type: IconType }) {
     );
   }
 
+  if (type === "pdv") {
+    return (
+      <svg {...baseProps}>
+        <path d="M7 7h10" />
+        <path d="M7 11h4" />
+        <path d="M15 11h2" />
+        <path d="M8 21h8" />
+        <path d="M12 17v4" />
+      </svg>
+    );
+  }
+
   return (
     <svg {...baseProps}>
       <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" />
@@ -97,6 +110,7 @@ export default function AdminNavigation() {
     descricao: string;
     icone: IconType;
     ativo: boolean;
+    novaAba?: boolean;
   }> = [
     {
       href: "/admin",
@@ -104,6 +118,14 @@ export default function AdminNavigation() {
       descricao: "Vis\u00e3o geral",
       icone: "dashboard",
       ativo: pathname === "/admin",
+    },
+    {
+      href: "/admin/pdv",
+      label: "PDV",
+      descricao: "Balcão e entrega",
+      icone: "pdv",
+      ativo: pathname.startsWith("/admin/pdv"),
+      novaAba: true,
     },
     {
       href: "/admin/pedidos",
@@ -157,9 +179,7 @@ export default function AdminNavigation() {
       <div className="relative flex flex-col gap-5 border-b border-white/[0.05] px-5 py-5 lg:flex-row lg:items-center lg:justify-between lg:px-6">
         <div className="flex items-center gap-4">
           <div className="relative flex h-12 w-12 shrink-0 items-center justify-center overflow-hidden rounded-[17px] border border-amber-400/20 bg-amber-400/[0.08] shadow-[0_0_30px_rgba(245,158,11,0.08)]">
-            <span className="text-xl font-black text-amber-400">
-              Z
-            </span>
+            <span className="text-xl font-black text-amber-400">Z</span>
 
             <div className="absolute inset-x-2 bottom-1 h-px bg-linear-to-r from-transparent via-amber-400/60 to-transparent" />
           </div>
@@ -198,11 +218,13 @@ export default function AdminNavigation() {
       </div>
 
       <nav className="relative p-3 sm:p-4">
-        <div className="grid grid-cols-2 gap-2 md:grid-cols-3 xl:grid-cols-6">
+        <div className="grid grid-cols-2 gap-2 md:grid-cols-3 xl:grid-cols-7">
           {itensNavegacao.map((item) => (
             <Link
               key={item.href}
               href={item.href}
+              target={item.novaAba ? "_blank" : undefined}
+              rel={item.novaAba ? "noopener noreferrer" : undefined}
               aria-current={item.ativo ? "page" : undefined}
               className={`group relative min-w-0 overflow-hidden rounded-[19px] border px-3.5 py-3.5 transition duration-300 hover:-translate-y-0.5 ${
                 item.ativo
@@ -234,9 +256,7 @@ export default function AdminNavigation() {
                   <div className="flex items-center gap-2">
                     <p
                       className={`whitespace-nowrap text-[13px] font-black tracking-[-0.015em] ${
-                        item.ativo
-                          ? "text-white"
-                          : "text-zinc-400"
+                        item.ativo ? "text-white" : "text-zinc-400"
                       }`}
                     >
                       {item.label}
@@ -252,9 +272,7 @@ export default function AdminNavigation() {
 
                   <p
                     className={`mt-1 whitespace-nowrap text-[7px] font-black uppercase tracking-[0.13em] ${
-                      item.ativo
-                        ? "text-amber-400/70"
-                        : "text-zinc-700"
+                      item.ativo ? "text-amber-400/70" : "text-zinc-700"
                     }`}
                   >
                     {item.descricao}
