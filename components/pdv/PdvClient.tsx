@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 
 import type {
@@ -23,6 +23,32 @@ type ItemCarrinho = {
   estoque: number;
 };
 
+type FormaPagamento = "pix" | "dinheiro" | "debito" | "credito";
+
+type RespostaCliente = {
+  sucesso?: boolean;
+  cliente?: PdvCliente;
+  erro?: string;
+};
+
+type RespostaVenda = {
+  sucesso?: boolean;
+  venda_id?: number;
+  total?: number;
+  erro?: string;
+};
+
+const FORMAS_PAGAMENTO: {
+  id: FormaPagamento;
+  nome: string;
+  icone: string;
+}[] = [
+  { id: "pix", nome: "Pix", icone: "◆" },
+  { id: "dinheiro", nome: "Dinheiro", icone: "💵" },
+  { id: "debito", nome: "Débito", icone: "💳" },
+  { id: "credito", nome: "Crédito", icone: "💳" },
+];
+
 function formatarPreco(valor: number) {
   return valor.toLocaleString("pt-BR", {
     style: "currency",
@@ -38,11 +64,30 @@ function precoAtual(produto: PdvProduto) {
   return produto.preco;
 }
 
+function arredondar(valor: number) {
+  return Math.round((valor + Number.EPSILON) * 100) / 100;
+}
+
+function converterDinheiro(valor: string) {
+  const texto = valor.trim();
+
+  if (!texto) return null;
+
+  const normalizado = texto.includes(",")
+    ? texto.replace(/\./g, "").replace(",", ".")
+    : texto;
+
+  const numero = Number(normalizado);
+
+  return Number.isFinite(numero) && numero > 0 ? numero : null;
+}
+
 export default function PdvClient({ produtos, categorias, clientes }: Props) {
   const router = useRouter();
 
   const [busca, setBusca] = useState("");
   const [categoria, setCategoria] = useState<number | null>(null);
+  const [limiteVisivel, setLimiteVisivel] = useState(24);
 
   const [tipoAtendimento, setTipoAtendimento] = useState<"balcao" | "entrega">(
     "balcao",
@@ -51,6 +96,17 @@ export default function PdvClient({ produtos, categorias, clientes }: Props) {
   const [carrinho, setCarrinho] = useState<ItemCarrinho[]>([]);
 
   const [aviso, setAviso] = useState("");
+  const [avisoSucesso, setAvisoSucesso] = useState(false);
+  const [erroVenda, setErroVenda] = useState("");
+  const [finalizando, setFinalizando] = useState(false);
+
+  const [formaPagamento, setFormaPagamento] = useState<FormaPagamento | null>(
+    null,
+  );
+
+  const [pagamentoConfirmado, setPagamentoConfirmado] = useState(false);
+
+  const [trocoPara, setTrocoPara] = useState("");
 
   const [clientesDisponiveis, setClientesDisponiveis] =
     useState<PdvCliente[]>(clientes);
@@ -63,15 +119,19 @@ export default function PdvClient({ produtos, categorias, clientes }: Props) {
   const [modoNovoCliente, setModoNovoCliente] = useState(false);
 
   const [buscaCliente, setBuscaCliente] = useState("");
-
   const [novoClienteNome, setNovoClienteNome] = useState("");
-
   const [novoClienteTelefone, setNovoClienteTelefone] = useState("");
 
   const [salvandoCliente, setSalvandoCliente] = useState(false);
 
   const [erroCliente, setErroCliente] = useState("");
 
+  const tentativaRef = useRef<{
+    assinatura: string;
+    chave: string;
+  } | null>(null);
+
+  // FILTROS DE PRODUTOS
   const produtosFiltrados = useMemo(() => {
     const termo = busca.trim().toLowerCase();
 
@@ -80,112 +140,165 @@ export default function PdvClient({ produtos, categorias, clientes }: Props) {
         return false;
       }
 
-      if (!termo) {
-        return true;
-      }
+      if (!termo) return true;
 
       return (
         produto.nome.toLowerCase().includes(termo) ||
-        produto.codigo_barras?.toLowerCase().includes(termo)
+        (produto.codigo_barras ?? "").toLowerCase().includes(termo)
       );
     });
-  }, [produtos, busca, categoria]);
+  }, [produtos, categoria, busca]);
 
+  const produtosVisiveis = produtosFiltrados.slice(0, limiteVisivel);
+
+  // FILTROS DE CLIENTES
   const clientesFiltrados = useMemo(() => {
     const termo = buscaCliente.trim().toLowerCase();
     const numeros = buscaCliente.replace(/\D/g, "");
 
     return clientesDisponiveis.filter((cliente) => {
-      if (!termo && !numeros) {
-        return true;
-      }
+      if (!termo) return true;
 
-      const nomeCombina = cliente.nome.toLowerCase().includes(termo);
-
-      const telefoneCliente = (
+      const telefone = (
         cliente.telefone_normalizado ?? cliente.telefone
       ).replace(/\D/g, "");
 
-      const telefoneCombina =
-        numeros.length > 0 && telefoneCliente.includes(numeros);
-
-      return nomeCombina || telefoneCombina;
+      return (
+        cliente.nome.toLowerCase().includes(termo) ||
+        (numeros.length > 0 && telefone.includes(numeros))
+      );
     });
   }, [clientesDisponiveis, buscaCliente]);
 
+  // TOTAIS
   const quantidadeItens = carrinho.reduce(
     (total, item) => total + item.quantidade,
     0,
   );
 
-  const subtotal = carrinho.reduce(
-    (total, item) => total + item.preco * item.quantidade,
-    0,
+  const quantidadeProdutosDiferentes = carrinho.length;
+
+  const subtotal = arredondar(
+    carrinho.reduce((total, item) => total + item.preco * item.quantidade, 0),
   );
 
-  function adicionarProduto(produto: PdvProduto) {
-    setAviso("");
+  // Mantém a taxa prevista na função SQL atual.
+  const taxaCartao = 0;
 
-    if (produto.estoque <= 0) {
-      setAviso(`${produto.nome} está sem estoque.`);
+  const total = arredondar(subtotal + taxaCartao);
 
-      return;
-    }
+  const valorRecebido = converterDinheiro(trocoPara);
 
-    if (produto.unidades_por_item > 0 && produto.opcoes.length > 0) {
-      setAviso(
-        `${produto.nome} possui sabores/opções. Vamos habilitar a seleção na próxima etapa.`,
-      );
+  const troco =
+    formaPagamento === "dinheiro" &&
+    valorRecebido !== null &&
+    valorRecebido >= total
+      ? arredondar(valorRecebido - total)
+      : null;
 
-      return;
-    }
+  const trocoInvalido =
+    formaPagamento === "dinheiro" &&
+    trocoPara.trim().length > 0 &&
+    (valorRecebido === null || valorRecebido < total);
 
-    setCarrinho((estadoAtual) => {
-      const existente = estadoAtual.find((item) => item.id === produto.id);
+  // DINHEIRO NÃO PRECISA DO CHECKBOX.
+  // PIX E CARTÕES PRECISAM DE CONFIRMAÇÃO.
+  const pagamentoPronto =
+    formaPagamento === "dinheiro" ||
+    (formaPagamento !== null && pagamentoConfirmado);
 
-      if (existente) {
-        if (existente.quantidade >= produto.estoque) {
-          setAviso(`Você atingiu o estoque disponível de ${produto.nome}.`);
+  const podeFinalizar =
+    !finalizando &&
+    tipoAtendimento === "balcao" &&
+    carrinho.length > 0 &&
+    formaPagamento !== null &&
+    pagamentoPronto &&
+    !trocoInvalido;
 
-          return estadoAtual;
-        }
-
-        return estadoAtual.map((item) =>
-          item.id === produto.id
-            ? {
-                ...item,
-                quantidade: item.quantidade + 1,
-              }
-            : item,
-        );
-      }
-
-      return [
-        ...estadoAtual,
-        {
-          id: produto.id,
-          nome: produto.nome,
-          preco: precoAtual(produto),
-          quantidade: 1,
-          estoque: produto.estoque,
-        },
-      ];
-    });
+  function mostrarAviso(mensagem: string, sucesso = false) {
+    setAviso(mensagem);
+    setAvisoSucesso(sucesso);
   }
 
-  function alterarQuantidade(id: number, alteracao: 1 | -1) {
-    setCarrinho((estadoAtual) =>
-      estadoAtual.map((item) => {
-        if (item.id !== id) {
-          return item;
-        }
+  function invalidarConfirmacao() {
+    setPagamentoConfirmado(false);
+    setErroVenda("");
+  }
+
+  // ADICIONA PRODUTOS DIFERENTES E SOMA
+  // QUANTIDADE SOMENTE QUANDO O ID FOR IGUAL.
+  function adicionarProduto(produto: PdvProduto) {
+    const produtoId = Number(produto.id);
+
+    if (!Number.isSafeInteger(produtoId) || produtoId <= 0) {
+      mostrarAviso("Este produto possui um código inválido.");
+      return;
+    }
+
+    if (produto.estoque <= 0) {
+      mostrarAviso(`${produto.nome} está sem estoque.`);
+      return;
+    }
+
+    if (produto.unidades_por_item > 0) {
+      mostrarAviso(
+        `${produto.nome} exige seleção de sabores/opções. Vamos ativar essa função na próxima etapa.`,
+      );
+      return;
+    }
+
+    const existente = carrinho.find((item) => item.id === produtoId);
+
+    if (existente && existente.quantidade >= produto.estoque) {
+      mostrarAviso(`Você atingiu o estoque disponível de ${produto.nome}.`);
+      return;
+    }
+
+    invalidarConfirmacao();
+
+    setCarrinho((carrinhoAtual) => {
+      const itemExistente = carrinhoAtual.find((item) => item.id === produtoId);
+
+      if (!itemExistente) {
+        // PRODUTO NOVO: CRIA UMA NOVA LINHA
+        return [
+          ...carrinhoAtual,
+          {
+            id: produtoId,
+            nome: produto.nome,
+            preco: precoAtual(produto),
+            quantidade: 1,
+            estoque: produto.estoque,
+          },
+        ];
+      }
+
+      // MESMO PRODUTO: AUMENTA A QUANTIDADE
+      return carrinhoAtual.map((item) => {
+        if (item.id !== produtoId) return item;
 
         return {
           ...item,
+          quantidade: Math.min(item.estoque, item.quantidade + 1),
+        };
+      });
+    });
 
-          quantidade: Math.min(
-            item.estoque,
-            Math.max(1, item.quantidade + alteracao),
+    mostrarAviso(`${produto.nome} adicionado ao carrinho.`, true);
+  }
+
+  function alterarQuantidade(id: number, diferenca: 1 | -1) {
+    invalidarConfirmacao();
+
+    setCarrinho((atual) =>
+      atual.map((item) => {
+        if (item.id !== id) return item;
+
+        return {
+          ...item,
+          quantidade: Math.max(
+            1,
+            Math.min(item.estoque, item.quantidade + diferenca),
           ),
         };
       }),
@@ -193,11 +306,31 @@ export default function PdvClient({ produtos, categorias, clientes }: Props) {
   }
 
   function removerProduto(id: number) {
-    setCarrinho((estadoAtual) => estadoAtual.filter((item) => item.id !== id));
+    invalidarConfirmacao();
+
+    setCarrinho((atual) => atual.filter((item) => item.id !== id));
+
+    mostrarAviso("Produto removido do carrinho.");
   }
 
-  function abrirSelecaoCliente() {
-    setModoNovoCliente(false);
+  function limparVenda() {
+    setCarrinho([]);
+    setFormaPagamento(null);
+    setPagamentoConfirmado(false);
+    setTrocoPara("");
+    setErroVenda("");
+    setAviso("");
+    setClienteSelecionado(null);
+    tentativaRef.current = null;
+  }
+
+  function selecionarCategoria(id: number | null) {
+    setCategoria(id);
+    setLimiteVisivel(24);
+  }
+
+  function abrirCliente(novo = false) {
+    setModoNovoCliente(novo);
     setBuscaCliente("");
     setErroCliente("");
     setModalClienteAberto(true);
@@ -206,59 +339,211 @@ export default function PdvClient({ produtos, categorias, clientes }: Props) {
   function selecionarCliente(cliente: PdvCliente) {
     setClienteSelecionado(cliente);
     setModalClienteAberto(false);
-    setBuscaCliente("");
+    invalidarConfirmacao();
+  }
+
+  async function cadastrarCliente() {
+    if (salvandoCliente) return;
+
     setErroCliente("");
+    setSalvandoCliente(true);
+
+    try {
+      const resposta = await fetch("/api/admin/pdv/clientes", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          nome: novoClienteNome.trim(),
+          telefone: novoClienteTelefone.trim(),
+        }),
+      });
+
+      const dados = (await resposta.json()) as RespostaCliente;
+
+      if (!resposta.ok || !dados.cliente) {
+        throw new Error(dados.erro ?? "Não foi possível cadastrar o cliente.");
+      }
+
+      const cliente = dados.cliente;
+
+      setClientesDisponiveis((atual) => {
+        const lista = atual.filter((item) => item.id !== cliente.id);
+
+        return [...lista, cliente].sort((a, b) =>
+          a.nome.localeCompare(b.nome, "pt-BR"),
+        );
+      });
+
+      setClienteSelecionado(cliente);
+      setNovoClienteNome("");
+      setNovoClienteTelefone("");
+      setModalClienteAberto(false);
+
+      invalidarConfirmacao();
+
+      mostrarAviso(`Cliente ${cliente.nome} selecionado.`, true);
+    } catch (error) {
+      setErroCliente(
+        error instanceof Error ? error.message : "Erro ao cadastrar cliente.",
+      );
+    } finally {
+      setSalvandoCliente(false);
+    }
+  }
+
+  // FINALIZAÇÃO
+  async function finalizarVenda() {
+    if (finalizando) return;
+
+    setErroVenda("");
+
+    if (tipoAtendimento !== "balcao") {
+      setErroVenda(
+        "A finalização de entregas ainda não está disponível no PDV.",
+      );
+      return;
+    }
+
+    if (carrinho.length === 0) {
+      setErroVenda("Adicione produtos ao carrinho.");
+      return;
+    }
+
+    if (!formaPagamento) {
+      setErroVenda("Selecione uma forma de pagamento.");
+      return;
+    }
+
+    if (!pagamentoPronto) {
+      setErroVenda("Confirme o recebimento do pagamento.");
+      return;
+    }
+
+    if (trocoInvalido) {
+      setErroVenda("O valor recebido não pode ser menor que o total.");
+      return;
+    }
+
+    const assinatura = JSON.stringify({
+      itens: carrinho.map((item) => ({
+        id: item.id,
+        quantidade: item.quantidade,
+      })),
+      cliente_id: clienteSelecionado?.id ?? null,
+      forma_pagamento: formaPagamento,
+      troco_para: formaPagamento === "dinheiro" ? valorRecebido : null,
+      total,
+    });
+
+    if (tentativaRef.current?.assinatura !== assinatura) {
+      tentativaRef.current = {
+        assinatura,
+        chave: crypto.randomUUID(),
+      };
+    }
+
+    setFinalizando(true);
+
+    try {
+      const resposta = await fetch("/api/admin/pdv/vendas", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          chave_idempotencia: tentativaRef.current.chave,
+          cliente_id: clienteSelecionado?.id ?? null,
+          forma_pagamento: formaPagamento,
+          pagamento_confirmado: true,
+          troco_para: formaPagamento === "dinheiro" ? valorRecebido : null,
+          total_esperado: total,
+          itens: carrinho.map((item) => ({
+            id: item.id,
+            quantidade: item.quantidade,
+          })),
+        }),
+      });
+
+      const dados = (await resposta.json()) as RespostaVenda;
+
+      if (!resposta.ok || !dados.sucesso) {
+        throw new Error(dados.erro ?? "Não foi possível finalizar a venda.");
+      }
+
+      const numeroVenda = dados.venda_id;
+      const totalVenda = dados.total ?? total;
+
+      limparVenda();
+
+      mostrarAviso(
+        `Venda #${numeroVenda} registrada! Total: ${formatarPreco(totalVenda)}.`,
+        true,
+      );
+
+      router.refresh();
+    } catch (error) {
+      setErroVenda(
+        error instanceof Error ? error.message : "Erro ao finalizar a venda.",
+      );
+    } finally {
+      setFinalizando(false);
+    }
   }
 
   return (
     <div className="mt-6">
       {/* CABEÇALHO */}
-      <section className="relative overflow-hidden rounded-[30px] border border-white/10 bg-zinc-950 p-6 shadow-2xl">
-        <div
-          aria-hidden="true"
-          className="pointer-events-none absolute -right-24 -top-24 h-72 w-72 rounded-full bg-amber-400/10 blur-[100px]"
-        />
-
-        <div className="relative flex flex-col justify-between gap-6 xl:flex-row xl:items-center">
+      <section className="rounded-[30px] border border-white/10 bg-zinc-950 p-6 shadow-2xl">
+        <div className="flex flex-col justify-between gap-5 xl:flex-row xl:items-center">
           <div className="flex items-center gap-4">
-            <div className="flex h-16 w-16 items-center justify-center rounded-[22px] border border-amber-400/30 bg-amber-400/10 text-3xl">
+            <div className="flex h-16 w-16 items-center justify-center rounded-2xl border border-amber-400/20 bg-amber-400/10 text-3xl">
               🧾
             </div>
 
             <div>
-              <p className="text-xs font-black uppercase tracking-[0.2em] text-amber-400">
+              <p className="text-xs font-black uppercase tracking-widest text-amber-400">
                 Operação de venda
               </p>
 
-              <h1 className="mt-1 text-3xl font-black tracking-tight text-white">
+              <h1 className="mt-1 text-3xl font-black text-white">
                 PDV • Depósito do Zé
               </h1>
 
-              <p className="mt-2 text-sm text-zinc-400">
-                Balcão e delivery usando o mesmo estoque.
+              <p className="mt-1 text-sm text-zinc-400">
+                Caixa presencial com estoque integrado ao site.
               </p>
             </div>
           </div>
 
-          <button
-            type="button"
-            onClick={() => router.push("/admin")}
-            className="h-12 rounded-2xl border border-white/10 bg-white/5 px-4 text-sm font-black text-zinc-300 transition hover:border-white/20 hover:text-white"
-          >
-            ← Painel
-          </button>
-
           <div className="flex flex-wrap gap-2">
             <button
               type="button"
-              className="h-12 rounded-2xl border border-white/10 bg-white/5 px-4 text-sm font-black text-zinc-200 transition hover:border-amber-400/40 hover:bg-amber-400/5"
+              onClick={() => router.push("/admin")}
+              className="rounded-xl border border-white/10 px-4 py-3 text-sm font-bold text-zinc-300"
+            >
+              ← Painel
+            </button>
+
+            <button
+              type="button"
+              disabled={finalizando}
+              onClick={() => abrirCliente(true)}
+              className="rounded-xl border border-white/10 px-4 py-3 text-sm font-bold text-zinc-300 disabled:opacity-50"
             >
               👤 Novo cliente
             </button>
 
             <button
               type="button"
-              className="h-12 rounded-2xl border border-white/10 bg-white/5 px-4 text-sm font-black text-zinc-200 transition hover:border-amber-400/40 hover:bg-amber-400/5"
+              onClick={() =>
+                document.getElementById("pagamento-pdv")?.scrollIntoView({
+                  behavior: "smooth",
+                  block: "center",
+                })
+              }
+              className="rounded-xl border border-white/10 px-4 py-3 text-sm font-bold text-zinc-300"
             >
               💳 Pagamentos
             </button>
@@ -266,7 +551,7 @@ export default function PdvClient({ produtos, categorias, clientes }: Props) {
             <button
               type="button"
               onClick={() => router.push("/admin/produtos/novo")}
-              className="h-12 rounded-2xl bg-amber-400 px-5 text-sm font-black text-black transition hover:bg-amber-300"
+              className="rounded-xl bg-amber-400 px-4 py-3 text-sm font-black text-black"
             >
               + Novo produto
             </button>
@@ -274,48 +559,57 @@ export default function PdvClient({ produtos, categorias, clientes }: Props) {
         </div>
       </section>
 
-      {/* AVISO */}
+      {/* AVISOS */}
       {aviso && (
-        <div className="mt-4 flex items-center justify-between gap-4 rounded-2xl border border-amber-400/20 bg-amber-400/10 px-4 py-3">
-          <p className="text-sm font-bold text-amber-200">{aviso}</p>
+        <div
+          className={`mt-4 flex items-center justify-between gap-3 rounded-xl border p-4 text-sm font-bold ${
+            avisoSucesso
+              ? "border-emerald-500/30 bg-emerald-500/10 text-emerald-300"
+              : "border-amber-500/30 bg-amber-500/10 text-amber-300"
+          }`}
+        >
+          <span>{aviso}</span>
 
           <button
             type="button"
             onClick={() => setAviso("")}
-            className="text-lg text-amber-300"
+            className="text-lg"
           >
             ×
           </button>
         </div>
       )}
 
-      {/* CORPO DO PDV */}
+      {erroVenda && (
+        <div className="mt-4 rounded-xl border border-red-500/30 bg-red-500/10 p-4 text-sm font-bold text-red-300">
+          {erroVenda}
+        </div>
+      )}
+
       <div className="mt-5 grid gap-5 xl:grid-cols-[minmax(0,1fr)_440px]">
         {/* CATÁLOGO */}
-        <section className="min-w-0 rounded-[30px] border border-white/10 bg-[#0d0d0f] p-5 shadow-2xl">
+        <section className="min-w-0 rounded-[30px] border border-white/10 bg-[#0d0d0f] p-5">
           <div className="flex flex-col gap-3 lg:flex-row">
-            <div className="relative flex-1">
-              <span className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-xl">
-                🔎
-              </span>
-
-              <input
-                type="text"
-                autoFocus
-                value={busca}
-                onChange={(event) => setBusca(event.target.value)}
-                placeholder="Buscar produto ou código de barras..."
-                className="h-14 w-full rounded-2xl border border-white/10 bg-black/40 pl-12 pr-4 text-base font-semibold text-white outline-none placeholder:text-zinc-600 focus:border-amber-400/50"
-              />
-            </div>
+            <input
+              autoFocus
+              type="text"
+              value={busca}
+              onChange={(event) => {
+                setBusca(event.target.value);
+                setLimiteVisivel(24);
+              }}
+              placeholder="🔎 Buscar produto ou código de barras..."
+              className="h-14 min-w-0 flex-1 rounded-2xl border border-white/10 bg-black/40 px-4 text-white outline-none focus:border-amber-400/50"
+            />
 
             <button
               type="button"
               onClick={() => {
                 setBusca("");
                 setCategoria(null);
+                setLimiteVisivel(24);
               }}
-              className="h-14 rounded-2xl border border-white/10 bg-zinc-900 px-5 text-sm font-black text-zinc-300 transition hover:border-white/20"
+              className="rounded-2xl border border-white/10 bg-zinc-900 px-5 py-3 text-sm font-bold text-zinc-300"
             >
               Limpar filtros
             </button>
@@ -325,11 +619,11 @@ export default function PdvClient({ produtos, categorias, clientes }: Props) {
           <div className="mt-4 flex gap-2 overflow-x-auto pb-2">
             <button
               type="button"
-              onClick={() => setCategoria(null)}
-              className={`shrink-0 rounded-xl px-4 py-3 text-sm font-black transition ${
+              onClick={() => selecionarCategoria(null)}
+              className={`shrink-0 rounded-xl px-4 py-3 text-sm font-black ${
                 categoria === null
                   ? "bg-amber-400 text-black"
-                  : "border border-white/10 bg-zinc-900 text-zinc-400 hover:text-white"
+                  : "border border-white/10 bg-zinc-900 text-zinc-400"
               }`}
             >
               Todos
@@ -339,11 +633,11 @@ export default function PdvClient({ produtos, categorias, clientes }: Props) {
               <button
                 key={item.id}
                 type="button"
-                onClick={() => setCategoria(item.id)}
-                className={`shrink-0 rounded-xl px-4 py-3 text-sm font-black transition ${
+                onClick={() => selecionarCategoria(item.id)}
+                className={`shrink-0 rounded-xl px-4 py-3 text-sm font-black ${
                   categoria === item.id
                     ? "bg-amber-400 text-black"
-                    : "border border-white/10 bg-zinc-900 text-zinc-400 hover:text-white"
+                    : "border border-white/10 bg-zinc-900 text-zinc-400"
                 }`}
               >
                 {item.nome}
@@ -351,162 +645,194 @@ export default function PdvClient({ produtos, categorias, clientes }: Props) {
             ))}
           </div>
 
-          <div className="mt-5 flex items-end justify-between gap-4">
+          {/* CONTADOR */}
+          <div className="mt-5 flex flex-wrap items-center justify-between gap-3">
             <div>
-              <p className="text-lg font-black text-white">Produtos</p>
+              <h2 className="text-lg font-black text-white">Produtos</h2>
 
               <p className="mt-1 text-sm text-zinc-500">
                 {produtosFiltrados.length} produto(s) encontrado(s)
               </p>
             </div>
 
-            <div className="rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-xs font-bold text-zinc-400">
-              ▥ Código de barras
-            </div>
+            <p className="rounded-xl border border-amber-400/20 bg-amber-400/5 px-3 py-2 text-xs font-bold text-amber-300">
+              Clique em outro produto para adicioná-lo ao carrinho
+            </p>
           </div>
 
-          {/* PRODUTOS */}
+          {/* GRADE DE PRODUTOS */}
           {produtosFiltrados.length === 0 ? (
-            <div className="mt-5 rounded-3xl border border-dashed border-white/10 py-16 text-center">
-              <p className="text-4xl">🔎</p>
-
-              <p className="mt-3 font-black text-white">
-                Nenhum produto encontrado
-              </p>
+            <div className="mt-5 rounded-2xl border border-dashed border-white/10 py-12 text-center text-zinc-400">
+              Nenhum produto encontrado.
             </div>
           ) : (
-            <div className="mt-5 grid grid-cols-2 gap-3 md:grid-cols-3 2xl:grid-cols-4">
-              {produtosFiltrados.map((produto) => {
-                const valor = precoAtual(produto);
+            <>
+              <div className="mt-5 grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-4 2xl:grid-cols-5">
+                {produtosVisiveis.map((produto, indice) => {
+                  const temOpcoes = produto.unidades_por_item > 0;
 
-                const temOpcoes =
-                  produto.unidades_por_item > 0 && produto.opcoes.length > 0;
+                  const quantidadeNoCarrinho =
+                    carrinho.find((item) => item.id === Number(produto.id))
+                      ?.quantidade ?? 0;
 
-                return (
-                  <button
-                    key={produto.id}
-                    type="button"
-                    onClick={() => adicionarProduto(produto)}
-                    className="group relative overflow-hidden rounded-[22px] border border-white/10 bg-zinc-900 text-left transition duration-200 hover:-translate-y-1 hover:border-amber-400/40 hover:shadow-xl hover:shadow-amber-400/5"
-                  >
-                    <div className="relative aspect-[4/3] overflow-hidden bg-black/30">
-                      {produto.imagem_url ? (
-                        // eslint-disable-next-line @next/next/no-img-element
-                        <img
-                          src={produto.imagem_url}
-                          alt={produto.nome}
-                          className="h-full w-full object-contain p-3 transition duration-300 group-hover:scale-105"
-                        />
-                      ) : (
-                        <div className="flex h-full items-center justify-center text-5xl">
-                          🍺
-                        </div>
-                      )}
+                  return (
+                    <button
+                      key={produto.id}
+                      type="button"
+                      disabled={finalizando}
+                      onClick={() => adicionarProduto(produto)}
+                      aria-label={`Adicionar ${produto.nome} ao carrinho`}
+                      className={`group relative min-w-0 overflow-hidden rounded-2xl border bg-zinc-900 text-left transition disabled:opacity-50 ${
+                        quantidadeNoCarrinho > 0
+                          ? "border-amber-400/70"
+                          : "border-white/10 hover:border-amber-400/40"
+                      }`}
+                    >
+                      {/* FOTO */}
+                      <div className="relative flex h-28 items-center justify-center bg-black/30 sm:h-32">
+                        {produto.imagem_url ? (
+                          // eslint-disable-next-line @next/next/no-img-element
+                          <img
+                            src={produto.imagem_url}
+                            alt={produto.nome}
+                            loading={indice < 6 ? "eager" : "lazy"}
+                            decoding="async"
+                            width={240}
+                            height={160}
+                            className="h-full w-full object-contain p-2"
+                          />
+                        ) : (
+                          <span className="text-4xl">🍺</span>
+                        )}
 
-                      {produto.em_promocao && (
-                        <span className="absolute left-2 top-2 rounded-lg bg-red-500 px-2 py-1 text-[10px] font-black uppercase text-white">
-                          Promo
-                        </span>
-                      )}
+                        {produto.em_promocao && (
+                          <span className="absolute left-2 top-2 rounded-md bg-red-500 px-2 py-1 text-[9px] font-black text-white">
+                            PROMO
+                          </span>
+                        )}
 
-                      {temOpcoes && (
-                        <span className="absolute bottom-2 left-2 rounded-lg bg-amber-400 px-2 py-1 text-[10px] font-black text-black">
-                          Sabores
-                        </span>
-                      )}
-                    </div>
+                        {temOpcoes && (
+                          <span className="absolute bottom-2 left-2 rounded-md bg-amber-400 px-2 py-1 text-[9px] font-black text-black">
+                            Sabores
+                          </span>
+                        )}
 
-                    <div className="p-3">
-                      <p className="line-clamp-2 min-h-10 text-sm font-black leading-5 text-white">
-                        {produto.nome}
-                      </p>
-
-                      <div className="mt-3 flex items-end justify-between gap-2">
-                        <div>
-                          {produto.em_promocao &&
-                            produto.preco_promocional !== null && (
-                              <p className="text-[11px] text-zinc-600 line-through">
-                                {formatarPreco(produto.preco)}
-                              </p>
-                            )}
-
-                          <p className="text-lg font-black text-amber-400">
-                            {formatarPreco(valor)}
-                          </p>
-                        </div>
-
-                        <span
-                          className={`rounded-lg px-2 py-1 text-[10px] font-black ${
-                            produto.estoque === 0
-                              ? "bg-red-500/10 text-red-300"
-                              : produto.estoque <= 5
-                                ? "bg-orange-500/10 text-orange-300"
-                                : "bg-emerald-500/10 text-emerald-300"
-                          }`}
-                        >
-                          {produto.estoque} un.
-                        </span>
+                        {quantidadeNoCarrinho > 0 && (
+                          <span className="absolute right-2 top-2 rounded-lg bg-amber-400 px-2 py-1 text-[10px] font-black text-black">
+                            ✓ {quantidadeNoCarrinho}
+                          </span>
+                        )}
                       </div>
-                    </div>
+
+                      {/* NOME E PREÇO */}
+                      <div className="p-2.5">
+                        <p className="line-clamp-2 min-h-9 text-xs font-black leading-[18px] text-white">
+                          {produto.nome}
+                        </p>
+
+                        <div className="mt-2 flex flex-wrap items-end justify-between gap-1">
+                          <div>
+                            {produto.em_promocao &&
+                              produto.preco_promocional !== null && (
+                                <p className="text-[10px] text-zinc-500 line-through">
+                                  {formatarPreco(produto.preco)}
+                                </p>
+                              )}
+
+                            <p className="text-base font-black text-amber-400">
+                              {formatarPreco(precoAtual(produto))}
+                            </p>
+                          </div>
+
+                          <span
+                            className={`rounded-md px-1.5 py-1 text-[9px] font-black ${
+                              produto.estoque <= 0
+                                ? "bg-red-500/10 text-red-300"
+                                : produto.estoque <= 5
+                                  ? "bg-orange-500/10 text-orange-300"
+                                  : "bg-emerald-500/10 text-emerald-300"
+                            }`}
+                          >
+                            {produto.estoque} un.
+                          </span>
+                        </div>
+                      </div>
+                    </button>
+                  );
+                })}
+              </div>
+
+              {produtosVisiveis.length < produtosFiltrados.length && (
+                <div className="mt-6 text-center">
+                  <button
+                    type="button"
+                    onClick={() => setLimiteVisivel((atual) => atual + 24)}
+                    className="rounded-xl border border-amber-400/30 bg-amber-400/10 px-6 py-3 text-sm font-black text-amber-300"
+                  >
+                    Mostrar mais produtos (
+                    {produtosFiltrados.length - produtosVisiveis.length}{" "}
+                    restantes)
                   </button>
-                );
-              })}
-            </div>
+                </div>
+              )}
+            </>
           )}
         </section>
 
-        {/* LADO DIREITO */}
+        {/* CAIXA */}
         <aside className="xl:sticky xl:top-5 xl:self-start">
-          <div className="overflow-hidden rounded-[30px] border border-white/10 bg-[#101012] shadow-2xl">
-            {/* TIPO */}
+          <div className="overflow-hidden rounded-[30px] border border-white/10 bg-[#101012]">
+            {/* TIPO DE ATENDIMENTO */}
             <div className="border-b border-white/10 p-5">
-              <p className="text-xs font-black uppercase tracking-[0.18em] text-zinc-500">
+              <p className="text-xs font-black uppercase tracking-widest text-zinc-500">
                 Tipo de atendimento
               </p>
 
               <div className="mt-3 grid grid-cols-2 gap-2">
-                <button
-                  type="button"
-                  onClick={() => setTipoAtendimento("balcao")}
-                  className={`h-14 rounded-2xl text-sm font-black transition ${
-                    tipoAtendimento === "balcao"
-                      ? "bg-amber-400 text-black"
-                      : "border border-white/10 bg-black/30 text-zinc-400"
-                  }`}
-                >
-                  🏪 Balcão
-                </button>
-
-                <button
-                  type="button"
-                  onClick={() => setTipoAtendimento("entrega")}
-                  className={`h-14 rounded-2xl text-sm font-black transition ${
-                    tipoAtendimento === "entrega"
-                      ? "bg-amber-400 text-black"
-                      : "border border-white/10 bg-black/30 text-zinc-400"
-                  }`}
-                >
-                  🛵 Entrega
-                </button>
+                {(["balcao", "entrega"] as const).map((tipo) => (
+                  <button
+                    key={tipo}
+                    type="button"
+                    disabled={finalizando}
+                    onClick={() => {
+                      setTipoAtendimento(tipo);
+                      invalidarConfirmacao();
+                    }}
+                    className={`h-14 rounded-xl text-sm font-black ${
+                      tipoAtendimento === tipo
+                        ? "bg-amber-400 text-black"
+                        : "border border-white/10 bg-black/30 text-zinc-400"
+                    }`}
+                  >
+                    {tipo === "balcao" ? "🏪 Balcão" : "🛵 Entrega"}
+                  </button>
+                ))}
               </div>
             </div>
 
             {/* CARRINHO */}
             <div className="p-5">
-              <div className="flex items-start justify-between gap-3">
+              <div className="flex items-center justify-between gap-2">
                 <div>
-                  <p className="text-xl font-black text-white">Venda atual</p>
+                  <h2 className="text-xl font-black text-white">Venda atual</h2>
 
                   <p className="mt-1 text-xs text-zinc-500">
-                    {quantidadeItens} {quantidadeItens === 1 ? "item" : "itens"}
+                    {quantidadeProdutosDiferentes}{" "}
+                    {quantidadeProdutosDiferentes === 1
+                      ? "produto diferente"
+                      : "produtos diferentes"}
+                    {" • "}
+                    {quantidadeItens}{" "}
+                    {quantidadeItens === 1 ? "unidade" : "unidades"}
                   </p>
                 </div>
 
                 {carrinho.length > 0 && (
                   <button
                     type="button"
-                    onClick={() => setCarrinho([])}
-                    className="text-xs font-bold text-red-300 transition hover:text-red-200"
+                    disabled={finalizando}
+                    onClick={limparVenda}
+                    className="text-xs font-bold text-red-300 disabled:opacity-50"
                   >
                     Limpar venda
                   </button>
@@ -514,21 +840,19 @@ export default function PdvClient({ produtos, categorias, clientes }: Props) {
               </div>
 
               {carrinho.length === 0 ? (
-                <div className="mt-5 rounded-3xl border border-dashed border-white/10 bg-black/20 px-4 py-10 text-center">
-                  <div className="text-4xl">🛒</div>
+                <div className="mt-5 rounded-2xl border border-dashed border-white/10 bg-black/20 px-4 py-10 text-center">
+                  <p className="text-4xl">🛒</p>
 
-                  <p className="mt-3 font-black text-zinc-300">Venda vazia</p>
-
-                  <p className="mt-1 text-sm leading-5 text-zinc-600">
+                  <p className="mt-3 font-bold text-zinc-400">
                     Selecione um produto no catálogo.
                   </p>
                 </div>
               ) : (
-                <div className="mt-4 max-h-[360px] space-y-2 overflow-y-auto pr-1">
+                <div className="mt-4 max-h-80 space-y-2 overflow-y-auto">
                   {carrinho.map((item) => (
                     <div
                       key={item.id}
-                      className="rounded-2xl border border-white/10 bg-black/25 p-3"
+                      className="rounded-xl border border-white/10 bg-black/20 p-3"
                     >
                       <div className="flex items-start justify-between gap-3">
                         <div>
@@ -543,39 +867,42 @@ export default function PdvClient({ produtos, categorias, clientes }: Props) {
 
                         <button
                           type="button"
+                          disabled={finalizando}
                           onClick={() => removerProduto(item.id)}
-                          className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-red-500/10 text-red-300 transition hover:bg-red-500/20"
+                          className="rounded-lg bg-red-500/10 px-3 py-1 text-red-300 disabled:opacity-30"
                         >
                           ×
                         </button>
                       </div>
 
-                      <div className="mt-3 flex items-center justify-between">
+                      <div className="mt-3 flex items-center justify-between gap-2">
                         <div className="flex items-center gap-2">
                           <button
                             type="button"
-                            disabled={item.quantidade <= 1}
+                            disabled={finalizando || item.quantidade <= 1}
                             onClick={() => alterarQuantidade(item.id, -1)}
-                            className="flex h-10 w-10 items-center justify-center rounded-xl border border-white/10 bg-zinc-800 text-lg font-black disabled:opacity-30"
+                            className="h-9 w-9 rounded-lg border border-white/10 bg-zinc-800 text-lg font-black disabled:opacity-30"
                           >
                             −
                           </button>
 
-                          <strong className="min-w-8 text-center text-lg">
+                          <strong className="min-w-6 text-center">
                             {item.quantidade}
                           </strong>
 
                           <button
                             type="button"
-                            disabled={item.quantidade >= item.estoque}
+                            disabled={
+                              finalizando || item.quantidade >= item.estoque
+                            }
                             onClick={() => alterarQuantidade(item.id, 1)}
-                            className="flex h-10 w-10 items-center justify-center rounded-xl bg-amber-400 text-lg font-black text-black disabled:opacity-30"
+                            className="h-9 w-9 rounded-lg bg-amber-400 text-lg font-black text-black disabled:opacity-30"
                           >
                             +
                           </button>
                         </div>
 
-                        <strong className="text-base font-black text-amber-400">
+                        <strong className="font-black text-amber-400">
                           {formatarPreco(item.preco * item.quantidade)}
                         </strong>
                       </div>
@@ -585,93 +912,356 @@ export default function PdvClient({ produtos, categorias, clientes }: Props) {
               )}
             </div>
 
-            {/* CLIENTE E PAGAMENTO */}
+            {/* CLIENTES E PAGAMENTO */}
             <div className="border-t border-white/10 bg-black/20 p-5">
               <button
                 type="button"
-                className="flex w-full items-center justify-between rounded-2xl border border-white/10 bg-white/5 p-4 text-left transition hover:border-amber-400/30 onClick={abrirSelecaoCliente}"
+                disabled={finalizando}
+                onClick={() => abrirCliente()}
+                className="flex w-full items-center justify-between rounded-xl border border-white/10 bg-white/5 p-4 text-left disabled:opacity-50"
               >
                 <div>
-                  <p className="text-xs font-bold uppercase tracking-wider text-zinc-500">
+                  <p className="text-xs font-bold uppercase text-zinc-500">
                     Cliente
                   </p>
 
                   <p className="mt-1 text-sm font-black text-white">
-                    {clienteSelecionado
-                      ? clienteSelecionado.nome
-                      : tipoAtendimento === "balcao"
-                        ? "Consumidor não identificado"
-                        : "Selecionar cliente da entrega"}
+                    {clienteSelecionado?.nome ?? "Consumidor não identificado"}
                   </p>
 
                   {clienteSelecionado && (
-                    <p className="mt-1 text-xs font-semibold text-zinc-500">
+                    <p className="mt-1 text-xs text-zinc-400">
                       {clienteSelecionado.telefone}
                     </p>
                   )}
                 </div>
 
-                <span className="text-xl font-black text-amber-400">+</span>
+                <span className="text-xl text-amber-400">+</span>
               </button>
 
-              <button
-                type="button"
-                className="mt-3 flex w-full items-center justify-between rounded-2xl border border-white/10 bg-white/5 p-4 text-left transition hover:border-amber-400/30"
-              >
-                <div>
-                  <p className="text-xs font-bold uppercase tracking-wider text-zinc-500">
-                    Pagamento
-                  </p>
+              {/* PAGAMENTO */}
+              <div id="pagamento-pdv" className="mt-5">
+                <p className="text-xs font-black uppercase tracking-widest text-zinc-500">
+                  Forma de pagamento
+                </p>
 
-                  <p className="mt-1 text-sm font-black text-white">
-                    Selecionar forma de pagamento
-                  </p>
+                <div className="mt-3 grid grid-cols-2 gap-2">
+                  {FORMAS_PAGAMENTO.map((forma) => (
+                    <button
+                      key={forma.id}
+                      type="button"
+                      disabled={finalizando}
+                      onClick={() => {
+                        setFormaPagamento(forma.id);
+                        setTrocoPara("");
+                        invalidarConfirmacao();
+                      }}
+                      className={`rounded-xl border px-3 py-3 text-sm font-black transition ${
+                        formaPagamento === forma.id
+                          ? "border-amber-400 bg-amber-400 text-black"
+                          : "border-white/10 bg-zinc-900 text-zinc-300"
+                      }`}
+                    >
+                      {forma.icone} {forma.nome}
+                    </button>
+                  ))}
                 </div>
 
-                <span className="text-xl text-amber-400">›</span>
-              </button>
+                {formaPagamento === "credito" && (
+                  <p className="mt-2 text-xs font-bold text-amber-300">
+                    Crédito no balcão: sem taxa adicional.
+                  </p>
+                )}
 
-              {/* TOTAL */}
+                {/* DINHEIRO */}
+                {formaPagamento === "dinheiro" && (
+                  <div className="mt-4">
+                    <label className="mb-2 block text-xs font-bold text-zinc-400">
+                      Valor recebido (opcional para calcular troco)
+                    </label>
+
+                    <input
+                      type="text"
+                      inputMode="decimal"
+                      disabled={finalizando}
+                      value={trocoPara}
+                      onChange={(event) => {
+                        setTrocoPara(event.target.value);
+                        setErroVenda("");
+                      }}
+                      placeholder="Ex.: 50,00"
+                      className="h-12 w-full rounded-xl border border-white/10 bg-black/40 px-4 text-white outline-none focus:border-amber-400"
+                    />
+
+                    {troco !== null && (
+                      <p className="mt-2 text-sm font-bold text-emerald-300">
+                        Troco: {formatarPreco(troco)}
+                      </p>
+                    )}
+
+                    {trocoInvalido && (
+                      <p className="mt-2 text-xs font-bold text-red-300">
+                        O valor informado é menor que o total.
+                      </p>
+                    )}
+
+                    <p className="mt-3 rounded-xl border border-white/10 bg-white/5 p-3 text-xs leading-5 text-zinc-400">
+                      Ao clicar em Finalizar venda, você confirma que recebeu o
+                      pagamento em dinheiro.
+                    </p>
+                  </div>
+                )}
+
+                {/* CONFIRMAÇÃO ESPECÍFICA PARA PIX */}
+                {formaPagamento === "pix" && (
+                  <label className="mt-4 flex cursor-pointer items-start gap-3 rounded-xl border border-white/10 bg-white/5 p-4">
+                    <input
+                      type="checkbox"
+                      checked={pagamentoConfirmado}
+                      disabled={finalizando}
+                      onChange={(event) =>
+                        setPagamentoConfirmado(event.target.checked)
+                      }
+                      className="mt-1 h-4 w-4 accent-amber-400"
+                    />
+
+                    <span className="text-sm leading-5 text-zinc-300">
+                      Confirmo que o Pix foi recebido e que conferi o crédito na
+                      conta da loja.
+                    </span>
+                  </label>
+                )}
+
+                {/* CONFIRMAÇÃO PARA CARTÕES */}
+                {(formaPagamento === "debito" ||
+                  formaPagamento === "credito") && (
+                  <label className="mt-4 flex cursor-pointer items-start gap-3 rounded-xl border border-white/10 bg-white/5 p-4">
+                    <input
+                      type="checkbox"
+                      checked={pagamentoConfirmado}
+                      disabled={finalizando}
+                      onChange={(event) =>
+                        setPagamentoConfirmado(event.target.checked)
+                      }
+                      className="mt-1 h-4 w-4 accent-amber-400"
+                    />
+
+                    <span className="text-sm leading-5 text-zinc-300">
+                      Confirmo que o pagamento foi autorizado na maquininha.
+                    </span>
+                  </label>
+                )}
+              </div>
+
+              {/* RESUMO DA VENDA */}
               <div className="mt-5 border-t border-white/10 pt-5">
-                <div className="flex items-end justify-between gap-4">
+                <div className="space-y-2 text-sm">
+                  <div className="flex justify-between text-zinc-400">
+                    <span>Subtotal</span>
+                    <span>{formatarPreco(subtotal)}</span>
+                  </div>
+
+                  {taxaCartao > 0 && (
+                    <div className="flex justify-between text-zinc-400">
+                      <span>Taxa do cartão</span>
+                      <span>{formatarPreco(taxaCartao)}</span>
+                    </div>
+                  )}
+                </div>
+
+                <div className="mt-4 flex items-end justify-between gap-3">
                   <div>
-                    <p className="text-xs font-black uppercase tracking-[0.14em] text-zinc-500">
+                    <p className="text-xs font-bold uppercase text-zinc-500">
                       Total da venda
                     </p>
 
-                    <p className="mt-1 text-4xl font-black tracking-tight text-white">
-                      {formatarPreco(subtotal)}
+                    <p className="mt-1 text-4xl font-black text-white">
+                      {formatarPreco(total)}
                     </p>
                   </div>
 
-                  <span
-                    className={`rounded-xl px-3 py-2 text-xs font-black ${
-                      tipoAtendimento === "balcao"
-                        ? "bg-amber-400/10 text-amber-300"
-                        : "bg-blue-500/10 text-blue-300"
-                    }`}
-                  >
+                  <span className="rounded-xl bg-amber-400/10 px-3 py-2 text-xs font-black text-amber-300">
                     {tipoAtendimento === "balcao" ? "BALCÃO" : "ENTREGA"}
                   </span>
                 </div>
 
+                {tipoAtendimento === "entrega" && (
+                  <p className="mt-4 rounded-xl border border-blue-500/20 bg-blue-500/10 p-3 text-sm text-blue-200">
+                    A finalização de entregas será ativada depois da integração
+                    de endereços e regras do delivery.
+                  </p>
+                )}
+
                 <button
                   type="button"
-                  disabled
-                  className="mt-5 h-14 w-full cursor-not-allowed rounded-2xl bg-emerald-500 text-base font-black text-black opacity-40"
+                  disabled={!podeFinalizar}
+                  onClick={finalizarVenda}
+                  className="mt-5 h-14 w-full rounded-xl bg-emerald-500 text-base font-black text-black transition hover:bg-emerald-400 disabled:cursor-not-allowed disabled:opacity-30"
                 >
-                  Finalizar venda
+                  {finalizando
+                    ? "Registrando venda..."
+                    : formaPagamento === "dinheiro"
+                      ? "✓ Finalizar venda em dinheiro"
+                      : "✓ Finalizar venda"}
                 </button>
 
-                <p className="mt-2 text-center text-xs text-zinc-600">
-                  Finalização será ativada depois de configurarmos cliente e
-                  pagamento.
-                </p>
+                {tipoAtendimento === "balcao" && !formaPagamento && (
+                  <p className="mt-2 text-center text-xs text-zinc-500">
+                    Escolha uma forma de pagamento.
+                  </p>
+                )}
               </div>
             </div>
           </div>
         </aside>
       </div>
+
+      {/* MODAL DE CLIENTES */}
+      {modalClienteAberto && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4">
+          <div
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="titulo-cliente"
+            className="w-full max-w-lg rounded-3xl border border-white/10 bg-zinc-950 p-6 text-white shadow-2xl"
+          >
+            <div className="flex items-center justify-between">
+              <h2 id="titulo-cliente" className="text-xl font-black">
+                Clientes
+              </h2>
+
+              <button
+                type="button"
+                onClick={() => setModalClienteAberto(false)}
+                className="rounded-lg bg-white/10 px-3 py-2 text-lg"
+              >
+                ×
+              </button>
+            </div>
+
+            <div className="mt-5 grid grid-cols-2 gap-2">
+              <button
+                type="button"
+                onClick={() => {
+                  setModoNovoCliente(false);
+                  setErroCliente("");
+                }}
+                className={`rounded-xl p-3 text-sm font-bold ${
+                  !modoNovoCliente
+                    ? "bg-amber-400 text-black"
+                    : "bg-zinc-800 text-zinc-300"
+                }`}
+              >
+                Selecionar
+              </button>
+
+              <button
+                type="button"
+                onClick={() => {
+                  setModoNovoCliente(true);
+                  setErroCliente("");
+                }}
+                className={`rounded-xl p-3 text-sm font-bold ${
+                  modoNovoCliente
+                    ? "bg-amber-400 text-black"
+                    : "bg-zinc-800 text-zinc-300"
+                }`}
+              >
+                Cadastrar novo
+              </button>
+            </div>
+
+            {erroCliente && (
+              <p className="mt-4 rounded-xl bg-red-500/10 p-3 text-sm text-red-300">
+                {erroCliente}
+              </p>
+            )}
+
+            {modoNovoCliente ? (
+              <form
+                className="mt-5 space-y-3"
+                onSubmit={(event) => {
+                  event.preventDefault();
+                  void cadastrarCliente();
+                }}
+              >
+                <input
+                  required
+                  value={novoClienteNome}
+                  onChange={(event) => setNovoClienteNome(event.target.value)}
+                  placeholder="Nome do cliente"
+                  className="h-12 w-full rounded-xl border border-white/10 bg-black/40 px-4 outline-none focus:border-amber-400"
+                />
+
+                <input
+                  required
+                  type="tel"
+                  value={novoClienteTelefone}
+                  onChange={(event) =>
+                    setNovoClienteTelefone(event.target.value)
+                  }
+                  placeholder="Telefone com DDD"
+                  className="h-12 w-full rounded-xl border border-white/10 bg-black/40 px-4 outline-none focus:border-amber-400"
+                />
+
+                <button
+                  type="submit"
+                  disabled={salvandoCliente}
+                  className="h-12 w-full rounded-xl bg-amber-400 font-black text-black disabled:opacity-50"
+                >
+                  {salvandoCliente ? "Salvando..." : "Cadastrar e selecionar"}
+                </button>
+              </form>
+            ) : (
+              <>
+                <input
+                  value={buscaCliente}
+                  onChange={(event) => setBuscaCliente(event.target.value)}
+                  placeholder="Buscar nome ou telefone..."
+                  className="mt-5 h-12 w-full rounded-xl border border-white/10 bg-black/40 px-4 outline-none focus:border-amber-400"
+                />
+
+                <div className="mt-4 max-h-72 space-y-2 overflow-y-auto">
+                  {clientesFiltrados.length === 0 ? (
+                    <p className="py-8 text-center text-sm text-zinc-500">
+                      Nenhum cliente encontrado.
+                    </p>
+                  ) : (
+                    clientesFiltrados.map((cliente) => (
+                      <button
+                        key={cliente.id}
+                        type="button"
+                        onClick={() => selecionarCliente(cliente)}
+                        className="w-full rounded-xl border border-white/10 bg-white/5 p-3 text-left hover:border-amber-400/40"
+                      >
+                        <p className="text-sm font-black">{cliente.nome}</p>
+
+                        <p className="mt-1 text-xs text-zinc-400">
+                          {cliente.telefone}
+                        </p>
+                      </button>
+                    ))
+                  )}
+                </div>
+
+                {clienteSelecionado && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setClienteSelecionado(null);
+                      setModalClienteAberto(false);
+                      invalidarConfirmacao();
+                    }}
+                    className="mt-4 w-full rounded-xl border border-white/10 p-3 text-sm font-bold text-zinc-300"
+                  >
+                    Remover cliente da venda
+                  </button>
+                )}
+              </>
+            )}
+          </div>
+        </div>
+      )}
     </div>
   );
 }
