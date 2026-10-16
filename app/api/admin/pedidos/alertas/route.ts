@@ -11,13 +11,7 @@ export async function GET(request: Request) {
     const autorizado = await verificarAdmin();
 
     if (!autorizado) {
-      return NextResponse.json(
-        { erro: "Não autorizado." },
-        {
-          status: 401,
-          headers: { "Cache-Control": "no-store" },
-        },
-      );
+      return NextResponse.json({ erro: "Não autorizado." }, { status: 401 });
     }
 
     const parametro = new URL(request.url).searchParams.get("depois");
@@ -31,38 +25,65 @@ export async function GET(request: Request) {
       );
     }
 
-    const { data, error } = await supabaseAdmin
-      .from("pedidos")
-      .select("id, status")
-      .gt("id", depois)
-      .order("id", { ascending: true })
-      .limit(100);
+    const limiteAtraso = new Date(Date.now() - 5 * 60 * 1000).toISOString();
 
-    if (error) {
-      console.error("Erro ao consultar alertas:", error);
+    const [novos, pendentes] = await Promise.all([
+      supabaseAdmin
+        .from("pedidos")
+        .select("id, status")
+        .gt("id", depois)
+        .order("id", { ascending: true })
+        .limit(100),
+
+      supabaseAdmin
+        .from("pedidos")
+        .select("id, created_at, forma_pagamento, pagamento_confirmado")
+        .eq("status", "recebido")
+        .lte("created_at", limiteAtraso)
+        .order("created_at", { ascending: false })
+        .limit(100),
+    ]);
+
+    if (novos.error || pendentes.error) {
+      console.error("Erro no monitor de pedidos:", {
+        novos: novos.error,
+        pendentes: pendentes.error,
+      });
 
       return NextResponse.json(
-        { erro: "Não foi possível consultar pedidos." },
+        { erro: "Falha ao consultar os pedidos." },
         { status: 500 },
       );
     }
 
+    // Pix não confirmado não deve gerar aviso
+    // para iniciar a preparação do pedido.
+    const atrasados = (pendentes.data ?? [])
+      .filter(
+        (pedido) =>
+          pedido.forma_pagamento !== "pix" ||
+          pedido.pagamento_confirmado === true,
+      )
+      .map((pedido) => Number(pedido.id))
+      .filter((id) => Number.isSafeInteger(id) && id > 0);
+
     return NextResponse.json(
       {
         sucesso: true,
-        pedidos: data ?? [],
+        pedidos: novos.data ?? [],
+        atrasados,
       },
       {
         headers: {
-          "Cache-Control": "no-store, no-cache, must-revalidate",
+          "Cache-Control": "no-store",
         },
       },
     );
   } catch (error) {
-    console.error("Erro no monitor de pedidos:", error);
+    console.error("Erro na API de alertas:", error);
 
     return NextResponse.json(
-      { erro: "Erro interno ao verificar pedidos." },
+      { erro: "Erro interno no monitor." },
       { status: 500 },
     );
   }

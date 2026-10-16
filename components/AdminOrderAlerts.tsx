@@ -37,6 +37,8 @@ export default function AdminOrderAlerts({
   const [novosIds, setNovosIds] = useState<number[]>([]);
   const [falha, setFalha] = useState(false);
 
+  const [atrasados, setAtrasados] = useState<number[]>([]);
+
   const tocarAviso = useCallback(() => {
     const contexto = audioRef.current;
 
@@ -132,6 +134,7 @@ export default function AdminOrderAlerts({
 
         const resultado = (await resposta.json()) as {
           pedidos?: PedidoMonitorado[];
+          atrasados?: number[];
         };
 
         const pedidos = Array.isArray(resultado.pedidos)
@@ -168,6 +171,14 @@ export default function AdminOrderAlerts({
         if (!ativo) return;
 
         setFalha(false);
+
+        setAtrasados(
+          Array.isArray(resultado.atrasados)
+            ? resultado.atrasados.filter(
+                (id) => Number.isSafeInteger(id) && id > 0,
+              )
+            : [],
+        );
 
         if (idsNovos.length > 0) {
           setNovosIds((atuais) =>
@@ -236,6 +247,34 @@ export default function AdminOrderAlerts({
       }
       aria-live="polite"
     >
+      {atrasados.length > 0 && (
+        <div className="mb-3 rounded-xl border border-orange-400/40 bg-zinc-950 p-4 text-white shadow-xl">
+          <p className="text-sm font-black text-orange-400">
+            ⚠️ Pedidos aguardando há mais de 5 minutos
+          </p>
+
+          <p className="mt-2 text-sm text-zinc-300">
+            {atrasados.length}{" "}
+            {atrasados.length === 1 ? "pedido precisa" : "pedidos precisam"} de
+            atenção.
+          </p>
+
+          <p className="mt-2 text-xs text-zinc-400">
+            {atrasados
+              .slice(0, 5)
+              .map((id) => `#${id}`)
+              .join(", ")}
+          </p>
+
+          <Link
+            href="/admin/pedidos?status=recebido"
+            className="mt-3 block rounded-lg bg-orange-400 px-3 py-2 text-center text-xs font-black text-zinc-950"
+          >
+            Ver pedidos aguardando
+          </Link>
+        </div>
+      )}
+
       {novosIds.length > 0 && (
         <div className="mb-3 rounded-2xl border border-amber-400/40 bg-zinc-950 p-4 text-white shadow-2xl">
           <p className="text-base font-black text-amber-400">
