@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 
 type SpeechRecognitionEventLike = {
   results: {
@@ -233,6 +233,97 @@ export default function PedidoFacilPage() {
   >(null);
 
   const recognitionRef = useRef<SpeechRecognitionLike | null>(null);
+
+  useEffect(() => {
+    const receberPedidoDoChat = async (evento: MessageEvent) => {
+      if (
+        window.parent === window ||
+        evento.origin !== window.location.origin ||
+        evento.source !== window.parent
+      ) {
+        return;
+      }
+
+      const dados = evento.data as {
+        tipo?: unknown;
+        mensagem?: unknown;
+      } | null;
+
+      if (dados?.tipo === "deposito-ze-perguntar-pronto") {
+        window.parent.postMessage(
+          { tipo: "deposito-ze-pedido-pronto" },
+          window.location.origin,
+        );
+        return;
+      }
+
+      if (
+        dados?.tipo !== "deposito-ze-iniciar-pedido" ||
+        typeof dados.mensagem !== "string"
+      ) {
+        return;
+      }
+
+      const mensagem = dados.mensagem.trim();
+
+      if (!mensagem || mensagem.length > 300) {
+        return;
+      }
+
+      setPedido(mensagem);
+      setEtapa("pedido");
+      setResultado(null);
+      setEscolhas({});
+      setQuantidades({});
+      setOpcoesSelecionadasPedido({});
+      setErro("");
+      setCarregando(true);
+
+      try {
+        const resposta = await fetch("/api/pedido-facil/interpretar", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({ mensagem }),
+          cache: "no-store",
+        });
+
+        const dadosResposta = (await resposta.json()) as
+          ResultadoInterpretacao & { erro?: string };
+
+        if (!resposta.ok || !dadosResposta.sucesso) {
+          throw new Error(
+            dadosResposta.erro || "Nao foi possivel interpretar o pedido."
+          );
+        }
+
+        setResultado(dadosResposta);
+        setPedido("");
+      } catch (erro) {
+        setErro(
+          erro instanceof Error
+            ? erro.message
+            : "Falha ao consultar o pedido."
+        );
+      } finally {
+        setCarregando(false);
+      }
+    };
+
+    window.addEventListener("message", receberPedidoDoChat);
+
+    if (window.parent !== window) {
+      window.parent.postMessage(
+        { tipo: "deposito-ze-pedido-pronto" },
+        window.location.origin,
+      );
+    }
+
+    return () => {
+      window.removeEventListener("message", receberPedidoDoChat);
+    };
+  }, []);
 
   function normalizarPagamentoAnterior(valor: string | null) {
     if (valor === "pix") {

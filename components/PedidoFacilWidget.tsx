@@ -12,6 +12,28 @@ type Mensagem = {
 
 const WHATSAPP = "https://wa.me/5521973209746";
 
+function identificarPedidoDeCompra(mensagem: string) {
+  const texto = mensagem
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .replace(/[^a-z0-9\s]/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+
+  if (
+    /\b(quanto|preco|valor|custa|saber|horario|endereco|localizacao|atendente)\b/.test(texto)
+  ) {
+    return false;
+  }
+
+  const intencao = /\b(quero|queria|gostaria|manda|mande|mandar|coloca|coloque|adiciona|adicionar|preciso)\b/.test(texto);
+
+  const item = /\b(\d+|um|uma|dois|duas|tres|quatro|cinco|brahma|coca|guarana|heineken|skol|amstel|antarctica|agua|refrigerante|cerveja)\b/.test(texto);
+
+  return intencao && item;
+}
+
 export default function PedidoFacilWidget() {
   const pathname = usePathname();
 
@@ -36,6 +58,58 @@ export default function PedidoFacilWidget() {
 
   const fimMensagens = useRef<HTMLDivElement>(null);
   const enviandoRef = useRef(false);
+
+  const iframeRef = useRef<HTMLIFrameElement>(null);
+  const iframeProntoRef = useRef(false);
+  const pedidoPendenteRef = useRef<string | null>(null);
+
+  function transferirPedido(mensagem: string) {
+    pedidoPendenteRef.current = mensagem;
+
+    if (iframeProntoRef.current && iframeRef.current?.contentWindow) {
+      iframeRef.current.contentWindow.postMessage(
+        { tipo: "deposito-ze-iniciar-pedido", mensagem },
+        window.location.origin,
+      );
+      pedidoPendenteRef.current = null;
+    }
+  }
+
+  useEffect(() => {
+    function receberConfirmacao(evento: MessageEvent) {
+      if (
+        evento.origin !== window.location.origin ||
+        evento.source !== iframeRef.current?.contentWindow ||
+        evento.data?.tipo !== "deposito-ze-pedido-pronto"
+      ) {
+        return;
+      }
+
+      iframeProntoRef.current = true;
+
+      const mensagem = pedidoPendenteRef.current;
+
+      if (mensagem && iframeRef.current?.contentWindow) {
+        iframeRef.current.contentWindow.postMessage(
+          { tipo: "deposito-ze-iniciar-pedido", mensagem },
+          window.location.origin,
+        );
+        pedidoPendenteRef.current = null;
+      }
+    }
+
+    window.addEventListener("message", receberConfirmacao);
+
+    return () => {
+      window.removeEventListener("message", receberConfirmacao);
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!aberto || minimizado) {
+      iframeProntoRef.current = false;
+    }
+  }, [aberto, minimizado]);
 
   useEffect(() => {
     if (aba === "duvidas" && aberto && !minimizado) {
@@ -65,6 +139,101 @@ export default function PedidoFacilWidget() {
       },
     ]);
 
+    if (identificarPedidoDeCompra(pergunta)) {
+      try {
+        const consulta = await fetch("/api/pedido-facil/interpretar", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ mensagem: pergunta }),
+          cache: "no-store",
+        });
+
+        const dados = (await consulta.json()) as {
+          sucesso?: boolean;
+          erro?: string;
+          itens?: {
+            nome: string;
+            quantidade: number;
+            subtotal: number;
+          }[];
+          duvidas?: { trecho: string }[];
+          nao_encontrados?: { trecho: string }[];
+        };
+
+        if (!consulta.ok || dados.sucesso !== true) {
+          throw new Error(
+            dados.erro || "Nao foi possivel interpretar o pedido."
+          );
+        }
+
+        const itens = dados.itens ?? [];
+        const duvidas = dados.duvidas ?? [];
+        const naoEncontrados = dados.nao_encontrados ?? [];
+
+        const linhas = itens.map((item) => {
+          const subtotal = Number(item.subtotal).toLocaleString(
+            "pt-BR",
+            { style: "currency", currency: "BRL" }
+          );
+
+          return `${item.quantidade}x ${item.nome} - ${subtotal}`;
+        });
+
+        const partes: string[] = [];
+
+        if (linhas.length > 0) {
+          partes.push("Encontrei estes produtos:\n\n" + linhas.join("\n"));
+        }
+
+        if (duvidas.length > 0) {
+          partes.push(
+            "Preciso confirmar algumas opcoes:\n" +
+            duvidas.map((item) => item.trecho).join("\n")
+          );
+        }
+
+        if (naoEncontrados.length > 0) {
+          partes.push(
+            "Nao encontrei:\n" +
+            naoEncontrados.map((item) => item.trecho).join("\n")
+          );
+        }
+
+        partes.push(
+          "Vou abrir o Pedido Facil para conferir os itens. " +
+          "Nenhuma compra foi finalizada ainda."
+        );
+
+        setMensagens((anteriores) => [
+          ...anteriores,
+          {
+            autor: "assistente",
+            texto: partes.join("\n\n"),
+          },
+        ]);
+
+        // Abrir a aba antes de tentar transferir.
+        setAba("pedido");
+        transferirPedido(pergunta);
+      } catch (erro) {
+        setMensagens((anteriores) => [
+          ...anteriores,
+          {
+            autor: "assistente",
+            texto:
+              "Nao consegui consultar os produtos: " +
+              (erro instanceof Error
+                ? erro.message
+                : "Erro desconhecido."),
+          },
+        ]);
+      } finally {
+        enviandoRef.current = false;
+        setCarregando(false);
+      }
+
+      return;
+    }
     try {
       const resposta = await fetch("/api/assistente", {
         method: "POST",
@@ -270,6 +439,14 @@ export default function PedidoFacilWidget() {
           Isso preserva o estado do Pedido Fácil.
         */}
         <iframe
+          ref={iframeRef}
+          onLoad={() => {
+            iframeProntoRef.current = false;
+            iframeRef.current?.contentWindow?.postMessage(
+              { tipo: "deposito-ze-perguntar-pronto" },
+              window.location.origin,
+            );
+          }}
           src="/pedido-facil"
           title="Faça seu pedido no Depósito do Zé"
           className={`absolute inset-0 h-full w-full border-0 bg-zinc-950 ${
