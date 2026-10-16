@@ -218,12 +218,12 @@ export async function POST(request: Request) {
       );
     }
 
-   if (!cep?.trim() || !numero?.trim()) {
-  return NextResponse.json(
-    { erro: "Informe o CEP e o número do endereço de entrega." },
-    { status: 400 },
-  );
-}
+    if (!cep?.trim() || !numero?.trim()) {
+      return NextResponse.json(
+        { erro: "Informe o CEP e o número do endereço de entrega." },
+        { status: 400 },
+      );
+    }
     const uuidValido =
       typeof chave_idempotencia === "string" &&
       /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(
@@ -342,19 +342,18 @@ export async function POST(request: Request) {
 
     const bairroConfirmado = bairroCep;
 
-    const ruaConfirmada =
-  enderecoCep.logradouro?.trim() || rua?.trim() || "";
+    const ruaConfirmada = enderecoCep.logradouro?.trim() || rua?.trim() || "";
 
-  if (!ruaConfirmada) {
-  return NextResponse.json(
-    {
-      erro: "Não foi possível identificar a rua deste CEP. Informe a rua manualmente.",
-    },
-    {
-      status: 400,
-    },
-  );
-}
+    if (!ruaConfirmada) {
+      return NextResponse.json(
+        {
+          erro: "Não foi possível identificar a rua deste CEP. Informe a rua manualmente.",
+        },
+        {
+          status: 400,
+        },
+      );
+    }
 
     const formasPermitidas = ["pix", "cartao_entrega", "dinheiro"];
 
@@ -469,7 +468,7 @@ export async function POST(request: Request) {
     // gravação dos itens e baixa de estoque acontecem
     // dentro de uma única transação no PostgreSQL.
 
-        const telefoneNormalizadoRateLimit = normalizarTelefoneRateLimit(telefone);
+    const telefoneNormalizadoRateLimit = normalizarTelefoneRateLimit(telefone);
 
     if (
       telefoneNormalizadoRateLimit.length >= 10 &&
@@ -489,7 +488,6 @@ export async function POST(request: Request) {
         return respostaRateLimit(limiteTelefone.tentarNovamenteEm);
       }
     }
-
 
     const { data, error } = await supabaseAdmin.rpc(
       "criar_pedido_com_estoque_v2",

@@ -1,7 +1,8 @@
 import Link from "next/link";
 import { supabaseAdmin } from "../../../lib/supabaseAdmin";
 import OrderStatusButtons from "../../../components/OrderStatusButtons";
-import AdminAutoRefresh from "../../../components/AdminAutoRefresh";
+import AdminOrderAlerts from "../../../components/AdminOrderAlerts";
+
 import AdminNavigation from "../../../components/AdminNavigation";
 
 export const dynamic = "force-dynamic";
@@ -259,7 +260,9 @@ export default async function AdminPedidosPage({
     <main className="min-h-screen bg-zinc-950 px-6 py-12 text-white">
       <div className="mx-auto max-w-6xl">
         <AdminNavigation />
-        <AdminAutoRefresh ultimoPedidoId={ultimoPedidoId} />
+
+        <AdminOrderAlerts ultimoPedidoId={ultimoPedidoId} />
+
         <section className="animate-slide-up relative overflow-hidden rounded-[30px] border border-white/[0.07] bg-white/[0.025] p-6 shadow-[0_30px_100px_rgba(0,0,0,0.22)] sm:p-7">
           {/* GLOW */}
           <div
