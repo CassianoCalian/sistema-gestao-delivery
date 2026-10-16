@@ -5,6 +5,8 @@ import { verificarAdmin } from "../../../lib/supabase/requireAdmin";
 import PdvClient from "../../../components/pdv/PdvClient";
 import AdminOrderAlerts from "../../../components/AdminOrderAlerts";
 
+import Link from "next/link";
+
 export const dynamic = "force-dynamic";
 
 export type PdvOpcaoProduto = {
@@ -167,6 +169,22 @@ export default async function PdvPage() {
             embutido
           />
         )}
+
+        <div className="mb-4 flex flex-wrap items-center justify-end gap-3">
+          <Link
+            href="/admin/pdv/caixa"
+            className="rounded-xl border border-amber-400/30 bg-amber-400 px-5 py-3 text-sm font-black text-zinc-950 transition hover:bg-amber-300"
+          >
+            💰 Controle de Caixa
+          </Link>
+
+          <Link
+            href="/admin/pdv/historico"
+            className="rounded-xl border border-white/15 bg-zinc-900 px-5 py-3 text-sm font-bold text-white transition hover:bg-zinc-800"
+          >
+            🧾 Histórico de Vendas
+          </Link>
+        </div>
 
         {/* SISTEMA PDV */}
         <PdvClient
