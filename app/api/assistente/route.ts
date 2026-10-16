@@ -171,10 +171,39 @@ export async function POST(request: Request) {
         palavras = termos(assunto);
       }
 
-      const encontrados = produtos
+      const marcas = [
+        "brahma",
+        "antarctica",
+        "imperio",
+        "amstel",
+        "heineken",
+        "skol",
+        "itaipava",
+        "budweiser",
+        "stella",
+        "corona",
+        "original",
+        "bohemia",
+      ];
+
+      const marcasPedidas = palavras.filter((palavra) =>
+        marcas.includes(palavra),
+      );
+
+      const candidatos = produtos
+        .filter((produto) => {
+          if (marcasPedidas.length === 0) {
+            return true;
+          }
+
+          const palavrasProduto = termos(produto.nome);
+
+          return marcasPedidas.every((marca) =>
+            palavrasProduto.includes(marca),
+          );
+        })
         .map((produto) => {
-          const nome = normalizar(produto.nome);
-          const palavrasNome = nome.split(" ");
+          const palavrasNome = normalizar(produto.nome).split(" ");
 
           const pontos = palavras.reduce((total, palavra) => {
             if (palavrasNome.includes(palavra)) {
@@ -196,7 +225,12 @@ export async function POST(request: Request) {
           return { produto, pontos };
         })
         .filter((item) => item.pontos > 0)
-        .sort((a, b) => b.pontos - a.pontos)
+        .sort((a, b) => b.pontos - a.pontos);
+
+      const maiorPontuacao = candidatos[0]?.pontos ?? 0;
+
+      const encontrados = candidatos
+        .filter((item) => item.pontos >= Math.max(1, maiorPontuacao - 2))
         .slice(0, 5);
 
       if (encontrados.length === 0) {
