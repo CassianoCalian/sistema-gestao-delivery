@@ -6,6 +6,8 @@ import { CartProvider } from "../context/CartContext";
 import "./globals.css";
 import PedidoFacilWidget from "@/components/PedidoFacilWidget";
 
+import AssistenteZe from "../components/AssistenteZe";
+
 const geistSans = Geist({
   variable: "--font-geist-sans",
   subsets: ["latin"],
@@ -38,6 +40,8 @@ export default function RootLayout({
     >
       <body className="min-h-full flex flex-col">
         <CartProvider>{children}</CartProvider>
+
+        <AssistenteZe />
 
         <PedidoFacilWidget />
       </body>
