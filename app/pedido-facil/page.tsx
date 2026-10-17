@@ -2173,6 +2173,19 @@ export default function PedidoFacilPage() {
                 alterarEnderecoSalvo={alterarEnderecoSalvo}
                 totalEstimado={totalEstimado}
                 formatarPreco={formatarPreco}
+                itens={carrinho.map((item) => ({
+                  id: item.id,
+                  nome: item.nome,
+                  quantidade: item.quantidade,
+                  preco: item.preco,
+                  opcoes: item.opcoes_selecionadas.map((opcao) => ({
+                    nome: opcao.nome,
+                    quantidade: opcao.quantidade,
+                  })),
+                }))}
+                finalizarPedido={finalizarPedido}
+                enviandoPedido={enviandoPedido}
+                erroFinalizacao={erroFinalizacao}
                 concluir={() => setModoGuiado(false)}
               />
             ) : (

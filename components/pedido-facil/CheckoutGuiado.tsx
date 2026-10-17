@@ -11,7 +11,8 @@ type Passo =
   | "numero"
   | "referencia"
   | "pagamento"
-  | "troco";
+  | "troco"
+  | "resumo";
 
 type Props = {
   clienteComDados: boolean;
@@ -37,6 +38,19 @@ type Props = {
   alterarEnderecoSalvo: () => void;
   totalEstimado: number;
   formatarPreco: (valor: number) => string;
+  itens: Array<{
+    id: number;
+    nome: string;
+    quantidade: number;
+    preco: number;
+    opcoes: Array<{
+      nome: string;
+      quantidade: number;
+    }>;
+  }>;
+  finalizarPedido: () => Promise<void>;
+  enviandoPedido: boolean;
+  erroFinalizacao: string;
   concluir: () => void;
 };
 
@@ -74,6 +88,10 @@ export default function CheckoutGuiado(props: Props) {
     alterarEnderecoSalvo,
     totalEstimado,
     formatarPreco,
+    itens,
+    finalizarPedido,
+    enviandoPedido,
+    erroFinalizacao,
     concluir,
   } = props;
 
@@ -351,7 +369,7 @@ export default function CheckoutGuiado(props: Props) {
                 if (formaPagamento === "dinheiro") {
                   avancar("troco");
                 } else {
-                  concluir();
+                  avancar("resumo");
                 }
               }}
             >
@@ -384,7 +402,7 @@ export default function CheckoutGuiado(props: Props) {
             <button
               type="button"
               className={botao}
-              onClick={concluir}
+              onClick={() => avancar("resumo")}
             >
               Conferir pedido
             </button>
@@ -395,6 +413,141 @@ export default function CheckoutGuiado(props: Props) {
               onClick={() => avancar("pagamento")}
             >
               Alterar pagamento
+            </button>
+          </div>
+        )}
+        {passo === "resumo" && (
+          <div className="space-y-4">
+            <div>
+              <h3 className="text-lg font-black text-white">
+                Confira seu pedido
+              </h3>
+              <p className="mt-1 text-sm text-zinc-400">
+                Revise tudo antes de enviar para a loja.
+              </p>
+            </div>
+
+            <div className="space-y-3 rounded-2xl bg-black/30 p-4">
+              <p className="font-black text-amber-300">
+                Produtos
+              </p>
+
+              {itens.map((item) => (
+                <div
+                  key={item.id}
+                  className="border-b border-white/10 pb-3 last:border-0 last:pb-0"
+                >
+                  <div className="flex justify-between gap-3 text-sm">
+                    <span>
+                      {item.quantidade}x {item.nome}
+                    </span>
+                    <strong className="whitespace-nowrap">
+                      {formatarPreco(item.preco * item.quantidade)}
+                    </strong>
+                  </div>
+
+                  {item.opcoes.map((opcao, indice) => (
+                    <p
+                      key={`${item.id}-${indice}`}
+                      className="mt-1 text-xs text-zinc-400"
+                    >
+                      {opcao.quantidade}x {opcao.nome}
+                    </p>
+                  ))}
+                </div>
+              ))}
+            </div>
+
+            <div className="rounded-2xl bg-black/30 p-4 text-sm">
+              <p className="font-black text-amber-300">
+                Entrega
+              </p>
+              <p className="mt-2 font-semibold">{nome}</p>
+              <p className="mt-1">
+                {rua}, {numero}
+                {complemento ? ` - ${complemento}` : ""}
+              </p>
+              <p className="mt-1">{bairro}</p>
+              <p className="mt-1 text-zinc-400">
+                CEP: {cep}
+              </p>
+              {referencia && (
+                <p className="mt-1 text-zinc-400">
+                  Referencia: {referencia}
+                </p>
+              )}
+            </div>
+
+            <div className="rounded-2xl bg-black/30 p-4 text-sm">
+              <p className="font-black text-amber-300">
+                Pagamento
+              </p>
+
+              <p className="mt-2">
+                {formaPagamento === "pix"
+                  ? "Pix"
+                  : formaPagamento === "cartao"
+                    ? "Cartao na entrega"
+                    : "Dinheiro"}
+              </p>
+
+              {formaPagamento === "cartao" && (
+                <p className="mt-1 text-xs text-zinc-400">
+                  Inclui taxa de cartao de R$ 2,00.
+                </p>
+              )}
+
+              {formaPagamento === "dinheiro" &&
+                trocoPara.trim() && (
+                  <p className="mt-1 text-zinc-400">
+                    Troco para R$ {trocoPara}
+                  </p>
+                )}
+
+              <div className="mt-4 flex items-center justify-between border-t border-white/10 pt-3">
+                <strong>Total estimado</strong>
+                <strong className="text-xl text-amber-400">
+                  {formatarPreco(totalEstimado)}
+                </strong>
+              </div>
+            </div>
+
+            {erroFinalizacao && (
+              <p
+                role="alert"
+                className="rounded-xl border border-red-500/30 bg-red-500/10 p-3 text-sm text-red-300"
+              >
+                {erroFinalizacao}
+              </p>
+            )}
+
+            <button
+              type="button"
+              onClick={() => void finalizarPedido()}
+              disabled={enviandoPedido || itens.length === 0}
+              className="h-14 w-full rounded-2xl bg-emerald-500 font-black text-black disabled:opacity-40"
+            >
+              {enviandoPedido
+                ? "Enviando pedido..."
+                : "Confirmar e enviar pedido"}
+            </button>
+
+            <button
+              type="button"
+              disabled={enviandoPedido}
+              onClick={() => avancar("pagamento")}
+              className="w-full py-2 text-sm font-semibold text-amber-300 disabled:opacity-40"
+            >
+              Alterar pagamento
+            </button>
+
+            <button
+              type="button"
+              disabled={enviandoPedido}
+              onClick={concluir}
+              className="w-full py-2 text-sm text-zinc-400 underline disabled:opacity-40"
+            >
+              Editar dados no formulario completo
             </button>
           </div>
         )}
