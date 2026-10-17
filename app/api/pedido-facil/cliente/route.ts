@@ -122,7 +122,111 @@ export async function POST(request: Request) {
       );
     }
 
-    if (!ultimoPedido) {
+    // Primeiro utiliza o pedido associado ao cadastro.
+    // Se ele nao tiver endereco, procura pedidos antigos
+    // pelo telefone, mesmo sem cliente_id associado.
+    let pedidoParaConfirmacao = ultimoPedido;
+
+    const enderecoCompleto = (registro: typeof ultimoPedido) =>
+      Boolean(
+        registro?.cep &&
+          registro?.rua &&
+          registro?.numero &&
+          registro?.bairro,
+      );
+
+    if (!enderecoCompleto(pedidoParaConfirmacao)) {
+      const ultimosQuatro = telefoneNormalizado.slice(-4);
+
+      const { data: pedidosPorTelefone, error: erroBuscaTelefone } =
+        await supabaseAdmin
+          .from("pedidos")
+          .select(
+            `
+              nome_cliente,
+              telefone,
+              cep,
+              rua,
+              numero,
+              complemento,
+              bairro,
+              referencia,
+              forma_pagamento,
+              created_at,
+              status
+            `,
+          )
+          .ilike("telefone", `%${ultimosQuatro}%`)
+          .order("created_at", { ascending: false })
+          .limit(200);
+
+      if (erroBuscaTelefone) {
+        console.error(
+          "Erro ao procurar pedidos antigos:",
+          erroBuscaTelefone,
+        );
+
+        return NextResponse.json(
+          { erro: "Nao foi possivel consultar o historico." },
+          { status: 500 },
+        );
+      }
+
+      pedidoParaConfirmacao =
+        (pedidosPorTelefone ?? []).find(
+          (registro) =>
+            registro.status !== "cancelado" &&
+            normalizarTelefone(String(registro.telefone ?? "")) ===
+              telefoneNormalizado &&
+            enderecoCompleto(registro),
+        ) ?? null;
+    }
+
+    // Recupera enderecos de pedidos reais cancelados
+    // somente se nao houver pedido ativo com endereco.
+    // Os dados continuam protegidos pela confirmacao
+    // do numero da residencia antes de serem retornados.
+    if (!pedidoParaConfirmacao) {
+      const {
+        data: historicoCancelado,
+        error: erroHistoricoCancelado,
+      } = await supabaseAdmin
+        .from("pedidos")
+        .select(
+          `
+            nome_cliente,
+            telefone,
+            cep,
+            rua,
+            numero,
+            complemento,
+            bairro,
+            referencia,
+            forma_pagamento,
+            created_at
+          `,
+        )
+        .eq("cliente_id", cliente.id)
+        .eq("status", "cancelado")
+        .order("created_at", { ascending: false })
+        .limit(50);
+
+      if (erroHistoricoCancelado) {
+        console.error(
+          "Erro ao consultar historico de enderecos:",
+          erroHistoricoCancelado,
+        );
+
+        return NextResponse.json(
+          { erro: "Nao foi possivel consultar o historico." },
+          { status: 500 },
+        );
+      }
+
+      pedidoParaConfirmacao =
+        (historicoCancelado ?? []).find(enderecoCompleto) ?? null;
+    }
+    if (!pedidoParaConfirmacao) {
       return NextResponse.json({
         encontrado: true,
         possui_endereco: false,
@@ -151,7 +255,7 @@ export async function POST(request: Request) {
     const numeroInformado = normalizarNumeroEndereco(numeroConfirmacao);
 
     const numeroSalvo = normalizarNumeroEndereco(
-      String(ultimoPedido.numero ?? ""),
+      String(pedidoParaConfirmacao.numero ?? ""),
     );
 
     if (!numeroSalvo || numeroInformado !== numeroSalvo) {
@@ -173,23 +277,23 @@ export async function POST(request: Request) {
       verificado: true,
 
       dados: {
-        nome: ultimoPedido.nome_cliente ?? cliente.nome ?? "",
+        nome: pedidoParaConfirmacao.nome_cliente ?? cliente.nome ?? "",
 
-        telefone: ultimoPedido.telefone ?? cliente.telefone ?? telefone,
+        telefone: pedidoParaConfirmacao.telefone ?? cliente.telefone ?? telefone,
 
-        cep: ultimoPedido.cep ?? "",
+        cep: pedidoParaConfirmacao.cep ?? "",
 
-        rua: ultimoPedido.rua ?? "",
+        rua: pedidoParaConfirmacao.rua ?? "",
 
-        numero: ultimoPedido.numero ?? "",
+        numero: pedidoParaConfirmacao.numero ?? "",
 
-        complemento: ultimoPedido.complemento ?? "",
+        complemento: pedidoParaConfirmacao.complemento ?? "",
 
-        bairro: ultimoPedido.bairro ?? "",
+        bairro: pedidoParaConfirmacao.bairro ?? "",
 
-        referencia: ultimoPedido.referencia ?? "",
+        referencia: pedidoParaConfirmacao.referencia ?? "",
 
-        forma_pagamento: ultimoPedido.forma_pagamento ?? null,
+        forma_pagamento: pedidoParaConfirmacao.forma_pagamento ?? null,
       },
     });
   } catch (error) {
