@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 
+import CheckoutGuiado from "../../components/pedido-facil/CheckoutGuiado";
 type SpeechRecognitionEventLike = {
   results: {
     [index: number]: {
@@ -189,6 +190,7 @@ export default function PedidoFacilPage() {
   >({});
 
   const [etapa, setEtapa] = useState<"pedido" | "dados">("pedido");
+  const [modoGuiado, setModoGuiado] = useState(true);
 
   const [nome, setNome] = useState("");
   const [telefone, setTelefone] = useState("");
@@ -2146,6 +2148,35 @@ export default function PedidoFacilPage() {
 
         {etapa === "dados" && (
           <section id="dados-entrega" className="mt-6 space-y-5">
+            {modoGuiado ? (
+              <CheckoutGuiado
+                clienteComDados={clienteComDados}
+                nome={nome}
+                setNome={setNome}
+                cep={cep}
+                setCep={setCep}
+                rua={rua}
+                bairro={bairro}
+                numero={numero}
+                setNumero={setNumero}
+                complemento={complemento}
+                setComplemento={setComplemento}
+                referencia={referencia}
+                setReferencia={setReferencia}
+                formaPagamento={formaPagamento}
+                setFormaPagamento={setFormaPagamento}
+                trocoPara={trocoPara}
+                setTrocoPara={setTrocoPara}
+                consultandoCep={consultandoCep}
+                erroCep={erroCep}
+                consultarCep={consultarCep}
+                alterarEnderecoSalvo={alterarEnderecoSalvo}
+                totalEstimado={totalEstimado}
+                formatarPreco={formatarPreco}
+                concluir={() => setModoGuiado(false)}
+              />
+            ) : (
+              <>
             {clienteComDados && (
               <div className="flex items-end gap-3">
                 <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-amber-400 text-xl">
@@ -2544,6 +2575,8 @@ export default function PedidoFacilPage() {
                 </button>
               </div>
             </div>
+              </>
+            )}
           </section>
         )}
 
