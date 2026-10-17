@@ -216,7 +216,10 @@ export default function PedidoFacilPage() {
   const [consultandoCep, setConsultandoCep] = useState(false);
   const [erroCep, setErroCep] = useState("");
 
-  const [etapaCliente, setEtapaCliente] = useState<EtapaCliente>("telefone");
+  const [etapaCliente, setEtapaCliente] = useState<EtapaCliente>("pronto");
+
+  const clienteIdentificadoRef = useRef(false);
+  const continuarAposIdentificacaoRef = useRef(false);
 
   const [consultandoCliente, setConsultandoCliente] = useState(false);
 
@@ -270,6 +273,7 @@ export default function PedidoFacilPage() {
         return;
       }
 
+      setEtapaCliente("pronto");
       setPedido(mensagem);
       setEtapa("pedido");
       setResultado(null);
@@ -325,6 +329,39 @@ export default function PedidoFacilPage() {
     };
   }, []);
 
+  useEffect(() => {
+    if (!resultado || etapaCliente !== "pronto" || etapa !== "pedido") {
+      return;
+    }
+
+    const temporizador = window.setTimeout(() => {
+      document
+        .getElementById("resumo-pedido-interpretado")
+        ?.scrollIntoView({
+          behavior: "smooth",
+          block: "start",
+        });
+    }, 120);
+
+    return () => window.clearTimeout(temporizador);
+  }, [resultado, etapaCliente, etapa]);
+
+  useEffect(() => {
+    if (etapa !== "dados" || etapaCliente !== "pronto") {
+      return;
+    }
+
+    const temporizador = window.setTimeout(() => {
+      document
+        .getElementById("dados-entrega")
+        ?.scrollIntoView({
+          behavior: "smooth",
+          block: "start",
+        });
+    }, 120);
+
+    return () => window.clearTimeout(temporizador);
+  }, [etapa, etapaCliente]);
   function normalizarPagamentoAnterior(valor: string | null) {
     if (valor === "pix") {
       return "pix" as const;
@@ -378,7 +415,13 @@ export default function PedidoFacilPage() {
       if (!dados.encontrado) {
         setClienteRecorrente(false);
         setClienteComDados(false);
+        clienteIdentificadoRef.current = true;
         setEtapaCliente("pronto");
+
+        if (continuarAposIdentificacaoRef.current) {
+          continuarAposIdentificacaoRef.current = false;
+          setEtapa("dados");
+        }
 
         return;
       }
@@ -392,7 +435,13 @@ export default function PedidoFacilPage() {
       }
 
       setClienteComDados(false);
+      clienteIdentificadoRef.current = true;
       setEtapaCliente("pronto");
+
+      if (continuarAposIdentificacaoRef.current) {
+        continuarAposIdentificacaoRef.current = false;
+        setEtapa("dados");
+      }
     } catch (error) {
       setErroCliente(
         error instanceof Error
@@ -466,8 +515,14 @@ export default function PedidoFacilPage() {
 
       setClienteRecorrente(true);
       setClienteComDados(true);
+      clienteIdentificadoRef.current = true;
       setEtapaCliente("pronto");
       setNumeroConfirmacao("");
+
+      if (continuarAposIdentificacaoRef.current) {
+        continuarAposIdentificacaoRef.current = false;
+        setEtapa("dados");
+      }
     } catch (error) {
       setErroCliente(
         error instanceof Error
@@ -990,6 +1045,17 @@ export default function PedidoFacilPage() {
       return;
     }
 
+    if (!clienteIdentificadoRef.current) {
+      continuarAposIdentificacaoRef.current = true;
+      setEtapaCliente("telefone");
+
+      window.setTimeout(() => {
+        window.scrollTo({ top: 0, behavior: "smooth" });
+      }, 50);
+
+      return;
+    }
+
     setEtapa("dados");
 
     setTimeout(() => {
@@ -1263,7 +1329,9 @@ export default function PedidoFacilPage() {
                   <p className="text-base font-black text-white">Olá! 👋</p>
 
                   <p className="mt-1 text-base leading-6 text-zinc-200">
-                    Para deixar seu pedido mais rápido, qual é o seu WhatsApp?
+                    {continuarAposIdentificacaoRef.current
+                      ? "Seu carrinho está pronto! Qual é o seu WhatsApp para continuar?"
+                      : "Para deixar seu pedido mais rápido, qual é o seu WhatsApp?"}
                   </p>
 
                   <p className="mt-2 text-sm text-zinc-400">
@@ -1436,7 +1504,7 @@ export default function PedidoFacilPage() {
                 </div>
               )}
 
-              {!clienteRecorrente && (
+              {!clienteRecorrente && clienteIdentificadoRef.current && (
                 <div className="flex items-end gap-3">
                   <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-amber-400 text-xl">
                     🍺
@@ -1553,7 +1621,7 @@ export default function PedidoFacilPage() {
         </section>
 
         {resultado && (
-          <section className="mt-5 space-y-4">
+          <section id="resumo-pedido-interpretado" className="mt-5 space-y-4">
             {/* RESPOSTA DO ATENDENTE */}
 
             <div className="flex items-end gap-3">

@@ -21,17 +21,36 @@ function identificarPedidoDeCompra(mensagem: string) {
     .replace(/\s+/g, " ")
     .trim();
 
-  if (
-    /\b(quanto|preco|valor|custa|saber|horario|endereco|localizacao|atendente)\b/.test(texto)
-  ) {
+  if (!texto) return false;
+
+  // Perguntas sobre precos ou informacoes
+  // permanecem na aba Tirar duvidas.
+  const perguntaInformativa =
+    /^(qual|quais|quanto|tem|voce tem|voces tem|quero saber|queria saber|gostaria de saber|como funciona)\b/.test(texto) ||
+    /\b(preco|precos|valor|valores|custa|custam|disponibilidade|horario|endereco|localizacao)\b/.test(texto);
+
+  if (perguntaInformativa) {
     return false;
   }
 
-  const intencao = /\b(quero|queria|gostaria|manda|mande|mandar|coloca|coloque|adiciona|adicionar|preciso)\b/.test(texto);
+  // Formas naturais de solicitar compras.
+  const intencaoExplicita =
+    /\b(quero|queria|querer|gostaria|manda|mande|mandar|coloca|coloque|adiciona|adicione|adicionar|preciso|pedir|comprar|separa|separe|traz|envia|envie)\b/.test(texto);
 
-  const item = /\b(\d+|um|uma|dois|duas|tres|quatro|cinco|brahma|coca|guarana|heineken|skol|amstel|antarctica|agua|refrigerante|cerveja)\b/.test(texto);
+  const quantidade =
+    /\b([1-9]\d?|um|uma|dois|duas|tres|quatro|cinco|seis|sete|oito|nove|dez)\b/.test(texto);
 
-  return intencao && item;
+  const mencionaProduto =
+    /\b(brahma|coca|cola|guarana|agua|heineken|skol|amstel|antarctica|cerveja|latao|latinha|lata|garrafa|pepsi|fanta|energetico|red|bull|imperio|original|budweiser|corona|vinho|vodka|whisky|carvao|gelo|suco|pack|fardo|combo|sprite|soda|refrigerante)\b/.test(texto);
+
+  // Exemplo: "2 brahmas latao e duas coca 2l".
+  const comecaComQuantidade =
+    /^(?:[1-9]\d?|um|uma|dois|duas|tres|quatro|cinco|seis|sete|oito|nove|dez)\s/.test(texto);
+
+  return (
+    (intencaoExplicita && (quantidade || mencionaProduto)) ||
+    (comecaComQuantidade && mencionaProduto)
+  );
 }
 
 export default function PedidoFacilWidget() {
