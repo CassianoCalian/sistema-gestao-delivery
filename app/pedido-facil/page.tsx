@@ -214,6 +214,7 @@ export default function PedidoFacilPage() {
   const [erroFinalizacao, setErroFinalizacao] = useState("");
 
   const chaveIdempotenciaRef = useRef<string | null>(null);
+  const finalizacaoEmAndamentoRef = useRef(false);
 
   const [consultandoCep, setConsultandoCep] = useState(false);
   const [erroCep, setErroCep] = useState("");
@@ -1142,7 +1143,7 @@ export default function PedidoFacilPage() {
   }
 
   async function finalizarPedido() {
-    if (enviandoPedido) {
+    if (enviandoPedido || finalizacaoEmAndamentoRef.current) {
       return;
     }
 
@@ -1213,7 +1214,10 @@ export default function PedidoFacilPage() {
       return;
     }
 
+    finalizacaoEmAndamentoRef.current = true;
     setEnviandoPedido(true);
+
+    let navegacaoIniciada = false;
 
     try {
       let chaveIdempotencia =
@@ -1302,6 +1306,7 @@ export default function PedidoFacilPage() {
       chaveIdempotenciaRef.current = null;
 
       window.location.replace(`/pedido/${dados.codigo_acesso}`);
+      navegacaoIniciada = true;
     } catch (error) {
       setErroFinalizacao(
         error instanceof Error
@@ -1309,7 +1314,10 @@ export default function PedidoFacilPage() {
           : "Não foi possível finalizar o pedido.",
       );
     } finally {
-      setEnviandoPedido(false);
+      if (!navegacaoIniciada) {
+        finalizacaoEmAndamentoRef.current = false;
+        setEnviandoPedido(false);
+      }
     }
   }
 
