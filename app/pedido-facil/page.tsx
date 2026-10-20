@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 
 import CheckoutGuiado from "../../components/pedido-facil/CheckoutGuiado";
+import RecuperarPedidoPendente from "../../components/pedido-facil/RecuperarPedidoPendente";
 type SpeechRecognitionEventLike = {
   results: {
     [index: number]: {
@@ -1226,6 +1227,8 @@ export default function PedidoFacilPage() {
           "deposito-ze-pedido-facil-chave-idempotencia",
         );
 
+      const chaveJaExistia = Boolean(chaveIdempotencia);
+
       if (!chaveIdempotencia) {
         chaveIdempotencia = crypto.randomUUID();
 
@@ -1272,6 +1275,34 @@ export default function PedidoFacilPage() {
         })),
       };
 
+      const registroPendente =
+        "deposito-ze-pedido-facil-tentativa-pendente";
+
+      const pedidoSerializado = JSON.stringify(pedidoFinal);
+
+      const pedidoAnterior =
+        window.sessionStorage.getItem(registroPendente);
+
+      if (chaveJaExistia && !pedidoAnterior) {
+        throw new Error(
+          "Existe uma tentativa anterior. Verifique o pedido pendente antes de continuar.",
+        );
+      }
+
+      if (
+        pedidoAnterior &&
+        pedidoAnterior !== pedidoSerializado
+      ) {
+        throw new Error(
+          "O carrinho foi alterado. Primeiro verifique o pedido anterior.",
+        );
+      }
+
+      window.sessionStorage.setItem(
+        registroPendente,
+        pedidoSerializado,
+      );
+
       const resposta = await fetch("/api/pedidos", {
         method: "POST",
 
@@ -1290,6 +1321,21 @@ export default function PedidoFacilPage() {
       };
 
       if (!resposta.ok) {
+        const pedidoRejeitadoDefinitivamente =
+          resposta.status === 400 || resposta.status === 422;
+
+        if (pedidoRejeitadoDefinitivamente) {
+          window.sessionStorage.removeItem(
+            "deposito-ze-pedido-facil-chave-idempotencia",
+          );
+
+          window.sessionStorage.removeItem(
+            "deposito-ze-pedido-facil-tentativa-pendente",
+          );
+
+          chaveIdempotenciaRef.current = null;
+        }
+
         throw new Error(dados.erro ?? "Não foi possível finalizar o pedido.");
       }
 
@@ -1303,6 +1349,10 @@ export default function PedidoFacilPage() {
         "deposito-ze-pedido-facil-chave-idempotencia",
       );
 
+      window.sessionStorage.removeItem(
+        "deposito-ze-pedido-facil-tentativa-pendente",
+      );
+
       chaveIdempotenciaRef.current = null;
 
       window.location.replace(`/pedido/${dados.codigo_acesso}`);
@@ -1312,6 +1362,10 @@ export default function PedidoFacilPage() {
         error instanceof Error
           ? error.message
           : "Não foi possível finalizar o pedido.",
+      );
+
+      window.dispatchEvent(
+        new Event("deposito-ze-tentativa-atualizada"),
       );
     } finally {
       if (!navegacaoIniciada) {
@@ -1325,6 +1379,12 @@ export default function PedidoFacilPage() {
     <main className="min-h-screen bg-zinc-950 text-white">
       <div className="mx-auto flex min-h-screen max-w-xl flex-col px-4 py-8">
         <section className="flex flex-col gap-4">
+          <RecuperarPedidoPendente
+            onDescartar={() => {
+              chaveIdempotenciaRef.current = null;
+              setErroFinalizacao("");
+            }}
+          />
           {/* ==========================================
       ETAPA 1 - TELEFONE
   ========================================== */}
