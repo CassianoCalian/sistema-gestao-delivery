@@ -2,6 +2,7 @@
 
 import { useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
+import PdvSaboresModal from "./PdvSaboresModal";
 
 import type {
   PdvCategoria,
@@ -21,6 +22,11 @@ type ItemCarrinho = {
   preco: number;
   quantidade: number;
   estoque: number;
+  opcoes_selecionadas?: {
+    opcao_id: number;
+    nome: string;
+    quantidade: number;
+  }[];
 };
 
 type FormaPagamento = "pix" | "dinheiro" | "debito" | "credito";
@@ -94,6 +100,7 @@ export default function PdvClient({ produtos, categorias, clientes }: Props) {
   );
 
   const [carrinho, setCarrinho] = useState<ItemCarrinho[]>([]);
+  const [produtoEmSelecao, setProdutoEmSelecao] = useState<PdvProduto | null>(null);
 
   const [aviso, setAviso] = useState("");
   const [avisoSucesso, setAvisoSucesso] = useState(false);
@@ -249,6 +256,28 @@ export default function PdvClient({ produtos, categorias, clientes }: Props) {
     setErroVenda("");
   }
 
+  function salvarProdutoComSabores(
+    produto: PdvProduto,
+    quantidade: number,
+    opcoes: { opcao_id: number; nome: string; quantidade: number }[],
+  ) {
+    invalidarConfirmacao();
+
+    setCarrinho((atual) => [
+      ...atual.filter((item) => item.id !== produto.id),
+      {
+        id: produto.id,
+        nome: produto.nome,
+        preco: precoAtual(produto),
+        quantidade,
+        estoque: produto.estoque,
+        opcoes_selecionadas: opcoes,
+      },
+    ]);
+
+    setProdutoEmSelecao(null);
+    mostrarAviso("Produto e sabores adicionados ao carrinho.", true);
+  }
   // ADICIONA PRODUTOS DIFERENTES E SOMA
   // QUANTIDADE SOMENTE QUANDO O ID FOR IGUAL.
   function adicionarProduto(produto: PdvProduto) {
@@ -265,9 +294,12 @@ export default function PdvClient({ produtos, categorias, clientes }: Props) {
     }
 
     if (produto.unidades_por_item > 0) {
-      mostrarAviso(
-        `${produto.nome} exige seleção de sabores/opções. Vamos ativar essa função na próxima etapa.`,
-      );
+      if (produto.opcoes.length === 0) {
+        mostrarAviso("Este produto nao possui sabores ativos.");
+        return;
+      }
+
+      setProdutoEmSelecao(produto);
       return;
     }
 
@@ -312,6 +344,14 @@ export default function PdvClient({ produtos, categorias, clientes }: Props) {
   }
 
   function alterarQuantidade(id: number, diferenca: 1 | -1) {
+    const item = carrinho.find((atual) => atual.id === id);
+
+    if (item?.opcoes_selecionadas?.length) {
+      const produto = produtos.find((p) => p.id === id);
+      if (produto) setProdutoEmSelecao(produto);
+      return;
+    }
+
     invalidarConfirmacao();
 
     setCarrinho((atual) =>
@@ -560,6 +600,7 @@ export default function PdvClient({ produtos, categorias, clientes }: Props) {
         itens: carrinho.map((item) => ({
           id: item.id,
           quantidade: item.quantidade,
+          opcoes_selecionadas: item.opcoes_selecionadas?.map((o) => ({ opcao_id: o.opcao_id, quantidade: o.quantidade })) ?? [],
         })),
       };
 
@@ -657,6 +698,7 @@ export default function PdvClient({ produtos, categorias, clientes }: Props) {
       itens: carrinho.map((item) => ({
         id: item.id,
         quantidade: item.quantidade,
+        opcoes_selecionadas: item.opcoes_selecionadas?.map((o) => ({ opcao_id: o.opcao_id, quantidade: o.quantidade })) ?? [],
       })),
       cliente_id: clienteSelecionado?.id ?? null,
       forma_pagamento: formaPagamento,
@@ -689,6 +731,7 @@ export default function PdvClient({ produtos, categorias, clientes }: Props) {
           itens: carrinho.map((item) => ({
             id: item.id,
             quantidade: item.quantidade,
+            opcoes_selecionadas: item.opcoes_selecionadas?.map((o) => ({ opcao_id: o.opcao_id, quantidade: o.quantidade })) ?? [],
           })),
         }),
       });
@@ -1092,6 +1135,31 @@ export default function PdvClient({ produtos, categorias, clientes }: Props) {
                           <p className="mt-1 text-xs text-zinc-500">
                             {formatarPreco(item.preco)} cada
                           </p>
+                          {item.opcoes_selecionadas?.length ? (
+                            <div className="mt-3 space-y-1 rounded-lg border border-amber-400/20 bg-amber-400/5 p-3">
+                              <p className="text-xs font-black text-amber-300">
+                                Sabores selecionados
+                              </p>
+
+                              {item.opcoes_selecionadas.map((opcao) => (
+                                <p key={opcao.opcao_id} className="text-xs text-zinc-300">
+                                  {opcao.quantidade}x {opcao.nome}
+                                </p>
+                              ))}
+
+                              <button
+                                type="button"
+                                disabled={finalizando}
+                                onClick={() => {
+                                  const produto = produtos.find((p) => p.id === item.id);
+                                  if (produto) setProdutoEmSelecao(produto);
+                                }}
+                                className="mt-2 rounded-lg border border-amber-400/30 px-3 py-2 text-xs font-bold text-amber-300 disabled:opacity-30"
+                              >
+                                Editar sabores / quantidade
+                              </button>
+                            </div>
+                          ) : null}
                         </div>
 
                         <button
@@ -1405,6 +1473,14 @@ export default function PdvClient({ produtos, categorias, clientes }: Props) {
         </aside>
       </div>
 
+      {produtoEmSelecao && (
+        <PdvSaboresModal
+          produto={produtoEmSelecao}
+          item={carrinho.find((item) => item.id === produtoEmSelecao.id)}
+          onFechar={() => setProdutoEmSelecao(null)}
+          onSalvar={salvarProdutoComSabores}
+        />
+      )}
       {/* MODAL DE CLIENTES */}
       {modalClienteAberto && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4">

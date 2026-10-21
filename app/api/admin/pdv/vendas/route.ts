@@ -16,6 +16,10 @@ type CorpoVenda = {
   itens?: {
     id: number;
     quantidade: number;
+    opcoes_selecionadas?: {
+      opcao_id: number;
+      quantidade: number;
+    }[];
   }[];
 };
 
@@ -104,6 +108,24 @@ export async function POST(request: Request) {
         );
       }
 
+      const opcoes = item.opcoes_selecionadas ?? [];
+
+      if (
+        !Array.isArray(opcoes) ||
+        opcoes.length > 100 ||
+        opcoes.some(
+          (opcao) =>
+            !opcao ||
+            !Number.isSafeInteger(opcao.opcao_id) ||
+            opcao.opcao_id <= 0 ||
+            !Number.isInteger(opcao.quantidade) ||
+            opcao.quantidade <= 0 ||
+            opcao.quantidade > 999,
+        )
+      ) {
+        return responderErro("Selecao de sabores invalida.", 400);
+      }
+
       ids.add(item.id);
     }
 
@@ -187,6 +209,13 @@ export async function POST(request: Request) {
         return responderErro(
           "Estoque insuficiente. Atualize o PDV e confira os produtos.",
           409,
+        );
+      }
+
+      if (mensagem.includes("OPCOES_INVALIDAS")) {
+        return responderErro(
+          "Confira os sabores e as quantidades escolhidas.",
+          400,
         );
       }
 
