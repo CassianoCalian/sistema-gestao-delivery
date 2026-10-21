@@ -9,6 +9,7 @@ type ItemPedido = {
 
 type PedidoImpressao = {
   id: number;
+  status: string;
   created_at: string;
   nome_cliente: string;
   telefone: string;
@@ -102,11 +103,71 @@ export default function PrintableOrderReceipt({
         : "DINHEIRO NA ENTREGA";
 
   return (
-    <div className="hidden print:block">
-      <div className="mx-auto w-[72mm] bg-white font-mono text-[13px] leading-5 text-black">
+    <div id="comanda-deposito-ze" className="hidden print:block">
+      <style>{`
+        @media print {
+          @page {
+            margin: 0;
+          }
+
+          html, body {
+            margin: 0 !important;
+            padding: 0 !important;
+            background: white !important;
+          }
+
+          #comanda-deposito-ze {
+            display: block !important;
+            box-sizing: border-box !important;
+            width: 80mm !important;
+            max-width: 80mm !important;
+            min-width: 0 !important;
+            margin: 0 !important;
+            padding: 2mm 4mm 5mm !important;
+            background: white !important;
+            color: black !important;
+          }
+
+          #comanda-deposito-ze .comanda-conteudo {
+            box-sizing: border-box !important;
+            width: 72mm !important;
+            max-width: 72mm !important;
+            margin: 0 auto !important;
+            padding: 0 !important;
+            background: white !important;
+            color: black !important;
+          }
+
+          #comanda-deposito-ze * {
+            box-sizing: border-box !important;
+            color: black !important;
+          }
+
+          #comanda-deposito-ze p,
+          #comanda-deposito-ze span {
+            overflow-wrap: anywhere !important;
+          }
+        }
+      `}</style>
+
+      <div className="comanda-conteudo mx-auto w-[72mm] bg-white font-mono text-[13px] leading-5 text-black">
         {/* CABEÇALHO */}
         <div className="border-b border-dashed border-black pb-3 text-center">
           <p className="text-lg font-black uppercase">Depósito do Zé</p>
+
+          <p className="mt-1 text-[11px] font-black uppercase">
+            Comanda de entrega
+          </p>
+
+          <p className="text-[10px] uppercase">
+            Não é documento fiscal
+          </p>
+
+          {pedido.status === "cancelado" && (
+            <p className="mt-3 border-2 border-black p-2 text-center text-base font-black uppercase">
+              PEDIDO CANCELADO - NÃO ENTREGAR
+            </p>
+          )}
 
           <p className="mt-1">Av. Recife, 574 - Jardim Pernambuco</p>
 
@@ -169,8 +230,8 @@ export default function PrintableOrderReceipt({
           <div className="space-y-2">
             {itens.map((item) => (
               <div key={item.id}>
-                <div className="flex justify-between gap-3">
-                  <span className="font-bold">
+                <div className="flex items-start justify-between gap-2">
+                  <span className="min-w-0 break-words font-bold">
                     {item.quantidade}x {item.nome_produto}
                   </span>
 

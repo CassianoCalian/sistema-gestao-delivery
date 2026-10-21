@@ -213,6 +213,7 @@ opcoes_selecionadas
       <PrintableOrderReceipt
         pedido={{
           id: pedido.id,
+          status: pedido.status,
           created_at: pedido.created_at,
           nome_cliente: pedido.nome_cliente,
           telefone: pedido.telefone,

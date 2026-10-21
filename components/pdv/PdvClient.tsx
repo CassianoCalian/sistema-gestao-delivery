@@ -126,6 +126,19 @@ export default function PdvClient({ produtos, categorias, clientes }: Props) {
 
   const [erroCliente, setErroCliente] = useState("");
 
+  const [enderecoEntrega, setEnderecoEntrega] = useState({
+    cep: "",
+    rua: "",
+    numero: "",
+    bairro: "",
+    complemento: "",
+    referencia: "",
+  });
+
+  const [carregandoEndereco, setCarregandoEndereco] = useState(false);
+  const [mensagemEndereco, setMensagemEndereco] = useState("");
+  const buscaEnderecoAtualRef = useRef(0);
+
   const tentativaRef = useRef<{
     assinatura: string;
     chave: string;
@@ -183,7 +196,11 @@ export default function PdvClient({ produtos, categorias, clientes }: Props) {
   );
 
   // Mantém a taxa prevista na função SQL atual.
-  const taxaCartao = 0;
+  const taxaCartao =
+    tipoAtendimento === "entrega" &&
+    (formaPagamento === "credito" || formaPagamento === "debito")
+      ? 2
+      : 0;
 
   const total = arredondar(subtotal + taxaCartao);
 
@@ -207,13 +224,20 @@ export default function PdvClient({ produtos, categorias, clientes }: Props) {
     formaPagamento === "dinheiro" ||
     (formaPagamento !== null && pagamentoConfirmado);
 
+  const enderecoPronto =
+    enderecoEntrega.cep.replace(/\D/g, "").length === 8 &&
+    enderecoEntrega.rua.trim().length > 0 &&
+    enderecoEntrega.numero.trim().length > 0 &&
+    enderecoEntrega.bairro.trim().length > 0;
+
   const podeFinalizar =
     !finalizando &&
-    tipoAtendimento === "balcao" &&
     carrinho.length > 0 &&
     formaPagamento !== null &&
-    pagamentoPronto &&
-    !trocoInvalido;
+    !trocoInvalido &&
+    (tipoAtendimento === "balcao"
+      ? pagamentoPronto
+      : clienteSelecionado !== null && enderecoPronto);
 
   function mostrarAviso(mensagem: string, sucesso = false) {
     setAviso(mensagem);
@@ -321,6 +345,7 @@ export default function PdvClient({ produtos, categorias, clientes }: Props) {
     setErroVenda("");
     setAviso("");
     setClienteSelecionado(null);
+    limparEnderecoCliente();
     tentativaRef.current = null;
   }
 
@@ -336,9 +361,101 @@ export default function PdvClient({ produtos, categorias, clientes }: Props) {
     setModalClienteAberto(true);
   }
 
+  function limparEnderecoCliente() {
+    buscaEnderecoAtualRef.current += 1;
+    setCarregandoEndereco(false);
+    setMensagemEndereco("");
+
+    setEnderecoEntrega({
+      cep: "",
+      rua: "",
+      numero: "",
+      bairro: "",
+      complemento: "",
+      referencia: "",
+    });
+  }
+
+  async function buscarEnderecoCliente(cliente: PdvCliente) {
+    const identificadorBusca = ++buscaEnderecoAtualRef.current;
+
+    setEnderecoEntrega({
+      cep: "",
+      rua: "",
+      numero: "",
+      bairro: "",
+      complemento: "",
+      referencia: "",
+    });
+
+    setCarregandoEndereco(true);
+    setMensagemEndereco("Buscando o ultimo endereco utilizado...");
+
+    try {
+      const resposta = await fetch(
+        `/api/admin/pdv/clientes/endereco?cliente_id=${cliente.id}`,
+        { cache: "no-store" },
+      );
+
+      const dados = (await resposta.json()) as {
+        encontrado?: boolean;
+        endereco?: {
+          cep: string;
+          rua: string;
+          numero: string;
+          bairro: string;
+          complemento: string;
+          referencia: string;
+        };
+        erro?: string;
+      };
+
+      if (identificadorBusca !== buscaEnderecoAtualRef.current) {
+        return;
+      }
+
+      if (!resposta.ok) {
+        throw new Error(dados.erro ?? "Falha na consulta.");
+      }
+
+      if (!dados.encontrado || !dados.endereco) {
+        setMensagemEndereco(
+          "Cliente sem endereco anterior encontrado. Preencha os campos manualmente.",
+        );
+        return;
+      }
+
+      setEnderecoEntrega({
+        cep: dados.endereco.cep ?? "",
+        rua: dados.endereco.rua ?? "",
+        numero: dados.endereco.numero ?? "",
+        bairro: dados.endereco.bairro ?? "",
+        complemento: dados.endereco.complemento ?? "",
+        referencia: dados.endereco.referencia ?? "",
+      });
+
+      setMensagemEndereco(
+        "Endereco anterior carregado. Confirme os dados com o cliente antes de registrar.",
+      );
+
+      setErroVenda("");
+    } catch {
+      if (identificadorBusca === buscaEnderecoAtualRef.current) {
+        setMensagemEndereco(
+          "Nao foi possivel carregar o endereco anterior. Preencha manualmente.",
+        );
+      }
+    } finally {
+      if (identificadorBusca === buscaEnderecoAtualRef.current) {
+        setCarregandoEndereco(false);
+      }
+    }
+  }
+
   function selecionarCliente(cliente: PdvCliente) {
     setClienteSelecionado(cliente);
     setModalClienteAberto(false);
+    void buscarEnderecoCliente(cliente);
     invalidarConfirmacao();
   }
 
@@ -377,6 +494,10 @@ export default function PdvClient({ produtos, categorias, clientes }: Props) {
       });
 
       setClienteSelecionado(cliente);
+      limparEnderecoCliente();
+      setMensagemEndereco(
+        "Novo cliente cadastrado. Informe o endereco de entrega.",
+      );
       setNovoClienteNome("");
       setNovoClienteTelefone("");
       setModalClienteAberto(false);
@@ -399,10 +520,116 @@ export default function PdvClient({ produtos, categorias, clientes }: Props) {
 
     setErroVenda("");
 
-    if (tipoAtendimento !== "balcao") {
-      setErroVenda(
-        "A finalização de entregas ainda não está disponível no PDV.",
-      );
+    if (tipoAtendimento === "entrega") {
+      if (
+        !clienteSelecionado ||
+        !enderecoPronto ||
+        carrinho.length === 0 ||
+        !formaPagamento
+      ) {
+        setErroVenda(
+          "Selecione o cliente, informe o endereço completo, os produtos e o pagamento.",
+        );
+        return;
+      }
+
+      if (trocoInvalido) {
+        setErroVenda(
+          "O valor informado para troco é menor que o total dos produtos.",
+        );
+        return;
+      }
+
+      const pagamentoEntrega =
+        formaPagamento === "credito" || formaPagamento === "debito"
+          ? "cartao_entrega"
+          : formaPagamento;
+
+      const dadosPedido = {
+        nome: clienteSelecionado.nome,
+        telefone: clienteSelecionado.telefone,
+        cep: enderecoEntrega.cep.trim(),
+        rua: enderecoEntrega.rua.trim(),
+        numero: enderecoEntrega.numero.trim(),
+        bairro: enderecoEntrega.bairro.trim(),
+        complemento: enderecoEntrega.complemento.trim(),
+        referencia: enderecoEntrega.referencia.trim(),
+        forma_pagamento: pagamentoEntrega,
+        troco_para:
+          formaPagamento === "dinheiro" ? valorRecebido : null,
+        itens: carrinho.map((item) => ({
+          id: item.id,
+          quantidade: item.quantidade,
+        })),
+      };
+
+      const assinatura = JSON.stringify({
+        tipo: "entrega",
+        ...dadosPedido,
+      });
+
+      if (tentativaRef.current?.assinatura !== assinatura) {
+        tentativaRef.current = {
+          assinatura,
+          chave: crypto.randomUUID(),
+        };
+      }
+
+      setFinalizando(true);
+
+      try {
+        const resposta = await fetch("/api/pedidos", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            ...dadosPedido,
+            chave_idempotencia: tentativaRef.current.chave,
+          }),
+        });
+
+        const dados = (await resposta.json()) as {
+          sucesso?: boolean;
+          pedido_id?: number;
+          erro?: string;
+        };
+
+        if (!resposta.ok || !dados.sucesso || !dados.pedido_id) {
+          throw new Error(
+            dados.erro ?? "Não foi possível registrar a entrega.",
+          );
+        }
+
+        limparVenda();
+
+        setEnderecoEntrega({
+          cep: "",
+          rua: "",
+          numero: "",
+          bairro: "",
+          complemento: "",
+          referencia: "",
+        });
+
+        setTipoAtendimento("balcao");
+
+        mostrarAviso(
+          "Pedido de entrega registrado. Confira os dados no painel.",
+          true,
+        );
+
+        router.push(`/admin/pedidos/${dados.pedido_id}`);
+      } catch (error) {
+        setErroVenda(
+          error instanceof Error
+            ? error.message
+            : "Não foi possível registrar o pedido.",
+        );
+      } finally {
+        setFinalizando(false);
+      }
+
       return;
     }
 
@@ -941,6 +1168,62 @@ export default function PdvClient({ produtos, categorias, clientes }: Props) {
                 <span className="text-xl text-amber-400">+</span>
               </button>
 
+              {tipoAtendimento === "entrega" && (
+                <div className="mt-3 space-y-2 rounded-xl border border-amber-400/20 bg-amber-400/5 p-3">
+                  <p className="text-xs font-black uppercase tracking-wide text-amber-300">
+                    Endereço de entrega
+                  </p>
+
+                  <p className="text-xs leading-5 text-zinc-400">
+                    Entrega grátis em Jardim Pernambuco e Jardim Nova Era,
+                    Nova Iguaçu. Outros bairros exigem consulta ao atendimento.
+                  </p>
+
+                  {mensagemEndereco && (
+                    <p
+                      role="status"
+                      className="rounded-lg border border-white/10 bg-black/20 p-2 text-xs leading-5 text-amber-200"
+                    >
+                      {mensagemEndereco}
+                    </p>
+                  )}
+
+                  <div className="grid grid-cols-2 gap-2">
+                    {([
+                      ["cep", "CEP (8 dígitos)"],
+                      ["numero", "Número"],
+                      ["rua", "Rua"],
+                      ["bairro", "Bairro"],
+                      ["complemento", "Complemento"],
+                      ["referencia", "Referência"],
+                    ] as const).map(([campo, titulo]) => (
+                      <input
+                        key={campo}
+                        type="text"
+                        value={enderecoEntrega[campo]}
+                        onChange={(event) => {
+                          setEnderecoEntrega((anterior) => ({
+                            ...anterior,
+                            [campo]: event.target.value,
+                          }));
+                          setErroVenda("");
+                        }}
+                        disabled={finalizando || carregandoEndereco}
+                        placeholder={titulo}
+                        aria-label={titulo}
+                        className="min-w-0 rounded-lg border border-white/10 bg-zinc-950 p-2 text-sm text-white outline-none focus:border-amber-400"
+                      />
+                    ))}
+                  </div>
+
+                  {!clienteSelecionado && (
+                    <p className="text-xs text-amber-300">
+                      Selecione ou cadastre um cliente para esta entrega.
+                    </p>
+                  )}
+                </div>
+              )}
+
               {/* PAGAMENTO */}
               <div id="pagamento-pdv" className="mt-3">
                 <p className="text-xs font-black uppercase tracking-widest text-zinc-500">
@@ -969,7 +1252,7 @@ export default function PdvClient({ produtos, categorias, clientes }: Props) {
                   ))}
                 </div>
 
-                {formaPagamento === "credito" && (
+                {tipoAtendimento === "balcao" && formaPagamento === "credito" && (
                   <p className="mt-2 text-xs font-bold text-amber-300">
                     Crédito no balcão: sem taxa adicional.
                   </p>
@@ -1008,14 +1291,15 @@ export default function PdvClient({ produtos, categorias, clientes }: Props) {
                     )}
 
                     <p className="mt-3 rounded-xl border border-white/10 bg-white/5 p-3 text-xs leading-5 text-zinc-400">
-                      Ao clicar em Finalizar venda, você confirma que recebeu o
-                      pagamento em dinheiro.
+                      {tipoAtendimento === "balcao"
+                        ? "Ao finalizar, você confirma o recebimento em dinheiro."
+                        : "Para entrega, informe o troco se necessário. O pagamento será tratado pelo fluxo do pedido."}
                     </p>
                   </div>
                 )}
 
                 {/* CONFIRMAÇÃO ESPECÍFICA PARA PIX */}
-                {formaPagamento === "pix" && (
+                {tipoAtendimento === "balcao" && formaPagamento === "pix" && (
                   <label className="mt-4 flex cursor-pointer items-start gap-3 rounded-xl border border-white/10 bg-white/5 p-4">
                     <input
                       type="checkbox"
@@ -1035,7 +1319,7 @@ export default function PdvClient({ produtos, categorias, clientes }: Props) {
                 )}
 
                 {/* CONFIRMAÇÃO PARA CARTÕES */}
-                {(formaPagamento === "debito" ||
+                {tipoAtendimento === "balcao" && (formaPagamento === "debito" ||
                   formaPagamento === "credito") && (
                   <label className="mt-4 flex cursor-pointer items-start gap-3 rounded-xl border border-white/10 bg-white/5 p-4">
                     <input
@@ -1089,8 +1373,9 @@ export default function PdvClient({ produtos, categorias, clientes }: Props) {
 
                 {tipoAtendimento === "entrega" && (
                   <p className="mt-4 rounded-xl border border-blue-500/20 bg-blue-500/10 p-3 text-sm text-blue-200">
-                    A finalização de entregas será ativada depois da integração
-                    de endereços e regras do delivery.
+                    A entrega será registrada como pedido do site, com validação
+                    de CEP, pedido mínimo e estoque. Não será contabilizada como
+                    venda presencial no caixa.
                   </p>
                 )}
 
@@ -1101,10 +1386,12 @@ export default function PdvClient({ produtos, categorias, clientes }: Props) {
                   className="mt-3 h-12 w-full rounded-xl bg-emerald-500 text-sm font-black text-black transition hover:bg-emerald-400 disabled:cursor-not-allowed disabled:opacity-30"
                 >
                   {finalizando
-                    ? "Registrando venda..."
-                    : formaPagamento === "dinheiro"
-                      ? "✓ Finalizar venda em dinheiro"
-                      : "✓ Finalizar venda"}
+                    ? "Registrando..."
+                    : tipoAtendimento === "entrega"
+                      ? "✓ Registrar pedido de entrega"
+                      : formaPagamento === "dinheiro"
+                        ? "✓ Finalizar venda em dinheiro"
+                        : "✓ Finalizar venda"}
                 </button>
 
                 {tipoAtendimento === "balcao" && !formaPagamento && (
@@ -1251,6 +1538,7 @@ export default function PdvClient({ produtos, categorias, clientes }: Props) {
                     type="button"
                     onClick={() => {
                       setClienteSelecionado(null);
+                      limparEnderecoCliente();
                       setModalClienteAberto(false);
                       invalidarConfirmacao();
                     }}
