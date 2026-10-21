@@ -493,12 +493,12 @@ export default function PdvClient({ produtos, categorias, clientes }: Props) {
   }
 
   return (
-    <div className="mt-6">
+    <div className="mt-3 xl:mt-0 xl:flex xl:min-h-0 xl:flex-1 xl:flex-col xl:gap-2 xl:overflow-hidden">
       {/* CABEÇALHO */}
-      <section className="rounded-[30px] border border-white/10 bg-zinc-950 p-6 shadow-2xl">
-        <div className="flex flex-col justify-between gap-5 xl:flex-row xl:items-center">
-          <div className="flex items-center gap-4">
-            <div className="flex h-16 w-16 items-center justify-center rounded-2xl border border-amber-400/20 bg-amber-400/10 text-3xl">
+      <section className="shrink-0 rounded-2xl border border-white/10 bg-zinc-950 p-3 shadow-xl xl:p-3">
+        <div className="flex flex-col justify-between gap-3 xl:flex-row xl:items-center">
+          <div className="flex items-center gap-3">
+            <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border border-amber-400/20 bg-amber-400/10 text-xl">
               🧾
             </div>
 
@@ -507,21 +507,21 @@ export default function PdvClient({ produtos, categorias, clientes }: Props) {
                 Operação de venda
               </p>
 
-              <h1 className="mt-1 text-3xl font-black text-white">
+              <h1 className="mt-0.5 text-xl font-black text-white xl:text-2xl">
                 PDV • Depósito do Zé
               </h1>
 
-              <p className="mt-1 text-sm text-zinc-400">
+              <p className="mt-1 text-xs text-zinc-400 xl:hidden">
                 Caixa presencial com estoque integrado ao site.
               </p>
             </div>
           </div>
 
-          <div className="flex flex-wrap gap-2">
+          <div className="flex flex-wrap gap-1.5">
             <button
               type="button"
               onClick={() => router.push("/admin")}
-              className="rounded-xl border border-white/10 px-4 py-3 text-sm font-bold text-zinc-300"
+              className="rounded-lg border border-white/10 px-3 py-2 text-xs font-bold text-zinc-300"
             >
               ← Painel
             </button>
@@ -530,7 +530,7 @@ export default function PdvClient({ produtos, categorias, clientes }: Props) {
               type="button"
               disabled={finalizando}
               onClick={() => abrirCliente(true)}
-              className="rounded-xl border border-white/10 px-4 py-3 text-sm font-bold text-zinc-300 disabled:opacity-50"
+              className="rounded-lg border border-white/10 px-3 py-2 text-xs font-bold text-zinc-300 disabled:opacity-50"
             >
               👤 Novo cliente
             </button>
@@ -543,7 +543,7 @@ export default function PdvClient({ produtos, categorias, clientes }: Props) {
                   block: "center",
                 })
               }
-              className="rounded-xl border border-white/10 px-4 py-3 text-sm font-bold text-zinc-300"
+              className="rounded-lg border border-white/10 px-3 py-2 text-xs font-bold text-zinc-300"
             >
               💳 Pagamentos
             </button>
@@ -551,7 +551,7 @@ export default function PdvClient({ produtos, categorias, clientes }: Props) {
             <button
               type="button"
               onClick={() => router.push("/admin/produtos/novo")}
-              className="rounded-xl bg-amber-400 px-4 py-3 text-sm font-black text-black"
+              className="rounded-lg bg-amber-400 px-3 py-2 text-xs font-black text-black"
             >
               + Novo produto
             </button>
@@ -586,9 +586,9 @@ export default function PdvClient({ produtos, categorias, clientes }: Props) {
         </div>
       )}
 
-      <div className="mt-5 grid gap-5 xl:grid-cols-[minmax(0,1fr)_440px]">
+      <div className="mt-4 grid gap-3 xl:mt-0 xl:min-h-0 xl:flex-1 xl:grid-cols-[minmax(0,1fr)_380px] xl:overflow-hidden">
         {/* CATÁLOGO */}
-        <section className="min-w-0 rounded-[30px] border border-white/10 bg-[#0d0d0f] p-5">
+        <section className="min-w-0 rounded-2xl border border-white/10 bg-[#0d0d0f] p-3 xl:flex xl:min-h-0 xl:flex-col xl:overflow-hidden">
           <div className="flex flex-col gap-3 lg:flex-row">
             <input
               autoFocus
@@ -599,7 +599,7 @@ export default function PdvClient({ produtos, categorias, clientes }: Props) {
                 setLimiteVisivel(24);
               }}
               placeholder="🔎 Buscar produto ou código de barras..."
-              className="h-14 min-w-0 flex-1 rounded-2xl border border-white/10 bg-black/40 px-4 text-white outline-none focus:border-amber-400/50"
+              className="h-11 min-w-0 flex-1 rounded-xl border border-white/10 bg-black/40 px-3 text-sm text-white outline-none focus:border-amber-400/50"
             />
 
             <button
@@ -616,11 +616,11 @@ export default function PdvClient({ produtos, categorias, clientes }: Props) {
           </div>
 
           {/* CATEGORIAS */}
-          <div className="mt-4 flex gap-2 overflow-x-auto pb-2">
+          <div className="mt-2 flex shrink-0 gap-2 overflow-x-auto pb-1">
             <button
               type="button"
               onClick={() => selecionarCategoria(null)}
-              className={`shrink-0 rounded-xl px-4 py-3 text-sm font-black ${
+              className={`shrink-0 rounded-lg px-3 py-2 text-xs font-black ${
                 categoria === null
                   ? "bg-amber-400 text-black"
                   : "border border-white/10 bg-zinc-900 text-zinc-400"
@@ -634,7 +634,7 @@ export default function PdvClient({ produtos, categorias, clientes }: Props) {
                 key={item.id}
                 type="button"
                 onClick={() => selecionarCategoria(item.id)}
-                className={`shrink-0 rounded-xl px-4 py-3 text-sm font-black ${
+                className={`shrink-0 rounded-lg px-3 py-2 text-xs font-black ${
                   categoria === item.id
                     ? "bg-amber-400 text-black"
                     : "border border-white/10 bg-zinc-900 text-zinc-400"
@@ -646,7 +646,7 @@ export default function PdvClient({ produtos, categorias, clientes }: Props) {
           </div>
 
           {/* CONTADOR */}
-          <div className="mt-5 flex flex-wrap items-center justify-between gap-3">
+          <div className="mt-2 flex shrink-0 flex-wrap items-center justify-between gap-2">
             <div>
               <h2 className="text-lg font-black text-white">Produtos</h2>
 
@@ -655,19 +655,20 @@ export default function PdvClient({ produtos, categorias, clientes }: Props) {
               </p>
             </div>
 
-            <p className="rounded-xl border border-amber-400/20 bg-amber-400/5 px-3 py-2 text-xs font-bold text-amber-300">
+            <p className="hidden rounded-xl border border-amber-400/20 bg-amber-400/5 px-3 py-2 text-xs font-bold text-amber-300 lg:block xl:hidden">
               Clique em outro produto para adicioná-lo ao carrinho
             </p>
           </div>
 
           {/* GRADE DE PRODUTOS */}
+          <div className="xl:mt-2 xl:min-h-0 xl:flex-1 xl:overflow-y-auto xl:overscroll-contain xl:pr-1">
           {produtosFiltrados.length === 0 ? (
             <div className="mt-5 rounded-2xl border border-dashed border-white/10 py-12 text-center text-zinc-400">
               Nenhum produto encontrado.
             </div>
           ) : (
             <>
-              <div className="mt-5 grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-4 2xl:grid-cols-5">
+              <div className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-4 2xl:grid-cols-5">
                 {produtosVisiveis.map((produto, indice) => {
                   const temOpcoes = produto.unidades_por_item > 0;
 
@@ -689,7 +690,7 @@ export default function PdvClient({ produtos, categorias, clientes }: Props) {
                       }`}
                     >
                       {/* FOTO */}
-                      <div className="relative flex h-28 items-center justify-center bg-black/30 sm:h-32">
+                      <div className="relative flex h-24 items-center justify-center bg-black/30 sm:h-24">
                         {produto.imagem_url ? (
                           // eslint-disable-next-line @next/next/no-img-element
                           <img
@@ -777,13 +778,14 @@ export default function PdvClient({ produtos, categorias, clientes }: Props) {
               )}
             </>
           )}
+          </div>
         </section>
 
         {/* CAIXA */}
-        <aside className="xl:sticky xl:top-5 xl:self-start">
+        <aside className="min-h-0 xl:overflow-y-auto xl:overscroll-contain">
           <div className="overflow-hidden rounded-[30px] border border-white/10 bg-[#101012]">
             {/* TIPO DE ATENDIMENTO */}
-            <div className="border-b border-white/10 p-5">
+            <div className="border-b border-white/10 p-3">
               <p className="text-xs font-black uppercase tracking-widest text-zinc-500">
                 Tipo de atendimento
               </p>
@@ -798,7 +800,7 @@ export default function PdvClient({ produtos, categorias, clientes }: Props) {
                       setTipoAtendimento(tipo);
                       invalidarConfirmacao();
                     }}
-                    className={`h-14 rounded-xl text-sm font-black ${
+                    className={`h-11 rounded-xl text-xs font-black ${
                       tipoAtendimento === tipo
                         ? "bg-amber-400 text-black"
                         : "border border-white/10 bg-black/30 text-zinc-400"
@@ -811,7 +813,7 @@ export default function PdvClient({ produtos, categorias, clientes }: Props) {
             </div>
 
             {/* CARRINHO */}
-            <div className="p-5">
+            <div className="p-3">
               <div className="flex items-center justify-between gap-2">
                 <div>
                   <h2 className="text-xl font-black text-white">Venda atual</h2>
@@ -840,7 +842,7 @@ export default function PdvClient({ produtos, categorias, clientes }: Props) {
               </div>
 
               {carrinho.length === 0 ? (
-                <div className="mt-5 rounded-2xl border border-dashed border-white/10 bg-black/20 px-4 py-10 text-center">
+                <div className="mt-3 rounded-xl border border-dashed border-white/10 bg-black/20 px-3 py-4 text-center">
                   <p className="text-4xl">🛒</p>
 
                   <p className="mt-3 font-bold text-zinc-400">
@@ -913,7 +915,7 @@ export default function PdvClient({ produtos, categorias, clientes }: Props) {
             </div>
 
             {/* CLIENTES E PAGAMENTO */}
-            <div className="border-t border-white/10 bg-black/20 p-5">
+            <div className="border-t border-white/10 bg-black/20 p-3">
               <button
                 type="button"
                 disabled={finalizando}
@@ -940,7 +942,7 @@ export default function PdvClient({ produtos, categorias, clientes }: Props) {
               </button>
 
               {/* PAGAMENTO */}
-              <div id="pagamento-pdv" className="mt-5">
+              <div id="pagamento-pdv" className="mt-3">
                 <p className="text-xs font-black uppercase tracking-widest text-zinc-500">
                   Forma de pagamento
                 </p>
@@ -1054,7 +1056,7 @@ export default function PdvClient({ produtos, categorias, clientes }: Props) {
               </div>
 
               {/* RESUMO DA VENDA */}
-              <div className="mt-5 border-t border-white/10 pt-5">
+              <div className="mt-3 border-t border-white/10 pt-3">
                 <div className="space-y-2 text-sm">
                   <div className="flex justify-between text-zinc-400">
                     <span>Subtotal</span>
@@ -1096,7 +1098,7 @@ export default function PdvClient({ produtos, categorias, clientes }: Props) {
                   type="button"
                   disabled={!podeFinalizar}
                   onClick={finalizarVenda}
-                  className="mt-5 h-14 w-full rounded-xl bg-emerald-500 text-base font-black text-black transition hover:bg-emerald-400 disabled:cursor-not-allowed disabled:opacity-30"
+                  className="mt-3 h-12 w-full rounded-xl bg-emerald-500 text-sm font-black text-black transition hover:bg-emerald-400 disabled:cursor-not-allowed disabled:opacity-30"
                 >
                   {finalizando
                     ? "Registrando venda..."
@@ -1123,7 +1125,7 @@ export default function PdvClient({ produtos, categorias, clientes }: Props) {
             role="dialog"
             aria-modal="true"
             aria-labelledby="titulo-cliente"
-            className="w-full max-w-lg rounded-3xl border border-white/10 bg-zinc-950 p-6 text-white shadow-2xl"
+            className="max-h-[90dvh] w-full max-w-lg overflow-y-auto rounded-3xl border border-white/10 bg-zinc-950 p-6 text-white shadow-2xl"
           >
             <div className="flex items-center justify-between">
               <h2 id="titulo-cliente" className="text-xl font-black">

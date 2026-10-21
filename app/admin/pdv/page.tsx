@@ -159,8 +159,9 @@ export default async function PdvPage() {
   const ultimoPedidoId = Number(resultadoUltimoPedido.data?.id ?? 0);
 
   return (
-    <main className="min-h-screen w-full bg-[#070707] text-white">
-      <div className="min-h-screen w-full p-3 lg:p-4">
+    <main className="min-h-screen w-full bg-[#070707] text-white xl:h-[100dvh] xl:min-h-0 xl:overflow-hidden">
+      <div className="flex min-h-screen w-full flex-col p-3 lg:p-4 xl:h-full xl:min-h-0 xl:gap-2 xl:overflow-hidden">
+        <div className="flex shrink-0 flex-col gap-2 xl:flex-row xl:items-center xl:justify-end xl:[&>aside]:mb-0">
         {/* MONITOR DE PEDIDOS DO DELIVERY */}
         {!resultadoUltimoPedido.error && (
           <AdminOrderAlerts
@@ -170,20 +171,21 @@ export default async function PdvPage() {
           />
         )}
 
-        <div className="mb-4 flex flex-wrap items-center justify-end gap-3">
+        <div className="flex flex-wrap items-center justify-end gap-2">
           <Link
             href="/admin/pdv/caixa"
-            className="rounded-xl border border-amber-400/30 bg-amber-400 px-5 py-3 text-sm font-black text-zinc-950 transition hover:bg-amber-300"
+            className="rounded-xl border border-amber-400/30 bg-amber-400 px-3 py-2 text-xs font-black text-zinc-950 transition hover:bg-amber-300"
           >
             💰 Controle de Caixa
           </Link>
 
           <Link
             href="/admin/pdv/historico"
-            className="rounded-xl border border-white/15 bg-zinc-900 px-5 py-3 text-sm font-bold text-white transition hover:bg-zinc-800"
+            className="rounded-xl border border-white/15 bg-zinc-900 px-3 py-2 text-xs font-bold text-white transition hover:bg-zinc-800"
           >
             🧾 Histórico de Vendas
           </Link>
+        </div>
         </div>
 
         {/* SISTEMA PDV */}
