@@ -94,14 +94,20 @@ function gerarMensagemStatus(status: string) {
   return `Olá! Aqui é do Depósito do Zé. Entramos em contato sobre o seu pedido.`;
 }
 
-function gerarLinkWhatsApp(telefone: string, status: string) {
+function gerarLinkWhatsApp(telefone: string, status: string, codigoAcesso?: string) {
   const telefoneLimpo = telefone.replace(/\D/g, "");
 
   const numeroWhatsApp = telefoneLimpo.startsWith("55")
     ? telefoneLimpo
     : `55${telefoneLimpo}`;
 
-  const mensagem = gerarMensagemStatus(status);
+  const mensagemBase = gerarMensagemStatus(status);
+
+  const acompanhamento = codigoAcesso
+    ? `\n\n📍 Acompanhe seu pedido pelo site:\nhttps://deposito-do-ze.vercel.app/pedido/${encodeURIComponent(codigoAcesso)}`
+    : "";
+
+  const mensagem = mensagemBase + acompanhamento;
 
   return `https://web.whatsapp.com/send?phone=${numeroWhatsApp}&text=${encodeURIComponent(
     mensagem,
@@ -145,6 +151,7 @@ codigo_cupom,
 desconto_cupom,
 total,
 pagamento_confirmado,
+        codigo_acesso,
         status
       `,
     )
@@ -155,7 +162,7 @@ pagamento_confirmado,
     notFound();
   }
 
-  const linkWhatsApp = gerarLinkWhatsApp(pedido.telefone, pedido.status);
+  const linkWhatsApp = gerarLinkWhatsApp(pedido.telefone, pedido.status, pedido.codigo_acesso);
 
   const { data: itens, error: erroItens } = await supabaseAdmin
     .from("itens_pedido")
