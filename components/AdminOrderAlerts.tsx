@@ -14,11 +14,14 @@ type Props = {
 type PedidoMonitorado = {
   id: number;
   status: string;
+  forma_pagamento: string;
+  pagamento_confirmado: boolean | null;
 };
 
 const CHAVE_MARCADOR = "deposito-ze:admin:ultimo-pedido-observado:v1";
 
 const INTERVALO = 8000;
+const INTERVALO_LEMBRETE = 90_000;
 
 export default function AdminOrderAlerts({
   ultimoPedidoId,
@@ -31,6 +34,8 @@ export default function AdminOrderAlerts({
   const marcadorRef = useRef(ultimoPedidoId);
   const somRef = useRef(false);
   const audioRef = useRef<AudioContext | null>(null);
+  const aguardandoAnteriorRef = useRef<number[] | null>(null);
+  const ultimoLembreteRef = useRef(0);
 
   const [somHabilitado, setSomHabilitado] = useState(false);
 
@@ -38,6 +43,7 @@ export default function AdminOrderAlerts({
   const [falha, setFalha] = useState(false);
 
   const [atrasados, setAtrasados] = useState<number[]>([]);
+  const [aguardando, setAguardando] = useState<number[]>([]);
 
   const tocarAviso = useCallback(() => {
     const contexto = audioRef.current;
@@ -79,6 +85,7 @@ export default function AdminOrderAlerts({
 
       somRef.current = true;
       setSomHabilitado(true);
+      ultimoLembreteRef.current = Date.now();
 
       // Toca um aviso de teste.
       tocarAviso();
@@ -135,6 +142,7 @@ export default function AdminOrderAlerts({
         const resultado = (await resposta.json()) as {
           pedidos?: PedidoMonitorado[];
           atrasados?: number[];
+          aguardando?: number[];
         };
 
         const pedidos = Array.isArray(resultado.pedidos)
@@ -146,7 +154,9 @@ export default function AdminOrderAlerts({
             (pedido) =>
               Number.isSafeInteger(pedido.id) &&
               pedido.id > marcadorRef.current &&
-              pedido.status === "recebido",
+              pedido.status === "recebido" &&
+              (pedido.forma_pagamento !== "pix" ||
+                pedido.pagamento_confirmado === true),
           )
           .map((pedido) => pedido.id);
 
@@ -172,20 +182,63 @@ export default function AdminOrderAlerts({
 
         setFalha(false);
 
-        setAtrasados(
-          Array.isArray(resultado.atrasados)
-            ? resultado.atrasados.filter(
-                (id) => Number.isSafeInteger(id) && id > 0,
-              )
-            : [],
-        );
+        const idsAguardando = Array.isArray(resultado.aguardando)
+          ? resultado.aguardando.filter(
+              (id) => Number.isSafeInteger(id) && id > 0,
+            )
+          : [];
+
+        const idsAtrasados = Array.isArray(resultado.atrasados)
+          ? resultado.atrasados.filter(
+              (id) => Number.isSafeInteger(id) && id > 0,
+            )
+          : [];
+
+        const conhecidos = aguardandoAnteriorRef.current;
+
+        const surgiuPendente =
+          conhecidos !== null &&
+          idsAguardando.some((id) => !conhecidos.includes(id));
+
+        aguardandoAnteriorRef.current = idsAguardando;
+
+        setAguardando(idsAguardando);
+        setAtrasados(idsAtrasados);
+
+        setNovosIds((atuais) => {
+          const restantes = atuais.filter((id) =>
+            idsAguardando.includes(id),
+          );
+
+          return restantes.length === atuais.length
+            ? atuais
+            : restantes;
+        });
+
+        if (idsAtrasados.length === 0) {
+          ultimoLembreteRef.current = 0;
+        }
+
+        const agora = Date.now();
+
+        const lembrarAtrasados =
+          somRef.current &&
+          idsAtrasados.length > 0 &&
+          agora - ultimoLembreteRef.current >= INTERVALO_LEMBRETE;
+
+        if (lembrarAtrasados) {
+          ultimoLembreteRef.current = agora;
+        }
+
+        if (idsNovos.length > 0 || surgiuPendente || lembrarAtrasados) {
+          tocarAviso();
+        }
 
         if (idsNovos.length > 0) {
           setNovosIds((atuais) =>
             [...new Set([...atuais, ...idsNovos])].slice(-30),
           );
 
-          tocarAviso();
         }
 
         ciclos += 1;
@@ -247,6 +300,23 @@ export default function AdminOrderAlerts({
       }
       aria-live="polite"
     >
+      {aguardando.length > 0 &&
+        atrasados.length === 0 &&
+        novosIds.length === 0 && (
+          <div className="mb-3 rounded-xl border border-amber-400/40 bg-zinc-950 p-4 text-white shadow-xl">
+            <p className="text-sm font-black text-amber-300">
+              {aguardando.length} pedido(s) aguardando atendimento
+            </p>
+
+            <Link
+              href="/admin/pedidos?status=recebido"
+              className="mt-3 block rounded-lg bg-amber-400 px-3 py-2 text-center text-xs font-black text-zinc-950"
+            >
+              Ver pedidos recebidos
+            </Link>
+          </div>
+        )}
+
       {atrasados.length > 0 && (
         <div className="mb-3 rounded-xl border border-orange-400/40 bg-zinc-950 p-4 text-white shadow-xl">
           <p className="text-sm font-black text-orange-400">
@@ -317,7 +387,9 @@ export default function AdminOrderAlerts({
         <span className="text-xs font-semibold">
           {falha
             ? "⚠️ Verifique a conexão do monitor"
-            : "● Monitor de pedidos ativo"}
+            : aguardando.length > 0
+              ? `● Monitor ativo • ${aguardando.length} aguardando`
+              : "● Monitor de pedidos ativo"}
         </span>
 
         <button

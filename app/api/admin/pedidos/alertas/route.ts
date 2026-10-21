@@ -30,7 +30,7 @@ export async function GET(request: Request) {
     const [novos, pendentes] = await Promise.all([
       supabaseAdmin
         .from("pedidos")
-        .select("id, status")
+        .select("id, status, forma_pagamento, pagamento_confirmado")
         .gt("id", depois)
         .order("id", { ascending: true })
         .limit(100),
@@ -39,7 +39,7 @@ export async function GET(request: Request) {
         .from("pedidos")
         .select("id, created_at, forma_pagamento, pagamento_confirmado")
         .eq("status", "recebido")
-        .lte("created_at", limiteAtraso)
+
         .order("created_at", { ascending: false })
         .limit(100),
     ]);
@@ -58,12 +58,18 @@ export async function GET(request: Request) {
 
     // Pix não confirmado não deve gerar aviso
     // para iniciar a preparação do pedido.
-    const atrasados = (pendentes.data ?? [])
-      .filter(
-        (pedido) =>
-          pedido.forma_pagamento !== "pix" ||
-          pedido.pagamento_confirmado === true,
-      )
+    const aguardando = (pendentes.data ?? []).filter(
+      (pedido) =>
+        pedido.forma_pagamento !== "pix" ||
+        pedido.pagamento_confirmado === true,
+    );
+
+    const idsAguardando = aguardando
+      .map((pedido) => Number(pedido.id))
+      .filter((id) => Number.isSafeInteger(id) && id > 0);
+
+    const atrasados = aguardando
+      .filter((pedido) => pedido.created_at <= limiteAtraso)
       .map((pedido) => Number(pedido.id))
       .filter((id) => Number.isSafeInteger(id) && id > 0);
 
@@ -71,6 +77,7 @@ export async function GET(request: Request) {
       {
         sucesso: true,
         pedidos: novos.data ?? [],
+        aguardando: idsAguardando,
         atrasados,
       },
       {
