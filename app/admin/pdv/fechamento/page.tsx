@@ -183,6 +183,15 @@ export default async function ResumoFechamento({ searchParams }: Props) {
   const totalBalcao = total(balcao);
   const totalEntregasPagas = total(pagos);
   const totalPendente = total(pendentes);
+  const totalEntregas = total(entregas);
+
+  const totalVendido = Math.round(
+    (totalBalcao + totalEntregas) * 100
+  ) / 100;
+
+  const totalConfirmado = Math.round(
+    (totalBalcao + totalEntregasPagas) * 100
+  ) / 100;
 
   const sangrias = movimentos
     .filter((m) => m.tipo === "sangria")
@@ -283,11 +292,11 @@ export default async function ResumoFechamento({ searchParams }: Props) {
         </div>
 
         <div className="mt-5 rounded-xl border border-amber-400/20 bg-amber-400/5 p-4 text-sm text-amber-100">
-          O caixa financeiro oficial contabiliza as vendas do PDV.
-          Este relatorio mostra tambem entregas registradas durante
-          o horario do turno. Elas nao possuem necessariamente
-          vinculo financeiro com o caixa fisico. Uma entrega paga
-          nao significa dinheiro colocado na gaveta.
+          TOTAL VENDIDO inclui balcao e delivery nao cancelado,
+          inclusive pedidos em preparacao. TOTAL CONFIRMADO soma
+          os pagamentos registrados como recebidos. Valores
+          pendentes aparecem separadamente. O saldo da gaveta
+          continua independente para evitar diferencas indevidas.
         </div>
 
         {semVinculo.length > 0 && (
@@ -321,10 +330,12 @@ export default async function ResumoFechamento({ searchParams }: Props) {
           <div className="mt-6 hidden peer-checked:block print:block">
             <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
               {[
+                ["TOTAL VENDIDO - BALCAO + DELIVERY", totalVendido],
+                ["TOTAL COM PAGAMENTO CONFIRMADO", totalConfirmado],
+                ["DELIVERY A RECEBER", totalPendente],
                 ["Balcao recebido", totalBalcao],
-                ["Entregas com pagamento confirmado", totalEntregasPagas],
-                ["Total confirmado (operacional)", totalBalcao + totalEntregasPagas],
-                ["Entregas pendentes", totalPendente],
+                ["Delivery com pagamento confirmado", totalEntregasPagas],
+                ["Total vendido em delivery", totalEntregas],
                 ["Dinheiro inicial do turno", valor(turno.valor_inicial)],
                 ["Dinheiro contado ao fechar", turno.valor_contado === null ? null : valor(turno.valor_contado)],
                 ["Sangrias", sangrias],
@@ -362,7 +373,7 @@ export default async function ResumoFechamento({ searchParams }: Props) {
 
               <div className="rounded-xl border border-white/10 p-4">
                 <h2 className="text-lg font-black">
-                  Entregas: {pedidos.length} pedido(s)
+                  Entregas nao canceladas: {entregas.length} pedido(s)
                 </h2>
                 <p className="mt-2">
                   Pagos: {pagos.length} - {moeda(totalEntregasPagas)}

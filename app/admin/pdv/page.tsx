@@ -182,7 +182,7 @@ export default async function PdvPage() {
           </Link>
 
           <Link
-            href="/admin/pdv/historico"
+            href="/admin/pdv/historico/unificado"
             className="rounded-xl border border-white/15 bg-zinc-900 px-3 py-2 text-xs font-bold text-white transition hover:bg-zinc-800"
           >
             🧾 Histórico de Vendas

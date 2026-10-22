@@ -370,7 +370,7 @@ export default function CaixaPdvPage() {
   Resumo do Turno
 </Link>
 <Link
-                href="/admin/pdv/historico"
+                href="/admin/pdv/historico/unificado"
                 className="rounded-xl border border-white/15 px-4 py-3 text-sm font-bold text-zinc-300"
               >
                 🧾 Histórico
