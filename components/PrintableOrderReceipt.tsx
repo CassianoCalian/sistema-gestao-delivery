@@ -150,12 +150,12 @@ export default function PrintableOrderReceipt({
         }
       `}</style>
 
-      <div className="comanda-conteudo mx-auto w-[72mm] bg-white font-mono text-[13px] leading-5 text-black">
+      <div className="comanda-conteudo mx-auto w-[72mm] bg-white font-mono text-[13px] leading-[16px] text-black">
         {/* CABEÇALHO */}
-        <div className="border-b border-dashed border-black pb-3 text-center">
+        <div className="border-b border-dashed border-black pb-1 text-center">
           <p className="text-lg font-black uppercase">Depósito do Zé</p>
 
-          <p className="mt-1 text-[11px] font-black uppercase">
+          <p className="mt-0 text-[11px] font-black uppercase">
             Comanda de entrega
           </p>
 
@@ -164,53 +164,61 @@ export default function PrintableOrderReceipt({
           </p>
 
           {pedido.status === "cancelado" && (
-            <p className="mt-3 border-2 border-black p-2 text-center text-base font-black uppercase">
+            <p className="mt-1 border-2 border-black p-2 text-center text-base font-black uppercase">
               PEDIDO CANCELADO - NÃO ENTREGAR
             </p>
           )}
 
-          <p className="mt-1">Av. Recife, 574 - Jardim Pernambuco</p>
+          <p className="mt-0">Av. Recife, 574 - Jardim Pernambuco</p>
 
           <p>Nova Iguaçu - RJ</p>
 
-          <p className="mt-1 font-bold">
+          <p className="mt-0 font-bold">
             WhatsApp: {formatarTelefone(whatsapp)}
           </p>
 
-          <p className="mt-2 font-black">Pedido #{pedido.id}</p>
-
-          <p className="mt-1 text-[11px]">{formatarData(pedido.created_at)}</p>
+          <div className="mt-0 flex justify-between gap-2 font-black">
+            <span>Pedido #{pedido.id}</span>
+            <span className="text-[11px] font-normal">
+              {formatarData(pedido.created_at)}
+            </span>
+          </div>
         </div>
 
         {/* STATUS DO PAGAMENTO */}
-        <div className="border-b border-dashed border-black py-3 text-center">
+        <div className="border-b border-dashed border-black py-1 text-center">
           <p className="text-[11px] font-black uppercase">Pagamento</p>
 
-          <p className="mt-1 text-base font-black uppercase">
+          <p className="mt-0 text-base font-black uppercase">
             {statusPagamento}
           </p>
 
           {pedido.forma_pagamento === "pix" && !pedido.pagamento_confirmado && (
-            <p className="mt-1 text-[11px] font-black uppercase">
+            <p className="mt-0 text-[11px] font-black uppercase">
               Aguardar confirmação antes de liberar
+            </p>
+          )}
+          {pedido.forma_pagamento === "dinheiro" && pedido.troco_para && (
+            <p className="font-bold">
+              Troco para: {formatarPreco(Number(pedido.troco_para))}
             </p>
           )}
         </div>
 
         {/* CLIENTE */}
-        <div className="border-b border-dashed border-black py-3">
-          <p className="font-black uppercase">Cliente</p>
-
-          <p className="mt-1">{pedido.nome_cliente}</p>
+        <div className="border-b border-dashed border-black py-1">
+          <p>
+            <span className="font-black uppercase">Cliente: </span>
+            {pedido.nome_cliente}
+          </p>
 
           <p>{formatarTelefone(pedido.telefone)}</p>
         </div>
 
         {/* ENDEREÇO */}
-        <div className="border-b border-dashed border-black py-3">
-          <p className="font-black uppercase">Entrega</p>
-
-          <p className="mt-1">
+        <div className="border-b border-dashed border-black py-1">
+          <p>
+            <span className="font-black uppercase">Entrega: </span>
             {pedido.rua}, {pedido.numero}
           </p>
 
@@ -224,10 +232,10 @@ export default function PrintableOrderReceipt({
         </div>
 
         {/* ITENS */}
-        <div className="border-b border-dashed border-black py-3">
-          <p className="mb-2 font-black uppercase">Itens</p>
+        <div className="border-b border-dashed border-black py-1">
+          <p className="mb-1 font-black uppercase">Itens</p>
 
-          <div className="space-y-2">
+          <div className="space-y-1">
             {itens.map((item) => (
               <div key={item.id}>
                 <div className="flex items-start justify-between gap-2">
@@ -245,7 +253,7 @@ export default function PrintableOrderReceipt({
                 </p>
                 {Array.isArray(item.opcoes_selecionadas) &&
                   item.opcoes_selecionadas.length > 0 && (
-                    <div className="mt-1 pl-2 text-[11px]">
+                    <div className="mt-0 pl-2 text-[11px]">
                       <p className="font-black uppercase">Sabores / opções</p>
 
                       {item.opcoes_selecionadas.map((opcao, index) => {
@@ -281,14 +289,14 @@ export default function PrintableOrderReceipt({
         </div>
 
         {/* VALORES */}
-        <div className="border-b border-dashed border-black py-3">
+        <div className="border-b border-dashed border-black py-1">
           <div className="flex justify-between">
             <span>Subtotal</span>
 
             <span>{formatarPreco(Number(pedido.subtotal))}</span>
           </div>
 
-          <div className="mt-1 flex justify-between">
+          <div className="mt-0 flex justify-between">
             <span>Entrega</span>
 
             <span>
@@ -297,7 +305,7 @@ export default function PrintableOrderReceipt({
           </div>
 
           {taxaCartao > 0 && (
-            <div className="mt-1 flex justify-between">
+            <div className="mt-0 flex justify-between">
               <span>Taxa cartão</span>
 
               <span>{formatarPreco(taxaCartao)}</span>
@@ -306,13 +314,13 @@ export default function PrintableOrderReceipt({
 
           {descontoFidelidade > 0 && (
             <>
-              <div className="mt-1 flex justify-between font-bold">
+              <div className="mt-0 flex justify-between font-bold">
                 <span>Desconto fidelidade</span>
                 <span>- {formatarPreco(descontoFidelidade)}</span>
               </div>
 
               {pontosFidelidadeUsados > 0 && (
-                <div className="mt-1 flex justify-between text-[10px]">
+                <div className="mt-0 flex justify-between text-[10px]">
                   <span>Pontos utilizados</span>
                   <span>{pontosFidelidadeUsados} pts</span>
                 </div>
@@ -322,12 +330,12 @@ export default function PrintableOrderReceipt({
 
           {descontoCupom > 0 && codigoCupom && (
             <>
-              <div className="mt-1 flex justify-between font-bold">
+              <div className="mt-0 flex justify-between font-bold">
                 <span>Desconto cupom</span>
                 <span>- {formatarPreco(descontoCupom)}</span>
               </div>
 
-              <div className="mt-1 flex justify-between gap-3 text-[10px]">
+              <div className="mt-0 flex justify-between gap-3 text-[10px]">
                 <span>Cupom</span>
                 <span className="break-all text-right font-bold">
                   {codigoCupom}
@@ -336,36 +344,23 @@ export default function PrintableOrderReceipt({
             </>
           )}
 
-          <div className="mt-3 flex justify-between border-t border-dashed border-black pt-2 text-base font-black">
+          <div className="mt-1 flex justify-between border-t border-dashed border-black pt-1 text-base font-black">
             <span>TOTAL</span>
 
             <span>{formatarPreco(Number(pedido.total))}</span>
           </div>
         </div>
 
-        {/* PAGAMENTO */}
-        <div className="border-b border-dashed border-black py-3">
-          <p className="font-black uppercase">Pagamento</p>
-
-          <p className="mt-1">{formatarPagamento(pedido.forma_pagamento)}</p>
-
-          {pedido.forma_pagamento === "dinheiro" && pedido.troco_para && (
-            <p className="mt-1 font-bold">
-              Troco para: {formatarPreco(Number(pedido.troco_para))}
-            </p>
-          )}
-        </div>
-
         {/* CONFERÊNCIA */}
-        <div className="py-3">
+        <div className="py-1">
           <p className="font-black uppercase">Conferência</p>
 
-          <p className="mt-3">Separado por: ___________________</p>
+          <p className="mt-1">Separado por: ___________________</p>
 
-          <p className="mt-3">Entregador: ____________________</p>
+          <p className="mt-1">Entregador: ____________________</p>
         </div>
 
-        <div className="border-t border-dashed border-black pt-3 text-center">
+        <div className="border-t border-dashed border-black pt-1 text-center">
           <p className="font-black">*** FIM DO PEDIDO ***</p>
         </div>
       </div>
