@@ -12,7 +12,20 @@ export default function AdminProductsAutoRefresh() {
     }
 
     // Atualiza periodicamente enquanto o painel está aberto
-    const intervalo = setInterval(atualizarProdutos, 5000);
+    const intervalo = setInterval(() => {
+      if (document.visibilityState !== "visible") return;
+
+      const elemento = document.activeElement;
+
+      if (
+        elemento instanceof HTMLElement &&
+        elemento.closest("form")
+      ) {
+        return;
+      }
+
+      atualizarProdutos();
+    }, 15000);
 
     // Atualiza imediatamente ao voltar para a aba
     function aoVoltarParaAba() {

@@ -180,6 +180,9 @@ export default function AdminAutoRefresh({
     let verificando = false;
 
     async function verificarNovoPedido() {
+      if (document.visibilityState === "hidden" && !alertasAtivos) {
+        return;
+      }
       if (verificando) {
         return;
       }

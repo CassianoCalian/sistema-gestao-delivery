@@ -106,16 +106,10 @@ export default async function AdminPage() {
   // 3. Busca os dados do dashboard
   // -----------------------------------------
 
-  const { data: ultimoPedido } = await supabaseAdmin
-    .from("pedidos")
-    .select("id")
-    .order("id", { ascending: false })
-    .limit(1)
-    .maybeSingle();
 
-  const ultimoPedidoId = Number(ultimoPedido?.id ?? 0);
 
   const [
+    resultadoUltimoPedido,
     resultadoPedidosHoje,
     resultadoPedidosAbertos,
     resultadoUltimosPedidos,
@@ -127,17 +121,25 @@ export default async function AdminPage() {
     resultadoPedidosMesAtual,
     resultadoPedidosMesAnterior,
   ] = await Promise.all([
+    // ULTIMO PEDIDO - EM PARALELO
+    supabaseAdmin
+      .from("pedidos")
+      .select("id")
+      .order("id", { ascending: false })
+      .limit(1)
+      .maybeSingle(),
+
     // PEDIDOS DE HOJE
     supabaseAdmin
       .from("pedidos")
-      .select("id, total, status")
+      .select("total, status")
       .gte("created_at", inicioHoje.toISOString())
       .lt("created_at", fimHoje.toISOString()),
 
     // PEDIDOS ABERTOS
     supabaseAdmin
       .from("pedidos")
-      .select("id, status, forma_pagamento, pagamento_confirmado")
+      .select("status, forma_pagamento, pagamento_confirmado")
       .in("status", ["recebido", "em_preparacao", "saiu_entrega"]),
 
     // ÚLTIMOS PEDIDOS
@@ -187,9 +189,8 @@ export default async function AdminPage() {
     // HISTÓRICO PARA INTELIGÊNCIA DE CLIENTES
     supabaseAdmin
       .from("pedidos")
-      .select("id, cliente_id, created_at, total, status")
-      .not("cliente_id", "is", null)
-      .order("created_at", { ascending: true }),
+      .select("cliente_id, created_at, total, status")
+      .not("cliente_id", "is", null),
 
     // CADASTRO DE CLIENTES
     supabaseAdmin.from("clientes").select("id, nome, telefone, pontos_saldo"),
@@ -209,6 +210,7 @@ export default async function AdminPage() {
       .lt("created_at", inicioMesAtual.toISOString()),
   ]);
 
+  const ultimoPedidoId = Number(resultadoUltimoPedido.data?.id ?? 0);
   const pedidosHoje = resultadoPedidosHoje.data ?? [];
   const pedidosAbertos = resultadoPedidosAbertos.data ?? [];
   const ultimosPedidos = resultadoUltimosPedidos.data ?? [];
