@@ -103,6 +103,33 @@ function lerValor(valor: string) {
   return Math.round(numero * 100) / 100;
 }
 
+function ValorOlhinho({
+  texto,
+  mascara = "R$ *****",
+}: {
+  texto: string;
+  mascara?: string;
+}) {
+  const [visivel, setVisivel] = useState(false);
+
+  return (
+    <span className="inline-flex items-center gap-2">
+      <span className="print:hidden">
+        {visivel ? texto : mascara}
+      </span>
+      <span className="hidden print:inline">{texto}</span>
+      <button
+        type="button"
+        aria-label={visivel ? "Ocultar valor" : "Mostrar valor"}
+        aria-pressed={visivel}
+        onClick={() => setVisivel(!visivel)}
+        className="rounded-lg border border-white/20 px-2 py-1 text-amber-400 print:hidden"
+      >
+        &#128065;
+      </button>
+    </span>
+  );
+}
 function BlocoValor({
   titulo,
   valor,
@@ -119,8 +146,8 @@ function BlocoValor({
       <p className="text-xs font-bold uppercase tracking-wide text-zinc-500">
         {titulo}
       </p>
-      <p className={`mt-2 text-xl font-black ${cor}`}>{valor}</p>
-      {detalhe && <p className="mt-2 text-xs text-zinc-500">{detalhe}</p>}
+      <p className={`mt-2 text-xl font-black ${cor}`}>{valor.startsWith("R$") ? <ValorOlhinho texto={valor} /> : valor}</p>
+      {detalhe && <p className="mt-2 text-xs text-zinc-500">{detalhe.startsWith("R$") || detalhe.includes("@") ? <ValorOlhinho texto={detalhe} mascara={detalhe.includes("@") ? "******" : "R$ *****"} /> : detalhe}</p>}
     </div>
   );
 }
@@ -337,6 +364,12 @@ export default function CaixaPdvPage() {
               </button>
 
               <Link
+  href="/admin/pdv/fechamento"
+  className="rounded-xl border border-amber-400/40 px-4 py-3 text-sm font-bold text-amber-400"
+>
+  Resumo do Turno
+</Link>
+<Link
                 href="/admin/pdv/historico"
                 className="rounded-xl border border-white/15 px-4 py-3 text-sm font-bold text-zinc-300"
               >
@@ -483,7 +516,7 @@ export default function CaixaPdvPage() {
                   <p className="mt-2 text-sm text-zinc-400">
                     Aberto por:{" "}
                     <strong className="text-white">
-                      {turno.operador_abertura_email}
+                      <ValorOlhinho texto={turno.operador_abertura_email} mascara="******" />
                     </strong>
                   </p>
 
@@ -690,7 +723,7 @@ export default function CaixaPdvPage() {
                             <p className="mt-1 text-xs text-zinc-500">
                               {horario(movimento.created_at)}
                               {" • "}
-                              {movimento.operador_email}
+                              <ValorOlhinho texto={movimento.operador_email} mascara="******" />
                             </p>
                           </div>
 
@@ -702,7 +735,7 @@ export default function CaixaPdvPage() {
                             }
                           >
                             {movimento.tipo === "sangria" ? "− " : "+ "}
-                            {moeda(movimento.valor)}
+                            <ValorOlhinho texto={moeda(movimento.valor)} />
                           </strong>
                         </div>
                       ))}
@@ -766,7 +799,7 @@ export default function CaixaPdvPage() {
                                 : "text-amber-300"
                           }`}
                         >
-                          {moeda(diferencaPrevista)}
+                          <ValorOlhinho texto={moeda(diferencaPrevista)} />
                         </p>
 
                         <p className="mt-1 text-xs text-zinc-400">
@@ -849,7 +882,7 @@ export default function CaixaPdvPage() {
                             </p>
 
                             <p className="mt-1 text-xs text-zinc-500">
-                              {item.operador_abertura_email}
+                              <ValorOlhinho texto={item.operador_abertura_email} mascara="******" />
                             </p>
                           </div>
 
@@ -922,7 +955,7 @@ export default function CaixaPdvPage() {
                                         : "text-amber-300"
                                 }`}
                               >
-                                {diferenca === null ? "—" : moeda(diferenca)}
+                                {diferenca === null ? "—" : <ValorOlhinho texto={moeda(diferenca)} />}
                               </p>
                             </div>
                           </div>
@@ -930,7 +963,7 @@ export default function CaixaPdvPage() {
 
                         {item.operador_fechamento_email && (
                           <p className="mt-3 text-xs text-zinc-500">
-                            Fechado por: {item.operador_fechamento_email}
+                            Fechado por: <ValorOlhinho texto={item.operador_fechamento_email} mascara="******" />
                           </p>
                         )}
 
