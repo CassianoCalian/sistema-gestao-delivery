@@ -178,7 +178,7 @@ export default function PrintableOrderReceipt({
           </p>
 
           <div className="mt-0 flex justify-between gap-2 font-black">
-            <span>Pedido #{pedido.id}</span>
+            <span>Comanda de entrega</span>
             <span className="text-[11px] font-normal">
               {formatarData(pedido.created_at)}
             </span>

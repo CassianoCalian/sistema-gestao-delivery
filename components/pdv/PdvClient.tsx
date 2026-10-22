@@ -117,6 +117,7 @@ export default function PdvClient({ produtos, categorias, clientes }: Props) {
   const [pagamentoConfirmado, setPagamentoConfirmado] = useState(false);
 
   const [trocoPara, setTrocoPara] = useState("");
+  const [trocoEntrega, setTrocoEntrega] = useState<"sem" | "com">("sem");
 
   const [clientesDisponiveis, setClientesDisponiveis] =
     useState<PdvCliente[]>(clientes);
@@ -225,8 +226,10 @@ export default function PdvClient({ produtos, categorias, clientes }: Props) {
 
   const trocoInvalido =
     formaPagamento === "dinheiro" &&
-    trocoPara.trim().length > 0 &&
-    (valorRecebido === null || valorRecebido < total);
+    (tipoAtendimento === "entrega" && trocoEntrega === "com"
+      ? valorRecebido === null || valorRecebido < total
+      : trocoPara.trim().length > 0 &&
+        (valorRecebido === null || valorRecebido < total));
 
   // DINHEIRO NÃO PRECISA DO CHECKBOX.
   // PIX E CARTÕES PRECISAM DE CONFIRMAÇÃO.
@@ -665,7 +668,8 @@ export default function PdvClient({ produtos, categorias, clientes }: Props) {
         referencia: enderecoEntrega.referencia.trim(),
         forma_pagamento: pagamentoEntrega,
         troco_para:
-          formaPagamento === "dinheiro" ? valorRecebido : null,
+          formaPagamento === "dinheiro" && trocoEntrega === "com"
+            ? valorRecebido : null,
         itens: carrinho.map((item) => ({
           id: item.id,
           quantidade: item.quantidade,
@@ -1400,6 +1404,7 @@ export default function PdvClient({ produtos, categorias, clientes }: Props) {
                       onClick={() => {
                         setFormaPagamento(forma.id);
                         setTrocoPara("");
+                        setTrocoEntrega("sem");
                         invalidarConfirmacao();
                       }}
                       className={`rounded-xl border px-3 py-3 text-sm font-black transition ${
@@ -1422,6 +1427,41 @@ export default function PdvClient({ produtos, categorias, clientes }: Props) {
                 {/* DINHEIRO */}
                 {formaPagamento === "dinheiro" && (
                   <div className="mt-4">
+                    {tipoAtendimento === "entrega" && (
+                      <div className="mb-3 grid grid-cols-2 gap-2">
+                        <button
+                          type="button"
+                          disabled={finalizando}
+                          onClick={() => {
+                            setTrocoEntrega("sem");
+                            setTrocoPara("");
+                          }}
+                          className={`rounded-xl border p-3 text-sm font-bold ${
+                            trocoEntrega === "sem"
+                              ? "bg-emerald-500 text-black"
+                              : "border-white/20 bg-zinc-900"
+                          }`}
+                        >
+                          Sem troco
+                        </button>
+
+                        <button
+                          type="button"
+                          disabled={finalizando}
+                          onClick={() => {
+                            setTrocoEntrega("com");
+                            setTrocoPara("");
+                          }}
+                          className={`rounded-xl border p-3 text-sm font-bold ${
+                            trocoEntrega === "com"
+                              ? "bg-amber-400 text-black"
+                              : "border-white/20 bg-zinc-900"
+                          }`}
+                        >
+                          Precisa de troco
+                        </button>
+                      </div>
+                    )}
                     <label className="mb-2 block text-xs font-bold text-zinc-400">
                       Valor recebido (opcional para calcular troco)
                     </label>
@@ -1429,7 +1469,7 @@ export default function PdvClient({ produtos, categorias, clientes }: Props) {
                     <input
                       type="text"
                       inputMode="decimal"
-                      disabled={finalizando}
+                      disabled={finalizando || (tipoAtendimento === "entrega" && trocoEntrega === "sem")}
                       value={trocoPara}
                       onChange={(event) => {
                         setTrocoPara(event.target.value);

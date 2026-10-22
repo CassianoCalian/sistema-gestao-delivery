@@ -4,6 +4,7 @@ import { supabaseAdmin } from "../../../lib/supabaseAdmin";
 import { verificarAdmin } from "../../../lib/supabase/requireAdmin";
 import PdvClient from "../../../components/pdv/PdvClient";
 import AdminOrderAlerts from "../../../components/AdminOrderAlerts";
+import ContadorAtendimentosTurno from "../../../components/pdv/ContadorAtendimentosTurno";
 
 import Link from "next/link";
 
@@ -162,6 +163,7 @@ export default async function PdvPage() {
     <main className="min-h-screen w-full bg-[#070707] text-white xl:h-[100dvh] xl:min-h-0 xl:overflow-hidden">
       <div className="flex min-h-screen w-full flex-col p-3 lg:p-4 xl:h-full xl:min-h-0 xl:gap-2 xl:overflow-hidden">
         <div className="flex shrink-0 flex-col gap-2 xl:flex-row xl:items-center xl:justify-end xl:[&>aside]:mb-0">
+        <ContadorAtendimentosTurno />
         {/* MONITOR DE PEDIDOS DO DELIVERY */}
         {!resultadoUltimoPedido.error && (
           <AdminOrderAlerts
