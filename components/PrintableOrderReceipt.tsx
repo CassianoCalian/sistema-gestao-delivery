@@ -31,6 +31,14 @@ type PedidoImpressao = {
   codigo_cupom?: string | null;
   desconto_cupom?: number | null;
   total: number;
+
+  pagamentos_detalhes?: {
+    parcelas?: {
+      forma: string;
+      valor: number;
+    }[];
+    pago?: boolean;
+  } | null;
 };
 
 type PrintableOrderReceiptProps = {
@@ -93,17 +101,28 @@ export default function PrintableOrderReceipt({
 
   const whatsapp = process.env.NEXT_PUBLIC_WHATSAPP_NUMBER ?? "21973209746";
 
-  const statusPagamento = pedido.pagamento_confirmado
-    ? pedido.forma_pagamento === "pix"
-      ? "PIX PAGO - CONFIRMADO"
-      : pedido.forma_pagamento === "cartao_entrega"
-        ? "CARTAO PAGO - CONFIRMADO"
-        : "DINHEIRO PAGO - CONFIRMADO"
-    : pedido.forma_pagamento === "pix"
-      ? "PIX PENDENTE"
-      : pedido.forma_pagamento === "cartao_entrega"
-        ? "CARTAO NA ENTREGA - PENDENTE"
-        : "DINHEIRO NA ENTREGA - PENDENTE";
+  const parcelasDivididas =
+    Array.isArray(pedido.pagamentos_detalhes?.parcelas) &&
+    pedido.pagamentos_detalhes.parcelas.length > 1
+      ? pedido.pagamentos_detalhes.parcelas
+      : [];
+
+  const statusPagamento =
+    parcelasDivididas.length > 0
+      ? pedido.pagamento_confirmado
+        ? "PAGO - CONFIRMADO"
+        : "PAGAMENTO PENDENTE"
+      : pedido.pagamento_confirmado
+        ? pedido.forma_pagamento === "pix"
+          ? "PIX PAGO - CONFIRMADO"
+          : pedido.forma_pagamento === "cartao_entrega"
+            ? "CARTAO PAGO - CONFIRMADO"
+            : "DINHEIRO PAGO - CONFIRMADO"
+        : pedido.forma_pagamento === "pix"
+          ? "PIX PENDENTE"
+          : pedido.forma_pagamento === "cartao_entrega"
+            ? "CARTAO NA ENTREGA - PENDENTE"
+            : "DINHEIRO NA ENTREGA - PENDENTE";
 
   return (
     <div id="comanda-deposito-ze" className="hidden print:block">
@@ -162,9 +181,7 @@ export default function PrintableOrderReceipt({
             Comanda de entrega
           </p>
 
-          <p className="text-[10px] uppercase">
-            Não é documento fiscal
-          </p>
+          <p className="text-[10px] uppercase">Não é documento fiscal</p>
 
           {pedido.status === "cancelado" && (
             <p className="mt-1 border-2 border-black p-2 text-center text-base font-black uppercase">
@@ -190,24 +207,67 @@ export default function PrintableOrderReceipt({
 
         {/* STATUS DO PAGAMENTO */}
         <div className="border-b border-dashed border-black py-1 text-center">
-          <p className="text-[11px] font-black uppercase">Pagamento</p>
+          <p className="text-[11px] font-black uppercase">
+            PAGAMENTO - {pedido.pagamento_confirmado ? "PAGO" : "PENDENTE"}
+          </p>
 
           <p className="mt-0 text-base font-black uppercase">
             {statusPagamento}
           </p>
 
-          {pedido.forma_pagamento === "pix" && !pedido.pagamento_confirmado && (
+          {parcelasDivididas.length > 0 && (
+            <div className="mt-2 border-t border-dashed border-black pt-2 text-left">
+              <p className="text-center text-[12px] font-black uppercase">
+                Pagamento dividido
+              </p>
+
+              {parcelasDivididas.map((parcela, index) => (
+                <div
+                  key={index}
+                  className="mt-1 flex justify-between gap-2 text-[12px]"
+                >
+                  <span className="font-bold uppercase">
+                    {parcela.forma === "pix"
+                      ? "PIX"
+                      : parcela.forma === "dinheiro"
+                        ? "DINHEIRO"
+                        : parcela.forma === "debito"
+                          ? "CARTAO DEBITO"
+                          : "CARTAO CREDITO"}
+                  </span>
+
+                  <span className="font-bold">
+                    {formatarPreco(Number(parcela.valor))}
+                  </span>
+                </div>
+              ))}
+
+              <div className="mt-2 flex justify-between border-t border-dashed border-black pt-1 font-black">
+                <span>TOTAL</span>
+                <span>{formatarPreco(Number(pedido.total))}</span>
+              </div>
+
+              <p className="mt-1 text-center text-[11px] font-black">
+                {pedido.pagamento_confirmado
+                  ? "VALOR INTEGRAL RECEBIDO"
+                  : "PAGAMENTO A CONFIRMAR"}
+              </p>
+            </div>
+          )}
+
+          {parcelasDivididas.length === 0 && pedido.forma_pagamento === "pix" && !pedido.pagamento_confirmado && (
             <p className="mt-0 text-[11px] font-black uppercase">
               Aguardar confirmação antes de liberar
             </p>
           )}
-          {pedido.forma_pagamento === "dinheiro" && (
-            <p className="text-[12px] font-black uppercase">
-              {pedido.troco_para != null && Number(pedido.troco_para) > 0
-                ? `TROCO PARA: ${formatarPreco(Number(pedido.troco_para))}`
-                : "SEM TROCO"}
-            </p>
-          )}
+          {parcelasDivididas.length === 0 &&
+            pedido.forma_pagamento === "dinheiro" && (
+              <p className="text-[12px] font-black uppercase">
+                {pedido.troco_para != null && Number(pedido.troco_para) > 0
+                  ? `TROCO PARA: ${formatarPreco(Number(pedido.troco_para))}`
+                  : "SEM TROCO"}
+              </p>
+            )}
         </div>
 
         {/* CLIENTE */}

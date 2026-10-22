@@ -169,6 +169,12 @@ export default async function AdminEstoquePage() {
             >
               📥 Registrar entrada
             </Link>
+            <Link
+              href="/admin/estoque/importar"
+              className="rounded-xl border border-amber-400/40 bg-amber-400/5 px-5 py-3 text-sm font-black text-amber-400 transition hover:bg-amber-400/10"
+            >
+              📥 Importar produtos
+            </Link>
 
             <Link
               href="/admin/estoque/compartilhado"

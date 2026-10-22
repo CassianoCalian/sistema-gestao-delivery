@@ -6,6 +6,9 @@ import OrderStatusButtons from "../../../../components/OrderStatusButtons";
 import ConfirmPaymentButton from "../../../../components/ConfirmPaymentButton";
 import PrintOrderButton from "../../../../components/PrintOrderButton";
 import PrintableOrderReceipt from "../../../../components/PrintableOrderReceipt";
+import PagamentoRapidoPedido from "../../../../components/PagamentoRapidoPedido";
+
+export const dynamic = "force-dynamic";
 
 type AdminPedidoDetalheProps = {
   params: Promise<{
@@ -94,7 +97,11 @@ function gerarMensagemStatus(status: string) {
   return `Olá! Aqui é do Depósito do Zé. Entramos em contato sobre o seu pedido.`;
 }
 
-function gerarLinkWhatsApp(telefone: string, status: string, codigoAcesso?: string) {
+function gerarLinkWhatsApp(
+  telefone: string,
+  status: string,
+  codigoAcesso?: string,
+) {
   const telefoneLimpo = telefone.replace(/\D/g, "");
 
   const numeroWhatsApp = telefoneLimpo.startsWith("55")
@@ -151,6 +158,7 @@ codigo_cupom,
 desconto_cupom,
 total,
 pagamento_confirmado,
+pagamentos_detalhes,
         codigo_acesso,
         status
       `,
@@ -162,7 +170,11 @@ pagamento_confirmado,
     notFound();
   }
 
-  const linkWhatsApp = gerarLinkWhatsApp(pedido.telefone, pedido.status, pedido.codigo_acesso);
+  const linkWhatsApp = gerarLinkWhatsApp(
+    pedido.telefone,
+    pedido.status,
+    pedido.codigo_acesso,
+  );
 
   const { data: itens, error: erroItens } = await supabaseAdmin
     .from("itens_pedido")
@@ -208,6 +220,14 @@ opcoes_selecionadas
 
   const pontosFidelidadeUsados = Number(pedido.pontos_fidelidade_usados ?? 0);
 
+  const detalhesPagamento = pedido.pagamentos_detalhes as {
+    parcelas?: { forma: string; valor: number }[];
+  } | null;
+
+  const parcelasAdmin = Array.isArray(detalhesPagamento?.parcelas)
+    ? detalhesPagamento.parcelas
+    : [];
+
   return (
     <>
       <PrintableOrderReceipt
@@ -234,6 +254,11 @@ opcoes_selecionadas
           desconto_cupom: descontoCupomNumero,
           total: Number(pedido.total),
           pagamento_confirmado: Boolean(pedido.pagamento_confirmado),
+
+          pagamentos_detalhes: pedido.pagamentos_detalhes as {
+            parcelas?: { forma: string; valor: number }[];
+            pago?: boolean;
+          } | null,
         }}
         itens={(itens ?? []).map((item) => ({
           id: item.id,
@@ -494,8 +519,26 @@ opcoes_selecionadas
                   </p>
 
                   <p className="mt-1 text-xl font-black tracking-[-0.025em] text-white">
-                    {formatarPagamento(pedido.forma_pagamento)}
+                    {parcelasAdmin.length > 1
+                      ? "Pagamento dividido"
+                      : formatarPagamento(pedido.forma_pagamento)}
                   </p>
+
+                  {parcelasAdmin.length > 1 && (
+                    <div className="mt-3 rounded-xl border border-emerald-500/20 bg-emerald-500/5 p-3">
+                      {parcelasAdmin.map((parcela, index) => (
+                        <p key={index} className="mb-1 text-sm text-white">
+                          {parcela.forma.toUpperCase()}:{" "}
+                          {formatarPreco(Number(parcela.valor))}
+                        </p>
+                      ))}
+                      <p className="mt-2 font-black text-emerald-300">
+                        {pedido.pagamento_confirmado
+                          ? "✓ PAGO"
+                          : "PAGAMENTO PENDENTE"}
+                      </p>
+                    </div>
+                  )}
 
                   {pedido.forma_pagamento === "cartao_entrega" &&
                     taxaCartaoNumero > 0 && (
@@ -572,9 +615,20 @@ opcoes_selecionadas
 
               <div className="mt-5">
                 <PrintOrderButton />
+                {pedido.forma_pagamento !== "pix" && (
+                  <div className="mt-4">
+                    <PagamentoRapidoPedido
+                      pedidoId={Number(pedido.id)}
+                      status={pedido.status}
+                      formaPagamento={pedido.forma_pagamento}
+                      pagamentoConfirmado={Boolean(pedido.pagamento_confirmado)}
+                    />
+                  </div>
+                )}
               </div>
 
               {pedido.forma_pagamento === "pix" &&
+                parcelasAdmin.length < 2 &&
                 pedido.status !== "cancelado" && (
                   <div className="mt-5 rounded-xl border border-zinc-800 p-4">
                     <p className="text-sm font-bold text-zinc-400">

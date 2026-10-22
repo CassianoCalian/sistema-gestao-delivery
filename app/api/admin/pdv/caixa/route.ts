@@ -1,4 +1,9 @@
 import { NextResponse } from "next/server";
+import {
+  resumoPagamentos,
+  vendasPorTurnos,
+  type VendaPagamento
+} from "../../../../../lib/pdvResumoMisto";
 
 import { supabaseAdmin } from "../../../../../lib/supabaseAdmin";
 import { requireAdmin } from "../../../../../lib/supabase/requireAdmin";
@@ -198,6 +203,60 @@ export async function GET() {
       );
     }
 
+
+    const todasVendas = await vendasPorTurnos(
+      listaTurnos.map(t => Number(t.id))
+    );
+
+    const resumosCorrigidos = (resumos ?? []).map((r: {
+      turno_id: number;
+      total_sangrias: number | string;
+      total_suprimentos: number | string;
+      [key: string]: unknown;
+    }) => {
+      const turno = listaTurnos.find(
+        t => Number(t.id) === Number(r.turno_id)
+      );
+
+      if (!turno) {
+        throw Error("Turno nao encontrado no resumo.");
+      }
+
+      const vendas = todasVendas.filter(
+        (v: VendaPagamento) =>
+          Number(v.turno_id) === Number(r.turno_id)
+      );
+
+      const resumo = resumoPagamentos(vendas);
+
+      const arredondar = (n: number) =>
+        Math.round(n * 100) / 100;
+
+      const esperado = arredondar(
+        Number(turno.valor_inicial) +
+        resumo.totais.dinheiro -
+        Number(r.total_sangrias) +
+        Number(r.total_suprimentos)
+      );
+
+      const diferenca =
+        turno.valor_contado === null
+          ? null
+          : arredondar(Number(turno.valor_contado) - esperado);
+
+      return {
+        ...r,
+        quantidade_vendas: resumo.quantidade,
+        total_vendas: resumo.total,
+        vendas_dinheiro: resumo.totais.dinheiro,
+        vendas_pix: resumo.totais.pix,
+        vendas_debito: resumo.totais.debito,
+        vendas_credito: resumo.totais.credito,
+        dinheiro_esperado: esperado,
+        diferenca_dinheiro: diferenca
+      };
+    });
+
     return NextResponse.json(
       {
         sucesso: true,
@@ -206,7 +265,7 @@ export async function GET() {
         turno_aberto: turnoAberto,
         turnos: listaTurnos,
         movimentacoes,
-        resumos_financeiros: resumos ?? [],
+        resumos_financeiros: resumosCorrigidos,
         vendas_integradas: true,
       },
       {

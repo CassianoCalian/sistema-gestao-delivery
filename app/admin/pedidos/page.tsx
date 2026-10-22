@@ -972,6 +972,16 @@ export default async function AdminPedidosPage({
                       </div>
                     </div>
 
+                    {/* PAGAMENTO RAPIDO SEM ABRIR DETALHES */}
+                    <div className="mt-4 flex flex-wrap items-center gap-3">
+                      <PagamentoRapidoPedido
+                        pedidoId={pedido.id}
+                        status={pedido.status}
+                        formaPagamento={pedido.forma_pagamento}
+                        pagamentoConfirmado={Boolean(pedido.pagamento_confirmado)}
+                      />
+                    </div>
+
                     {/* DIVISOR */}
                     <div className="my-5 h-px w-full bg-linear-to-r from-white/[0.07] via-white/[0.04] to-transparent" />
 
@@ -1008,12 +1018,7 @@ export default async function AdminPedidosPage({
                           formaPagamento={pedido.forma_pagamento}
                           pagamentoConfirmado={pedido.pagamento_confirmado}
                         />
-                        <PagamentoRapidoPedido
-                          pedidoId={pedido.id}
-                          status={pedido.status}
-                          formaPagamento={pedido.forma_pagamento}
-                          pagamentoConfirmado={Boolean(pedido.pagamento_confirmado)}
-                        />
+
                       </div>
 
                       {/* DETALHES */}

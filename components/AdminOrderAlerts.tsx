@@ -244,7 +244,7 @@ export default function AdminOrderAlerts({
         ciclos += 1;
 
         // Atualiza a lista e os indicadores.
-        if (atualizarPagina && (pedidos.length > 0 || ciclos % 3 === 0)) {
+        if (atualizarPagina && (pedidos.length > 0 || (window.location.pathname !== "/admin/pdv" && ciclos % 3 === 0))) {
           router.refresh();
         }
       } catch (error) {

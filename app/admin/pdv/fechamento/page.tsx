@@ -1,4 +1,8 @@
 import Link from "next/link";
+import {
+  resumoPagamentos,
+  descricaoPagamento
+} from "../../../../lib/pdvResumoMisto";
 import { redirect } from "next/navigation";
 import { requireAdmin } from "../../../../lib/supabase/requireAdmin";
 import { supabaseAdmin } from "../../../../lib/supabaseAdmin";
@@ -90,7 +94,7 @@ export default async function ResumoFechamento({ searchParams }: Props) {
     supabaseAdmin
       .from("pdv_vendas")
       .select(
-        "id,created_at,turno_id,status,total,forma_pagamento",
+        "id,created_at,turno_id,status,total,forma_pagamento,pagamentos_detalhes",
         { count: "exact" },
       )
       .gte("created_at", inicio)
@@ -101,7 +105,7 @@ export default async function ResumoFechamento({ searchParams }: Props) {
     supabaseAdmin
       .from("pedidos")
       .select(
-        "id,created_at,status,total,forma_pagamento,pagamento_confirmado,nome_cliente",
+        "id,created_at,status,total,forma_pagamento,pagamento_confirmado,nome_cliente,pagamentos_detalhes",
         { count: "exact" },
       )
       .gte("created_at", inicio)
@@ -209,12 +213,15 @@ export default async function ResumoFechamento({ searchParams }: Props) {
     "cartao_entrega",
   ];
 
+  const resumoBalcaoMisto = resumoPagamentos(balcao);
+  const resumoDeliveryPago = resumoPagamentos(pagos);
+
   const linhas = [
     ...balcao.map((v) => ({
       chave: `b${v.id}`,
       titulo: `Balcao #${v.id}`,
       horario: v.created_at,
-      forma: v.forma_pagamento,
+      forma: descricaoPagamento(v),
       situacao: "Concluida",
       total: valor(v.total),
       destino: `/admin/pdv/historico`,
@@ -223,7 +230,7 @@ export default async function ResumoFechamento({ searchParams }: Props) {
       chave: `e${p.id}`,
       titulo: `Entrega #${p.id} - ${p.nome_cliente}`,
       horario: p.created_at,
-      forma: p.forma_pagamento,
+      forma: descricaoPagamento(p),
       situacao:
         p.status === "cancelado"
           ? "Cancelado - conferir estorno se pago"
@@ -359,13 +366,16 @@ export default async function ResumoFechamento({ searchParams }: Props) {
                   Balcao: {balcao.length} venda(s)
                 </h2>
                 {pagamentos.map((forma) => {
-                  const grupo = balcao.filter(
-                    (v) => v.forma_pagamento === forma,
-                  );
+                  const chaveForma =
+                     forma as keyof typeof resumoBalcaoMisto.totais;
+                   const quantidadeForma =
+                     resumoBalcaoMisto.contagens[chaveForma];
+                   const valorForma =
+                     resumoBalcaoMisto.totais[chaveForma];
                   return (
                     <p key={forma} className="mt-2 flex justify-between gap-3 text-sm">
-                      <span>{forma} ({grupo.length})</span>
-                      <strong>{moeda(total(grupo))}</strong>
+                      <span>{forma} ({quantidadeForma})</span>
+                      <strong>{moeda(valorForma)}</strong>
                     </p>
                   );
                 })}
@@ -384,6 +394,19 @@ export default async function ResumoFechamento({ searchParams }: Props) {
                 <p className="mt-2">
                   Cancelados: {cancelados.length}
                 </p>
+                <div className="mt-3 border-t border-white/10 pt-3">
+                  <p className="font-bold">Recebido por forma - delivery</p>
+                  {pagamentos.map((forma) => {
+                    const chave =
+                      forma as keyof typeof resumoDeliveryPago.totais;
+                    return (
+                      <p key={forma} className="mt-1 flex justify-between gap-2">
+                        <span>{forma}</span>
+                        <strong>{moeda(resumoDeliveryPago.totais[chave])}</strong>
+                      </p>
+                    );
+                  })}
+                </div>
               </div>
             </div>
 

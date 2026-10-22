@@ -100,13 +100,17 @@ export default function PdvClient({ produtos, categorias, clientes }: Props) {
   );
 
   const [carrinho, setCarrinho] = useState<ItemCarrinho[]>([]);
-  const [produtoEmSelecao, setProdutoEmSelecao] = useState<PdvProduto | null>(null);
+  const [produtoEmSelecao, setProdutoEmSelecao] = useState<PdvProduto | null>(
+    null,
+  );
 
   const [aviso, setAviso] = useState("");
   const [avisoSucesso, setAvisoSucesso] = useState(false);
   const [erroVenda, setErroVenda] = useState("");
   const [finalizando, setFinalizando] = useState(false);
-  const [pedidoParaImpressao, setPedidoParaImpressao] = useState<number | null>(null);
+  const [pedidoParaImpressao, setPedidoParaImpressao] = useState<number | null>(
+    null,
+  );
   const [comandaCarregada, setComandaCarregada] = useState(false);
   const iframePedidoRef = useRef<HTMLIFrameElement | null>(null);
 
@@ -115,6 +119,19 @@ export default function PdvClient({ produtos, categorias, clientes }: Props) {
   );
 
   const [pagamentoConfirmado, setPagamentoConfirmado] = useState(false);
+
+  const [modoDividido, setModoDividido] = useState(false);
+
+  const [segundaFormaPagamento, setSegundaFormaPagamento] =
+    useState<FormaPagamento | null>(null);
+
+  const [valorPrimeiraParte, setValorPrimeiraParte] = useState("");
+
+  const registroCriadoRef = useRef<{
+    tipo: "entrega" | "balcao";
+    id: number;
+    total: number;
+  } | null>(null);
 
   const [trocoPara, setTrocoPara] = useState("");
   const [trocoEntrega, setTrocoEntrega] = useState<"sem" | "com">("sem");
@@ -207,17 +224,64 @@ export default function PdvClient({ produtos, categorias, clientes }: Props) {
   );
 
   // Mantém a taxa prevista na função SQL atual.
-  const taxaCartao =
-    tipoAtendimento === "entrega" &&
-    (formaPagamento === "credito" || formaPagamento === "debito")
-      ? 2
-      : 0;
+
+  // Cartão no delivery mantém a taxa de R$ 2,00,
+  // inclusive quando estiver na segunda forma.
+  const temCartao =
+    formaPagamento === "credito" ||
+    formaPagamento === "debito" ||
+    (modoDividido &&
+      (segundaFormaPagamento === "credito" ||
+        segundaFormaPagamento === "debito"));
+
+  const taxaCartao = tipoAtendimento === "entrega" && temCartao ? 2 : 0;
 
   const total = arredondar(subtotal + taxaCartao);
 
+  // Divisão de pagamento
+  const primeiraParte = modoDividido
+    ? converterDinheiro(valorPrimeiraParte)
+    : null;
+
+  const segundaParte =
+    primeiraParte !== null ? arredondar(total - primeiraParte) : null;
+
+  const divisaoValida =
+    !modoDividido ||
+    (segundaFormaPagamento !== null &&
+      segundaFormaPagamento !== formaPagamento &&
+      primeiraParte !== null &&
+      segundaParte !== null &&
+      primeiraParte > 0 &&
+      segundaParte > 0);
+
+  const parcelasPagamento: {
+    forma: FormaPagamento;
+    valor: number;
+  }[] =
+    formaPagamento === null || !divisaoValida
+      ? []
+      : modoDividido &&
+          segundaFormaPagamento !== null &&
+          primeiraParte !== null &&
+          segundaParte !== null
+        ? [
+            {
+              forma: formaPagamento,
+              valor: arredondar(primeiraParte),
+            },
+            {
+              forma: segundaFormaPagamento,
+              valor: segundaParte,
+            },
+          ]
+        : [{ forma: formaPagamento, valor: total }];
+
+  // Troco continua funcionando em pagamento único.
   const valorRecebido = converterDinheiro(trocoPara);
 
   const troco =
+    !modoDividido &&
     formaPagamento === "dinheiro" &&
     valorRecebido !== null &&
     valorRecebido >= total
@@ -225,17 +289,20 @@ export default function PdvClient({ produtos, categorias, clientes }: Props) {
       : null;
 
   const trocoInvalido =
+    !modoDividido &&
     formaPagamento === "dinheiro" &&
     (tipoAtendimento === "entrega" && trocoEntrega === "com"
       ? valorRecebido === null || valorRecebido < total
       : trocoPara.trim().length > 0 &&
         (valorRecebido === null || valorRecebido < total));
 
-  // DINHEIRO NÃO PRECISA DO CHECKBOX.
-  // PIX E CARTÕES PRECISAM DE CONFIRMAÇÃO.
+  // Balcão dividido precisa de confirmação.
+  // Dinheiro único preserva o funcionamento atual.
   const pagamentoPronto =
-    formaPagamento === "dinheiro" ||
-    (formaPagamento !== null && pagamentoConfirmado);
+    formaPagamento !== null &&
+    (modoDividido
+      ? pagamentoConfirmado
+      : formaPagamento === "dinheiro" || pagamentoConfirmado);
 
   const enderecoPronto =
     enderecoEntrega.cep.replace(/\D/g, "").length === 8 &&
@@ -247,6 +314,7 @@ export default function PdvClient({ produtos, categorias, clientes }: Props) {
     !finalizando &&
     carrinho.length > 0 &&
     formaPagamento !== null &&
+    divisaoValida &&
     !trocoInvalido &&
     (tipoAtendimento === "balcao"
       ? pagamentoPronto
@@ -387,6 +455,10 @@ export default function PdvClient({ produtos, categorias, clientes }: Props) {
     setCarrinho([]);
     setFormaPagamento(null);
     setPagamentoConfirmado(false);
+    setModoDividido(false);
+    setSegundaFormaPagamento(null);
+    setValorPrimeiraParte("");
+    registroCriadoRef.current = null;
     setTrocoPara("");
     setErroVenda("");
     setAviso("");
@@ -533,7 +605,8 @@ export default function PdvClient({ produtos, categorias, clientes }: Props) {
       });
 
       const normalizar = (texto: string) =>
-        texto.normalize("NFD")
+        texto
+          .normalize("NFD")
           .replace(/[\u0300-\u036f]/g, "")
           .toLowerCase()
           .trim();
@@ -542,13 +615,13 @@ export default function PdvClient({ produtos, categorias, clientes }: Props) {
         normalizar(dados.cidade ?? "") === "nova iguacu" &&
         (dados.uf ?? "").toUpperCase() === "RJ" &&
         ["jardim pernambuco", "jardim nova era"].includes(
-          normalizar(dados.bairro ?? "")
+          normalizar(dados.bairro ?? ""),
         );
 
       setMensagemEndereco(
         !areaPermitida
           ? "Confira o bairro: CEP fora da area habitual de entrega."
-          : "Endereco preenchido. Confirme rua, bairro e numero."
+          : "Endereco preenchido. Confirme rua, bairro e numero.",
       );
     } catch (erro) {
       if (identificador !== buscaEnderecoAtualRef.current) return;
@@ -556,7 +629,7 @@ export default function PdvClient({ produtos, categorias, clientes }: Props) {
       setMensagemEndereco(
         erro instanceof Error
           ? erro.message + " Preencha manualmente se necessario."
-          : "CEP indisponivel. Preencha manualmente."
+          : "CEP indisponivel. Preencha manualmente.",
       );
     } finally {
       if (identificador === buscaEnderecoAtualRef.current) {
@@ -626,6 +699,42 @@ export default function PdvClient({ produtos, categorias, clientes }: Props) {
     }
   }
 
+  async function salvarPagamentoDoPdv(
+    tipo: "entrega" | "balcao",
+    registroId: number,
+  ) {
+    if (parcelasPagamento.length === 0 || !divisaoValida) {
+      throw new Error("Confira a divisão dos pagamentos.");
+    }
+
+    const resposta = await fetch("/api/admin/pdv/pagamentos", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        tipo,
+        registro_id: registroId,
+        total_esperado: total,
+        pagamento_confirmado: tipo === "balcao" ? true : pagamentoConfirmado,
+        parcelas: parcelasPagamento,
+      }),
+    });
+
+    const dados = (await resposta.json()) as {
+      sucesso?: boolean;
+      erro?: string;
+    };
+
+    if (!resposta.ok || !dados.sucesso) {
+      throw new Error(
+        `Registro #${registroId} já foi criado, mas o pagamento não foi atualizado: ${
+          dados.erro ?? "erro desconhecido"
+        }. Não cadastre outra venda. Clique em Finalizar novamente para tentar salvar o pagamento.`,
+      );
+    }
+  }
+
   // FINALIZAÇÃO
   async function finalizarVenda() {
     if (finalizando) return;
@@ -652,10 +761,38 @@ export default function PdvClient({ produtos, categorias, clientes }: Props) {
         return;
       }
 
-      const pagamentoEntrega =
-        formaPagamento === "credito" || formaPagamento === "debito"
-          ? "cartao_entrega"
-          : formaPagamento;
+      if (registroCriadoRef.current?.tipo === "entrega") {
+        const pedidoId = registroCriadoRef.current.id;
+
+        setFinalizando(true);
+
+        try {
+          await salvarPagamentoDoPdv("entrega", pedidoId);
+
+          limparVenda();
+          setTipoAtendimento("balcao");
+
+          mostrarAviso(
+            `Entrega #${pedidoId} registrada com pagamento atualizado.`,
+            true,
+          );
+
+          setComandaCarregada(false);
+          setPedidoParaImpressao(pedidoId);
+        } catch (error) {
+          setErroVenda(
+            error instanceof Error
+              ? error.message
+              : "Não foi possível atualizar o pagamento.",
+          );
+        } finally {
+          setFinalizando(false);
+        }
+
+        return;
+      }
+
+      const pagamentoEntrega = temCartao ? "cartao_entrega" : formaPagamento;
 
       const dadosPedido = {
         nome: clienteSelecionado.nome,
@@ -669,11 +806,16 @@ export default function PdvClient({ produtos, categorias, clientes }: Props) {
         forma_pagamento: pagamentoEntrega,
         troco_para:
           formaPagamento === "dinheiro" && trocoEntrega === "com"
-            ? valorRecebido : null,
+            ? valorRecebido
+            : null,
         itens: carrinho.map((item) => ({
           id: item.id,
           quantidade: item.quantidade,
-          opcoes_selecionadas: item.opcoes_selecionadas?.map((o) => ({ opcao_id: o.opcao_id, quantidade: o.quantidade })) ?? [],
+          opcoes_selecionadas:
+            item.opcoes_selecionadas?.map((o) => ({
+              opcao_id: o.opcao_id,
+              quantidade: o.quantidade,
+            })) ?? [],
         })),
       };
 
@@ -714,6 +856,14 @@ export default function PdvClient({ produtos, categorias, clientes }: Props) {
             dados.erro ?? "Não foi possível registrar a entrega.",
           );
         }
+
+        registroCriadoRef.current = {
+          tipo: "entrega",
+          id: dados.pedido_id,
+          total,
+        };
+
+        await salvarPagamentoDoPdv("entrega", dados.pedido_id);
 
         limparVenda();
 
@@ -772,7 +922,11 @@ export default function PdvClient({ produtos, categorias, clientes }: Props) {
       itens: carrinho.map((item) => ({
         id: item.id,
         quantidade: item.quantidade,
-        opcoes_selecionadas: item.opcoes_selecionadas?.map((o) => ({ opcao_id: o.opcao_id, quantidade: o.quantidade })) ?? [],
+        opcoes_selecionadas:
+          item.opcoes_selecionadas?.map((o) => ({
+            opcao_id: o.opcao_id,
+            quantidade: o.quantidade,
+          })) ?? [],
       })),
       cliente_id: clienteSelecionado?.id ?? null,
       forma_pagamento: formaPagamento,
@@ -790,6 +944,22 @@ export default function PdvClient({ produtos, categorias, clientes }: Props) {
     setFinalizando(true);
 
     try {
+      if (registroCriadoRef.current?.tipo === "balcao") {
+        const vendaId = registroCriadoRef.current.id;
+
+        await salvarPagamentoDoPdv("balcao", vendaId);
+
+        limparVenda();
+
+        mostrarAviso(
+          `Venda #${vendaId} concluída com pagamento registrado.`,
+          true,
+        );
+
+        router.refresh();
+        return;
+      }
+
       const resposta = await fetch("/api/admin/pdv/vendas", {
         method: "POST",
         headers: {
@@ -805,7 +975,11 @@ export default function PdvClient({ produtos, categorias, clientes }: Props) {
           itens: carrinho.map((item) => ({
             id: item.id,
             quantidade: item.quantidade,
-            opcoes_selecionadas: item.opcoes_selecionadas?.map((o) => ({ opcao_id: o.opcao_id, quantidade: o.quantidade })) ?? [],
+            opcoes_selecionadas:
+              item.opcoes_selecionadas?.map((o) => ({
+                opcao_id: o.opcao_id,
+                quantidade: o.quantidade,
+              })) ?? [],
           })),
         }),
       });
@@ -818,6 +992,20 @@ export default function PdvClient({ produtos, categorias, clientes }: Props) {
 
       const numeroVenda = dados.venda_id;
       const totalVenda = dados.total ?? total;
+
+      if (!numeroVenda) {
+        throw new Error(
+          "Venda registrada sem identificador. Confira o histórico.",
+        );
+      }
+
+      registroCriadoRef.current = {
+        tipo: "balcao",
+        id: numeroVenda,
+        total: totalVenda,
+      };
+
+      await salvarPagamentoDoPdv("balcao", numeroVenda);
 
       limparVenda();
 
@@ -1006,122 +1194,122 @@ export default function PdvClient({ produtos, categorias, clientes }: Props) {
 
           {/* GRADE DE PRODUTOS */}
           <div className="xl:mt-2 xl:min-h-0 xl:flex-1 xl:overflow-y-auto xl:overscroll-contain xl:pr-1">
-          {produtosFiltrados.length === 0 ? (
-            <div className="mt-5 rounded-2xl border border-dashed border-white/10 py-12 text-center text-zinc-400">
-              Nenhum produto encontrado.
-            </div>
-          ) : (
-            <>
-              <div className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-4 2xl:grid-cols-5">
-                {produtosVisiveis.map((produto, indice) => {
-                  const temOpcoes = produto.unidades_por_item > 0;
-
-                  const quantidadeNoCarrinho =
-                    carrinho.find((item) => item.id === Number(produto.id))
-                      ?.quantidade ?? 0;
-
-                  return (
-                    <button
-                      key={produto.id}
-                      type="button"
-                      disabled={finalizando}
-                      onClick={() => adicionarProduto(produto)}
-                      aria-label={`Adicionar ${produto.nome} ao carrinho`}
-                      className={`group relative min-w-0 overflow-hidden rounded-2xl border bg-zinc-900 text-left transition disabled:opacity-50 ${
-                        quantidadeNoCarrinho > 0
-                          ? "border-amber-400/70"
-                          : "border-white/10 hover:border-amber-400/40"
-                      }`}
-                    >
-                      {/* FOTO */}
-                      <div className="relative flex h-24 items-center justify-center bg-black/30 sm:h-24">
-                        {produto.imagem_url ? (
-                          // eslint-disable-next-line @next/next/no-img-element
-                          <img
-                            src={produto.imagem_url}
-                            alt={produto.nome}
-                            loading={indice < 6 ? "eager" : "lazy"}
-                            decoding="async"
-                            width={240}
-                            height={160}
-                            className="h-full w-full object-contain p-2"
-                          />
-                        ) : (
-                          <span className="text-4xl">🍺</span>
-                        )}
-
-                        {produto.em_promocao && (
-                          <span className="absolute left-2 top-2 rounded-md bg-red-500 px-2 py-1 text-[9px] font-black text-white">
-                            PROMO
-                          </span>
-                        )}
-
-                        {temOpcoes && (
-                          <span className="absolute bottom-2 left-2 rounded-md bg-amber-400 px-2 py-1 text-[9px] font-black text-black">
-                            Sabores
-                          </span>
-                        )}
-
-                        {quantidadeNoCarrinho > 0 && (
-                          <span className="absolute right-2 top-2 rounded-lg bg-amber-400 px-2 py-1 text-[10px] font-black text-black">
-                            ✓ {quantidadeNoCarrinho}
-                          </span>
-                        )}
-                      </div>
-
-                      {/* NOME E PREÇO */}
-                      <div className="p-2.5">
-                        <p className="line-clamp-2 min-h-9 text-xs font-black leading-[18px] text-white">
-                          {produto.nome}
-                        </p>
-
-                        <div className="mt-2 flex flex-wrap items-end justify-between gap-1">
-                          <div>
-                            {produto.em_promocao &&
-                              produto.preco_promocional !== null && (
-                                <p className="text-[10px] text-zinc-500 line-through">
-                                  {formatarPreco(produto.preco)}
-                                </p>
-                              )}
-
-                            <p className="text-base font-black text-amber-400">
-                              {formatarPreco(precoAtual(produto))}
-                            </p>
-                          </div>
-
-                          <span
-                            className={`rounded-md px-1.5 py-1 text-[9px] font-black ${
-                              produto.estoque <= 0
-                                ? "bg-red-500/10 text-red-300"
-                                : produto.estoque <= 5
-                                  ? "bg-orange-500/10 text-orange-300"
-                                  : "bg-emerald-500/10 text-emerald-300"
-                            }`}
-                          >
-                            {produto.estoque} un.
-                          </span>
-                        </div>
-                      </div>
-                    </button>
-                  );
-                })}
+            {produtosFiltrados.length === 0 ? (
+              <div className="mt-5 rounded-2xl border border-dashed border-white/10 py-12 text-center text-zinc-400">
+                Nenhum produto encontrado.
               </div>
+            ) : (
+              <>
+                <div className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-4 2xl:grid-cols-5">
+                  {produtosVisiveis.map((produto, indice) => {
+                    const temOpcoes = produto.unidades_por_item > 0;
 
-              {produtosVisiveis.length < produtosFiltrados.length && (
-                <div className="mt-6 text-center">
-                  <button
-                    type="button"
-                    onClick={() => setLimiteVisivel((atual) => atual + 24)}
-                    className="rounded-xl border border-amber-400/30 bg-amber-400/10 px-6 py-3 text-sm font-black text-amber-300"
-                  >
-                    Mostrar mais produtos (
-                    {produtosFiltrados.length - produtosVisiveis.length}{" "}
-                    restantes)
-                  </button>
+                    const quantidadeNoCarrinho =
+                      carrinho.find((item) => item.id === Number(produto.id))
+                        ?.quantidade ?? 0;
+
+                    return (
+                      <button
+                        key={produto.id}
+                        type="button"
+                        disabled={finalizando}
+                        onClick={() => adicionarProduto(produto)}
+                        aria-label={`Adicionar ${produto.nome} ao carrinho`}
+                        className={`group relative min-w-0 overflow-hidden rounded-2xl border bg-zinc-900 text-left transition disabled:opacity-50 ${
+                          quantidadeNoCarrinho > 0
+                            ? "border-amber-400/70"
+                            : "border-white/10 hover:border-amber-400/40"
+                        }`}
+                      >
+                        {/* FOTO */}
+                        <div className="relative flex h-24 items-center justify-center bg-black/30 sm:h-24">
+                          {produto.imagem_url ? (
+                            // eslint-disable-next-line @next/next/no-img-element
+                            <img
+                              src={produto.imagem_url}
+                              alt={produto.nome}
+                              loading={indice < 6 ? "eager" : "lazy"}
+                              decoding="async"
+                              width={240}
+                              height={160}
+                              className="h-full w-full object-contain p-2"
+                            />
+                          ) : (
+                            <span className="text-4xl">🍺</span>
+                          )}
+
+                          {produto.em_promocao && (
+                            <span className="absolute left-2 top-2 rounded-md bg-red-500 px-2 py-1 text-[9px] font-black text-white">
+                              PROMO
+                            </span>
+                          )}
+
+                          {temOpcoes && (
+                            <span className="absolute bottom-2 left-2 rounded-md bg-amber-400 px-2 py-1 text-[9px] font-black text-black">
+                              Sabores
+                            </span>
+                          )}
+
+                          {quantidadeNoCarrinho > 0 && (
+                            <span className="absolute right-2 top-2 rounded-lg bg-amber-400 px-2 py-1 text-[10px] font-black text-black">
+                              ✓ {quantidadeNoCarrinho}
+                            </span>
+                          )}
+                        </div>
+
+                        {/* NOME E PREÇO */}
+                        <div className="p-2.5">
+                          <p className="line-clamp-2 min-h-9 text-xs font-black leading-[18px] text-white">
+                            {produto.nome}
+                          </p>
+
+                          <div className="mt-2 flex flex-wrap items-end justify-between gap-1">
+                            <div>
+                              {produto.em_promocao &&
+                                produto.preco_promocional !== null && (
+                                  <p className="text-[10px] text-zinc-500 line-through">
+                                    {formatarPreco(produto.preco)}
+                                  </p>
+                                )}
+
+                              <p className="text-base font-black text-amber-400">
+                                {formatarPreco(precoAtual(produto))}
+                              </p>
+                            </div>
+
+                            <span
+                              className={`rounded-md px-1.5 py-1 text-[9px] font-black ${
+                                produto.estoque <= 0
+                                  ? "bg-red-500/10 text-red-300"
+                                  : produto.estoque <= 5
+                                    ? "bg-orange-500/10 text-orange-300"
+                                    : "bg-emerald-500/10 text-emerald-300"
+                              }`}
+                            >
+                              {produto.estoque} un.
+                            </span>
+                          </div>
+                        </div>
+                      </button>
+                    );
+                  })}
                 </div>
-              )}
-            </>
-          )}
+
+                {produtosVisiveis.length < produtosFiltrados.length && (
+                  <div className="mt-6 text-center">
+                    <button
+                      type="button"
+                      onClick={() => setLimiteVisivel((atual) => atual + 24)}
+                      className="rounded-xl border border-amber-400/30 bg-amber-400/10 px-6 py-3 text-sm font-black text-amber-300"
+                    >
+                      Mostrar mais produtos (
+                      {produtosFiltrados.length - produtosVisiveis.length}{" "}
+                      restantes)
+                    </button>
+                  </div>
+                )}
+              </>
+            )}
           </div>
         </section>
 
@@ -1216,7 +1404,10 @@ export default function PdvClient({ produtos, categorias, clientes }: Props) {
                               </p>
 
                               {item.opcoes_selecionadas.map((opcao) => (
-                                <p key={opcao.opcao_id} className="text-xs text-zinc-300">
+                                <p
+                                  key={opcao.opcao_id}
+                                  className="text-xs text-zinc-300"
+                                >
                                   {opcao.quantidade}x {opcao.nome}
                                 </p>
                               ))}
@@ -1225,7 +1416,9 @@ export default function PdvClient({ produtos, categorias, clientes }: Props) {
                                 type="button"
                                 disabled={finalizando}
                                 onClick={() => {
-                                  const produto = produtos.find((p) => p.id === item.id);
+                                  const produto = produtos.find(
+                                    (p) => p.id === item.id,
+                                  );
                                   if (produto) setProdutoEmSelecao(produto);
                                 }}
                                 className="mt-2 rounded-lg border border-amber-400/30 px-3 py-2 text-xs font-bold text-amber-300 disabled:opacity-30"
@@ -1317,8 +1510,8 @@ export default function PdvClient({ produtos, categorias, clientes }: Props) {
                   </p>
 
                   <p className="text-xs leading-5 text-zinc-400">
-                    Entrega grátis em Jardim Pernambuco e Jardim Nova Era,
-                    Nova Iguaçu. Outros bairros exigem consulta ao atendimento.
+                    Entrega grátis em Jardim Pernambuco e Jardim Nova Era, Nova
+                    Iguaçu. Outros bairros exigem consulta ao atendimento.
                   </p>
 
                   {mensagemEndereco && (
@@ -1331,14 +1524,16 @@ export default function PdvClient({ produtos, categorias, clientes }: Props) {
                   )}
 
                   <div className="grid grid-cols-2 gap-2">
-                    {([
-                      ["cep", "CEP (8 dígitos)"],
-                      ["numero", "Número"],
-                      ["rua", "Rua"],
-                      ["bairro", "Bairro"],
-                      ["complemento", "Complemento"],
-                      ["referencia", "Referência"],
-                    ] as const).map(([campo, titulo]) => (
+                    {(
+                      [
+                        ["cep", "CEP (8 dígitos)"],
+                        ["numero", "Número"],
+                        ["rua", "Rua"],
+                        ["bairro", "Bairro"],
+                        ["complemento", "Complemento"],
+                        ["referencia", "Referência"],
+                      ] as const
+                    ).map(([campo, titulo]) => (
                       <input
                         key={campo}
                         type="text"
@@ -1403,6 +1598,8 @@ export default function PdvClient({ produtos, categorias, clientes }: Props) {
                       disabled={finalizando}
                       onClick={() => {
                         setFormaPagamento(forma.id);
+                        setSegundaFormaPagamento(null);
+                        setValorPrimeiraParte("");
                         setTrocoPara("");
                         setTrocoEntrega("sem");
                         invalidarConfirmacao();
@@ -1418,14 +1615,137 @@ export default function PdvClient({ produtos, categorias, clientes }: Props) {
                   ))}
                 </div>
 
-                {tipoAtendimento === "balcao" && formaPagamento === "credito" && (
-                  <p className="mt-2 text-xs font-bold text-amber-300">
-                    Crédito no balcão: sem taxa adicional.
-                  </p>
+                {/* PAGAMENTO DIVIDIDO E BOTÃO PAGO */}
+                {formaPagamento && (
+                  <div className="mt-3 space-y-3 rounded-xl border border-amber-400/20 bg-amber-400/5 p-3">
+                    <label className="flex cursor-pointer items-center gap-3">
+                      <input
+                        type="checkbox"
+                        checked={modoDividido}
+                        disabled={finalizando}
+                        onChange={(e) => {
+                          setModoDividido(e.target.checked);
+                          setSegundaFormaPagamento(null);
+                          setValorPrimeiraParte("");
+                          setTrocoPara("");
+                          invalidarConfirmacao();
+                        }}
+                        className="h-5 w-5 accent-amber-400"
+                      />
+                      <span className="text-sm font-black text-amber-300">
+                        Dividir em duas formas de pagamento
+                      </span>
+                    </label>
+
+                    {modoDividido && (
+                      <div className="space-y-3 border-t border-white/10 pt-3">
+                        <div>
+                          <p className="mb-2 text-xs font-bold text-zinc-400">
+                            Valor na primeira forma
+                          </p>
+
+                          <input
+                            type="text"
+                            inputMode="decimal"
+                            placeholder="Ex.: 55,00"
+                            value={valorPrimeiraParte}
+                            disabled={finalizando}
+                            onChange={(e) => {
+                              setValorPrimeiraParte(e.target.value);
+                              invalidarConfirmacao();
+                            }}
+                            className="h-11 w-full rounded-lg border border-white/20 bg-zinc-950 px-3 text-white"
+                          />
+                        </div>
+
+                        <div>
+                          <p className="mb-2 text-xs font-bold text-zinc-400">
+                            Segunda forma de pagamento
+                          </p>
+
+                          <div className="grid grid-cols-2 gap-2">
+                            {FORMAS_PAGAMENTO.filter(
+                              (f) => f.id !== formaPagamento,
+                            ).map((forma) => (
+                              <button
+                                key={forma.id}
+                                type="button"
+                                disabled={finalizando}
+                                onClick={() => {
+                                  setSegundaFormaPagamento(forma.id);
+                                  invalidarConfirmacao();
+                                }}
+                                className={`rounded-lg border p-3 text-xs font-black ${
+                                  segundaFormaPagamento === forma.id
+                                    ? "border-amber-400 bg-amber-400 text-black"
+                                    : "border-white/10 bg-zinc-900 text-white"
+                                }`}
+                              >
+                                {forma.icone} {forma.nome}
+                              </button>
+                            ))}
+                          </div>
+                        </div>
+
+                        <div className="rounded-lg bg-black/40 p-3">
+                          <p className="text-xs text-zinc-400">
+                            Restante calculado automaticamente
+                          </p>
+
+                          <p
+                            className={`mt-1 text-2xl font-black ${
+                              divisaoValida
+                                ? "text-emerald-300"
+                                : "text-red-300"
+                            }`}
+                          >
+                            {formatarPreco(Math.max(0, segundaParte ?? 0))}
+                          </p>
+
+                          {!divisaoValida && (
+                            <p className="mt-1 text-xs text-red-300">
+                              Informe um valor menor que o total e selecione
+                              outra forma.
+                            </p>
+                          )}
+                        </div>
+                      </div>
+                    )}
+
+                    <button
+                      type="button"
+                      disabled={finalizando || !divisaoValida}
+                      onClick={() => {
+                        setPagamentoConfirmado(!pagamentoConfirmado);
+                        setErroVenda("");
+                      }}
+                      className={`w-full rounded-xl border p-3 text-sm font-black transition ${
+                        pagamentoConfirmado
+                          ? "border-emerald-400 bg-emerald-600 text-white"
+                          : "border-emerald-500/40 bg-zinc-900 text-emerald-300"
+                      }`}
+                    >
+                      {pagamentoConfirmado
+                        ? "✓ PAGO — CONFIRMADO"
+                        : "✓ Marcar como PAGO"}
+                    </button>
+
+                    <p className="text-center text-xs text-zinc-400">
+                      Marque somente após conferir o recebimento do valor
+                      integral.
+                    </p>
+                  </div>
                 )}
 
+                {tipoAtendimento === "balcao" &&
+                  formaPagamento === "credito" && (
+                    <p className="mt-2 text-xs font-bold text-amber-300">
+                      Crédito no balcão: sem taxa adicional.
+                    </p>
+                  )}
+
                 {/* DINHEIRO */}
-                {formaPagamento === "dinheiro" && (
+                {!modoDividido && formaPagamento === "dinheiro" && (
                   <div className="mt-4">
                     {tipoAtendimento === "entrega" && (
                       <div className="mb-3 grid grid-cols-2 gap-2">
@@ -1469,7 +1789,11 @@ export default function PdvClient({ produtos, categorias, clientes }: Props) {
                     <input
                       type="text"
                       inputMode="decimal"
-                      disabled={finalizando || (tipoAtendimento === "entrega" && trocoEntrega === "sem")}
+                      disabled={
+                        finalizando ||
+                        (tipoAtendimento === "entrega" &&
+                          trocoEntrega === "sem")
+                      }
                       value={trocoPara}
                       onChange={(event) => {
                         setTrocoPara(event.target.value);
@@ -1520,24 +1844,25 @@ export default function PdvClient({ produtos, categorias, clientes }: Props) {
                 )}
 
                 {/* CONFIRMAÇÃO PARA CARTÕES */}
-                {tipoAtendimento === "balcao" && (formaPagamento === "debito" ||
-                  formaPagamento === "credito") && (
-                  <label className="mt-4 flex cursor-pointer items-start gap-3 rounded-xl border border-white/10 bg-white/5 p-4">
-                    <input
-                      type="checkbox"
-                      checked={pagamentoConfirmado}
-                      disabled={finalizando}
-                      onChange={(event) =>
-                        setPagamentoConfirmado(event.target.checked)
-                      }
-                      className="mt-1 h-4 w-4 accent-amber-400"
-                    />
+                {tipoAtendimento === "balcao" &&
+                  (formaPagamento === "debito" ||
+                    formaPagamento === "credito") && (
+                    <label className="mt-4 flex cursor-pointer items-start gap-3 rounded-xl border border-white/10 bg-white/5 p-4">
+                      <input
+                        type="checkbox"
+                        checked={pagamentoConfirmado}
+                        disabled={finalizando}
+                        onChange={(event) =>
+                          setPagamentoConfirmado(event.target.checked)
+                        }
+                        className="mt-1 h-4 w-4 accent-amber-400"
+                      />
 
-                    <span className="text-sm leading-5 text-zinc-300">
-                      Confirmo que o pagamento foi autorizado na maquininha.
-                    </span>
-                  </label>
-                )}
+                      <span className="text-sm leading-5 text-zinc-300">
+                        Confirmo que o pagamento foi autorizado na maquininha.
+                      </span>
+                    </label>
+                  )}
               </div>
 
               {/* RESUMO DA VENDA */}

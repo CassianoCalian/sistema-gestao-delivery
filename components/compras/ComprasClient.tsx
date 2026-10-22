@@ -40,6 +40,201 @@ export default function ComprasClient() {
   const [analisando, setAnalisando] = useState(false);
   const [analise, setAnalise] = useState("");
   const [minimos, setMinimos] = useState<Record<string, number>>({});
+  const [configProntas, setConfigProntas] = useState(false);
+  const [salvandoConfig, setSalvandoConfig] = useState(false);
+  const [erroConfig, setErroConfig] = useState("");
+  const [pendentes, setPendentes] =
+    useState<Record<string, boolean>>({});
+  const [legado, setLegado] = useState<{
+    fornecedores: Record<string, string>;
+    minimos: Record<string, number>;
+  } | null>(null);
+  const [chavesRemotas, setChavesRemotas] = useState<string[]>([]);
+
+  useEffect(() => {
+    let ativo = true;
+
+    async function carregarConfiguracoes() {
+      try {
+        let fornecedoresLocais: Record<string, string> = {};
+        let minimosLocais: Record<string, number> = {};
+
+        try {
+          fornecedoresLocais = JSON.parse(
+            localStorage.getItem(STORAGE) ?? "{}",
+          );
+
+          minimosLocais = JSON.parse(
+            localStorage.getItem(STORAGE_MINIMOS) ?? "{}",
+          );
+        } catch {
+          // Ignora dados locais invalidos.
+        }
+
+        const resposta = await fetch(
+          "/api/admin/compras/configuracoes",
+          { cache: "no-store" },
+        );
+
+        const resultado = await resposta.json();
+
+        if (!resposta.ok ||
+            !Array.isArray(resultado.configuracoes)) {
+          throw new Error(
+            resultado.erro ?? "Falha ao consultar configuracoes.",
+          );
+        }
+
+        if (!ativo) return;
+
+        const novosFornecedores: Record<string, string> = {};
+        const novosMinimos: Record<string, number> = {};
+
+        const chaves = new Set<string>();
+
+        for (const linha of resultado.configuracoes) {
+          if (typeof linha.chave !== "string") continue;
+          chaves.add(linha.chave);
+          novosFornecedores[linha.chave] = linha.fornecedor;
+
+          if (Number.isSafeInteger(linha.estoque_minimo)) {
+            novosMinimos[linha.chave] = linha.estoque_minimo;
+          }
+        }
+
+        setFornecedores(novosFornecedores);
+        setMinimos(novosMinimos);
+        setChavesRemotas([...chaves]);
+
+        const locaisValidos = {
+          fornecedores: Object.fromEntries(
+            Object.entries(fornecedoresLocais ?? {}).filter(
+              ([chave, valor]) =>
+                /^(produto|fisico):[1-9][0-9]{0,17}$/.test(chave) &&
+                ["Valtinho", "Barzil", "Outro"].includes(valor) &&
+                !chaves.has(chave),
+            ),
+          ) as Record<string, string>,
+          minimos: Object.fromEntries(
+            Object.entries(minimosLocais ?? {}).filter(
+              ([chave, valor]) =>
+                /^(produto|fisico):[1-9][0-9]{0,17}$/.test(chave) &&
+                !chaves.has(chave) &&
+                typeof valor === "number" &&
+                Number.isSafeInteger(valor) &&
+                valor >= 0 &&
+                valor <= 10000,
+            ),
+          ) as Record<string, number>,
+        };
+
+        if (
+          Object.keys(locaisValidos.fornecedores).length ||
+          Object.keys(locaisValidos.minimos).length
+        ) {
+          setLegado(locaisValidos);
+        }
+
+        setErroConfig("");
+        setConfigProntas(true);
+      } catch (erro) {
+        if (!ativo) return;
+        setErroConfig(
+          erro instanceof Error
+            ? erro.message
+            : "Falha ao conectar ao Supabase.",
+        );
+        setConfigProntas(false);
+      }
+    }
+
+    void carregarConfiguracoes();
+
+    return () => {
+      ativo = false;
+    };
+  }, []);
+
+  function marcarPendente(chave: string) {
+    setPendentes((atual) => ({ ...atual, [chave]: true }));
+  }
+
+  function importarDoNavegador() {
+    if (!legado || !configProntas) return;
+
+    const chaves = new Set(chavesRemotas);
+    const novasChaves = [
+      ...Object.keys(legado.fornecedores),
+      ...Object.keys(legado.minimos),
+    ].filter((chave) => !chaves.has(chave));
+
+    setFornecedores((atual) => ({
+      ...atual,
+      ...legado.fornecedores,
+    }));
+
+    setMinimos((atual) => ({
+      ...atual,
+      ...legado.minimos,
+    }));
+
+    setPendentes((atual) => ({
+      ...atual,
+      ...Object.fromEntries(novasChaves.map((chave) => [chave, true])),
+    }));
+
+    setLegado(null);
+  }
+
+  async function salvarConfiguracoes() {
+    if (!configProntas || salvandoConfig) return;
+
+    const chaves = Object.keys(pendentes);
+
+    if (!chaves.length) return;
+
+    setSalvandoConfig(true);
+    setErroConfig("");
+
+    try {
+      const itens = chaves.map((chave) => ({
+        chave,
+        fornecedor: fornecedores[chave] ?? "Nao definido",
+        estoque_minimo: minimos[chave] ?? null,
+      }));
+
+      const resposta = await fetch(
+        "/api/admin/compras/configuracoes",
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ itens }),
+        },
+      );
+
+      const resultado = await resposta.json();
+
+      if (!resposta.ok || !resultado.sucesso) {
+        throw new Error(
+          resultado.erro ?? "Falha ao salvar configuracoes.",
+        );
+      }
+
+      setPendentes({});
+      setChavesRemotas((atual) => [
+        ...new Set([...atual, ...chaves]),
+      ]);
+      setErroConfig("");
+
+      alert(`${resultado.quantidade} configuracao(oes) salva(s) no Supabase.`);
+    } catch (erro) {
+      setErroConfig(
+        erro instanceof Error ? erro.message : "Falha ao salvar.",
+      );
+    } finally {
+      setSalvandoConfig(false);
+    }
+  }
 
   useEffect(() => {
     try {
@@ -89,6 +284,7 @@ export default function ComprasClient() {
   function mudarFornecedor(chave: string, nome: string) {
     const novo = { ...fornecedores, [chave]: nome };
     setFornecedores(novo);
+    marcarPendente(chave);
     setAnalise("");
     try {
       localStorage.setItem(STORAGE, JSON.stringify(novo));
@@ -134,6 +330,7 @@ export default function ComprasClient() {
     }
 
     setMinimos(novos);
+    marcarPendente(chave);
     setAnalise("");
 
     try {
@@ -220,6 +417,64 @@ export default function ComprasClient() {
           Deposito do Ze — previsao de compras para os proximos 7 dias.
         </p>
 
+        <div className="mt-5 rounded-2xl border border-amber-400/20 bg-zinc-900 p-4">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div>
+              <p className="font-bold text-white">
+                Configuracoes permanentes de compras
+              </p>
+              <p className="mt-1 text-xs text-zinc-400">
+                Fornecedores e estoques minimos ficam no Supabase.
+                Revise e salve as alteracoes antes de sair.
+              </p>
+            </div>
+
+            <div className="flex flex-wrap gap-2">
+              {legado && configProntas && (
+                <button
+                  type="button"
+                  onClick={importarDoNavegador}
+                  className="rounded-xl border border-sky-400/30 px-4 py-2 text-sm font-bold text-sky-200"
+                >
+                  Importar dados deste navegador
+                </button>
+              )}
+
+              <button
+                type="button"
+                disabled={
+                  !configProntas ||
+                  salvandoConfig ||
+                  Object.keys(pendentes).length === 0
+                }
+                onClick={salvarConfiguracoes}
+                className="rounded-xl bg-amber-400 px-5 py-3 text-sm font-black text-black disabled:opacity-40"
+              >
+                {salvandoConfig
+                  ? "Salvando..."
+                  : `Salvar no Supabase (${Object.keys(pendentes).length})`}
+              </button>
+            </div>
+          </div>
+
+          {erroConfig && (
+            <p role="alert" className="mt-3 text-sm text-red-300">
+              {erroConfig}
+            </p>
+          )}
+
+          {configProntas && Object.keys(pendentes).length > 0 && (
+            <p className="mt-2 text-xs text-amber-300">
+              Alteracoes pendentes. Clique em Salvar no Supabase.
+            </p>
+          )}
+
+          {configProntas && Object.keys(pendentes).length === 0 && (
+            <p className="mt-2 text-xs text-emerald-300">
+              Configuracoes sincronizadas.
+            </p>
+          )}
+        </div>
         {carregando && <p className="mt-6">Consultando vendas e estoque...</p>}
 
         {erro && (
@@ -341,6 +596,7 @@ export default function ComprasClient() {
                       <td className="p-3">
                         <select
                           aria-label={`Fornecedor de ${i.nome}`}
+                          disabled={!configProntas || salvandoConfig}
                           value={fornecedores[i.chave] ?? "Nao definido"}
                           onChange={(e) => mudarFornecedor(i.chave, e.target.value)}
                           className="rounded-lg bg-zinc-800 p-2 print:hidden"
@@ -361,6 +617,7 @@ export default function ComprasClient() {
                           step="1"
                           aria-label={`Estoque minimo de ${i.nome}`}
                           placeholder="Definir"
+                          disabled={!configProntas || salvandoConfig}
                           value={minimos[i.chave] ?? ""}
                           onChange={(e) =>
                             mudarMinimo(i.chave, e.target.value)
@@ -381,7 +638,7 @@ export default function ComprasClient() {
 
             <p className="mt-3 text-xs text-zinc-500">
               Historico desde {dados.inicio}.
-              Fornecedores armazenados somente neste navegador.
+              Fornecedores e minimos sao salvos no Supabase pelo botao Salvar.
             </p>
           </>
         )}

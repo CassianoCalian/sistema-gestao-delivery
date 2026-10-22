@@ -14,6 +14,28 @@ function moeda(valor: unknown) {
   });
 }
 
+function mostrarParcelas(detalhes: unknown) {
+  if (!detalhes || typeof detalhes !== "object") return null;
+
+  const valor = detalhes as {
+    parcelas?: { forma: string; valor: number }[];
+  };
+
+  if (!Array.isArray(valor.parcelas) || valor.parcelas.length < 2) return null;
+
+  return (
+    <div className="mt-2 rounded-lg border border-amber-400/20 p-3">
+      <p className="mb-2 font-bold text-amber-300">Pagamento dividido</p>
+
+      {valor.parcelas.map((p, i) => (
+        <p key={i} className="text-sm">
+          {p.forma.toUpperCase()}: {moeda(p.valor)}
+        </p>
+      ))}
+    </div>
+  );
+}
+
 function horario(valor: string) {
   return new Date(valor).toLocaleString("pt-BR", {
     timeZone: "America/Sao_Paulo",
@@ -58,9 +80,7 @@ export default async function HistoricoUnificado() {
     return (
       <main className="min-h-screen bg-[#080808] p-6 text-white">
         <div className="mx-auto max-w-5xl">
-          <h1 className="text-3xl font-black">
-            Historico do Turno
-          </h1>
+          <h1 className="text-3xl font-black">Historico do Turno</h1>
 
           <div className="mt-6 rounded-2xl border border-amber-400/30 bg-zinc-950 p-6">
             <p className="text-xl font-black text-amber-400">
@@ -72,8 +92,8 @@ export default async function HistoricoUnificado() {
             </p>
 
             <p className="mt-2 text-sm text-zinc-500">
-              Abra um novo turno para iniciar a contagem.
-              As vendas anteriores permanecem registradas.
+              Abra um novo turno para iniciar a contagem. As vendas anteriores
+              permanecem registradas.
             </p>
           </div>
 
@@ -92,40 +112,39 @@ export default async function HistoricoUnificado() {
 
   // Balcao: vendas vinculadas ao turno atual.
   // Delivery: pedidos criados durante este turno.
-  const [vendasR, pedidosR, qtdBalcaoR, qtdDeliveryR] =
-    await Promise.all([
-      supabaseAdmin
-        .from("pdv_vendas")
-        .select(
-          "id,created_at,total,status,forma_pagamento,turno_id"
-        )
-        .eq("turno_id", turno.id)
-        .order("id", { ascending: false })
-        .limit(100),
+  const [vendasR, pedidosR, qtdBalcaoR, qtdDeliveryR] = await Promise.all([
+    supabaseAdmin
+      .from("pdv_vendas")
+      .select(
+        "id,created_at,total,status,forma_pagamento,turno_id,pagamentos_detalhes",
+      )
+      .eq("turno_id", turno.id)
+      .order("id", { ascending: false })
+      .limit(100),
 
-      supabaseAdmin
-        .from("pedidos")
-        .select(
-          "id,created_at,total,status,forma_pagamento,pagamento_confirmado,nome_cliente"
-        )
-        .gte("created_at", turno.aberto_em)
-        .lte("created_at", agora)
-        .order("id", { ascending: false })
-        .limit(100),
+    supabaseAdmin
+      .from("pedidos")
+      .select(
+        "id,created_at,total,status,forma_pagamento,pagamento_confirmado,nome_cliente,pagamentos_detalhes",
+      )
+      .gte("created_at", turno.aberto_em)
+      .lte("created_at", agora)
+      .order("id", { ascending: false })
+      .limit(100),
 
-      supabaseAdmin
-        .from("pdv_vendas")
-        .select("id", { count: "exact", head: true })
-        .eq("turno_id", turno.id)
-        .eq("status", "concluida"),
+    supabaseAdmin
+      .from("pdv_vendas")
+      .select("id", { count: "exact", head: true })
+      .eq("turno_id", turno.id)
+      .eq("status", "concluida"),
 
-      supabaseAdmin
-        .from("pedidos")
-        .select("id", { count: "exact", head: true })
-        .gte("created_at", turno.aberto_em)
-        .lte("created_at", agora)
-        .neq("status", "cancelado"),
-    ]);
+    supabaseAdmin
+      .from("pedidos")
+      .select("id", { count: "exact", head: true })
+      .gte("created_at", turno.aberto_em)
+      .lte("created_at", agora)
+      .neq("status", "cancelado"),
+  ]);
 
   if (
     vendasR.error ||
@@ -159,9 +178,7 @@ export default async function HistoricoUnificado() {
             <p className="text-xs font-bold uppercase text-amber-400">
               Deposito do Ze
             </p>
-            <h1 className="mt-2 text-3xl font-black">
-              Historico do Turno
-            </h1>
+            <h1 className="mt-2 text-3xl font-black">Historico do Turno</h1>
             <p className="mt-2 text-sm text-zinc-400">
               Balcao e delivery separados, com contagem individual.
             </p>
@@ -207,10 +224,9 @@ export default async function HistoricoUnificado() {
         </section>
 
         <p className="mt-3 text-xs text-zinc-500">
-          Contagem somente do turno atual. Para a contagem
-          do turno atual, consulte o contador na tela do PDV.
-          As listas exibem os 100 registros mais recentes por canal,
-          incluindo os cancelados para auditoria.
+          Contagem somente do turno atual. Para a contagem do turno atual,
+          consulte o contador na tela do PDV. As listas exibem os 100 registros
+          mais recentes por canal, incluindo os cancelados para auditoria.
         </p>
 
         <div className="mt-6 grid gap-5 xl:grid-cols-2">
@@ -249,20 +265,21 @@ export default async function HistoricoUnificado() {
                     <div className="mt-3 space-y-2 text-sm">
                       <p>Valor: {moeda(v.total)}</p>
                       <p>Pagamento: {v.forma_pagamento}</p>
+                      {mostrarParcelas(v.pagamentos_detalhes)}
                       <p>Turno: {v.turno_id ?? "Nao vinculado"}</p>
                     </div>
                   </details>
 
                   {v.status === "concluida" &&
- Number(v.turno_id) === turno.id ? (
-  <CancelarVendaBalcao id={v.id} total={Number(v.total)} />
-) : (
-  <p className="mt-3 text-xs text-zinc-500">
-    {v.status === "cancelada"
-      ? "Venda cancelada"
-      : "Cancelamento permitido somente no turno aberto."}
-  </p>
-)}
+                  Number(v.turno_id) === turno.id ? (
+                    <CancelarVendaBalcao id={v.id} total={Number(v.total)} />
+                  ) : (
+                    <p className="mt-3 text-xs text-zinc-500">
+                      {v.status === "cancelada"
+                        ? "Venda cancelada"
+                        : "Cancelamento permitido somente no turno aberto."}
+                    </p>
+                  )}
                 </div>
               ))}
             </div>
@@ -282,7 +299,7 @@ export default async function HistoricoUnificado() {
                 const cancelavel =
                   true &&
                   (pedido.status === "recebido" ||
-                   pedido.status === "em_preparacao");
+                    pedido.status === "em_preparacao");
 
                 return (
                   <div
@@ -291,9 +308,7 @@ export default async function HistoricoUnificado() {
                   >
                     <div className="flex justify-between gap-3">
                       <div>
-                        <p className="font-black">
-                          Delivery #{pedido.id}
-                        </p>
+                        <p className="font-black">Delivery #{pedido.id}</p>
                         <p className="mt-1 text-xs text-zinc-400">
                           {horario(pedido.created_at)}
                         </p>
@@ -311,6 +326,7 @@ export default async function HistoricoUnificado() {
                         <p>Cliente: {pedido.nome_cliente}</p>
                         <p>Valor: {moeda(pedido.total)}</p>
                         <p>Pagamento: {pedido.forma_pagamento}</p>
+                        {mostrarParcelas(pedido.pagamentos_detalhes)}
                         <p>
                           Situacao financeira:{" "}
                           {pedido.pagamento_confirmado
@@ -329,7 +345,10 @@ export default async function HistoricoUnificado() {
                       </Link>
 
                       {cancelavel && (
-                        <CancelarEntrega id={pedido.id} pago={pedido.pagamento_confirmado === true} />
+                        <CancelarEntrega
+                          id={pedido.id}
+                          pago={pedido.pagamento_confirmado === true}
+                        />
                       )}
 
                       {!cancelavel && pedido.status !== "cancelado" && (
