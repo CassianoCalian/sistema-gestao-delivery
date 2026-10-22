@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { supabaseAdmin } from "../../../lib/supabaseAdmin";
 import OrderStatusButtons from "../../../components/OrderStatusButtons";
+import PagamentoRapidoPedido from "../../../components/PagamentoRapidoPedido";
 import AdminOrderAlerts from "../../../components/AdminOrderAlerts";
 
 import AdminNavigation from "../../../components/AdminNavigation";
@@ -494,6 +495,14 @@ export default async function AdminPedidosPage({
             </Link>
           </div>
         )}
+        <Link
+          href="/admin/pdv/vendas-hoje"
+          className="mt-6 flex items-center justify-between gap-4 rounded-2xl border border-amber-400/25 bg-amber-400/[0.07] px-5 py-4 text-sm font-black text-amber-400 transition hover:bg-amber-400/[0.13]"
+        >
+          <span>VER VENDAS DE HOJE - BALCAO + DELIVERY</span>
+          <span aria-hidden="true">→</span>
+        </Link>
+
         <div className="mt-8 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
           {/* NOVOS PEDIDOS */}
           <Link
@@ -998,6 +1007,12 @@ export default async function AdminPedidosPage({
                           telefone={pedido.telefone}
                           formaPagamento={pedido.forma_pagamento}
                           pagamentoConfirmado={pedido.pagamento_confirmado}
+                        />
+                        <PagamentoRapidoPedido
+                          pedidoId={pedido.id}
+                          status={pedido.status}
+                          formaPagamento={pedido.forma_pagamento}
+                          pagamentoConfirmado={Boolean(pedido.pagamento_confirmado)}
                         />
                       </div>
 

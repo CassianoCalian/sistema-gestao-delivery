@@ -93,14 +93,17 @@ export default function PrintableOrderReceipt({
 
   const whatsapp = process.env.NEXT_PUBLIC_WHATSAPP_NUMBER ?? "21973209746";
 
-  const statusPagamento =
-    pedido.forma_pagamento === "pix"
-      ? pedido.pagamento_confirmado
-        ? "PIX PAGO ✓"
-        : "PIX PENDENTE"
+  const statusPagamento = pedido.pagamento_confirmado
+    ? pedido.forma_pagamento === "pix"
+      ? "PIX PAGO - CONFIRMADO"
       : pedido.forma_pagamento === "cartao_entrega"
-        ? "CARTÃO NA ENTREGA"
-        : "DINHEIRO NA ENTREGA";
+        ? "CARTAO PAGO - CONFIRMADO"
+        : "DINHEIRO PAGO - CONFIRMADO"
+    : pedido.forma_pagamento === "pix"
+      ? "PIX PENDENTE"
+      : pedido.forma_pagamento === "cartao_entrega"
+        ? "CARTAO NA ENTREGA - PENDENTE"
+        : "DINHEIRO NA ENTREGA - PENDENTE";
 
   return (
     <div id="comanda-deposito-ze" className="hidden print:block">
@@ -198,9 +201,11 @@ export default function PrintableOrderReceipt({
               Aguardar confirmação antes de liberar
             </p>
           )}
-          {pedido.forma_pagamento === "dinheiro" && pedido.troco_para && (
-            <p className="font-bold">
-              Troco para: {formatarPreco(Number(pedido.troco_para))}
+          {pedido.forma_pagamento === "dinheiro" && (
+            <p className="text-[12px] font-black uppercase">
+              {pedido.troco_para != null && Number(pedido.troco_para) > 0
+                ? `TROCO PARA: ${formatarPreco(Number(pedido.troco_para))}`
+                : "SEM TROCO"}
             </p>
           )}
         </div>
