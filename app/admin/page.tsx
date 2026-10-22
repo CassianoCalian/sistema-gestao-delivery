@@ -5,6 +5,7 @@ import { verificarAdmin } from "../../lib/supabase/requireAdmin";
 import { supabaseAdmin } from "../../lib/supabaseAdmin";
 import AdminNavigation from "../../components/AdminNavigation";
 import AdminAutoRefresh from "../../components/AdminAutoRefresh";
+import ValorProtegido from "../../components/pdv/ValorProtegido";
 
 export const dynamic = "force-dynamic";
 
@@ -835,7 +836,7 @@ export default async function AdminPage() {
               </p>
 
               <p className="mt-1 text-4xl font-black tracking-[-0.05em] text-white">
-                {quantidadePedidosHoje}
+                <ValorProtegido texto={String(quantidadePedidosHoje)} mascara="***" />
               </p>
 
               <p className="mt-2 text-xs text-zinc-600">
@@ -870,7 +871,7 @@ export default async function AdminPage() {
               </p>
 
               <p className="mt-1 text-4xl font-black tracking-[-0.05em] text-white">
-                {formatarPreco(faturamentoHoje)}
+                <ValorProtegido texto={formatarPreco(faturamentoHoje)} mascara="R$ *****" />
               </p>
 
               <p className="mt-2 text-xs text-zinc-600">
@@ -904,7 +905,7 @@ export default async function AdminPage() {
               </p>
 
               <p className="mt-1 text-4xl font-black tracking-[-0.05em] text-white">
-                {formatarPreco(ticketMedioHoje)}
+                <ValorProtegido texto={formatarPreco(ticketMedioHoje)} mascara="R$ *****" />
               </p>
 
               <p className="mt-2 text-xs text-zinc-600">
@@ -949,7 +950,7 @@ export default async function AdminPage() {
               </p>
 
               <p className="mt-1 text-4xl font-black tracking-[-0.05em] text-white">
-                {quantidadeRecebidos}
+                <ValorProtegido texto={String(quantidadeRecebidos)} mascara="***" />
               </p>
 
               <div className="mt-2 flex items-center justify-between gap-3">
@@ -990,7 +991,7 @@ export default async function AdminPage() {
               </p>
 
               <p className="mt-1 text-4xl font-black tracking-[-0.05em] text-white">
-                {quantidadeEmAndamento}
+                <ValorProtegido texto={String(quantidadeEmAndamento)} mascara="***" />
               </p>
 
               <div className="mt-2 flex items-center justify-between gap-3">
@@ -1036,7 +1037,7 @@ export default async function AdminPage() {
               </p>
 
               <p className="mt-1 text-4xl font-black tracking-[-0.05em] text-white">
-                {quantidadePixPendentes}
+                <ValorProtegido texto={String(quantidadePixPendentes)} mascara="***" />
               </p>
 
               <div className="mt-2 flex items-center justify-between gap-3">
