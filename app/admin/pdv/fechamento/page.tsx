@@ -1,5 +1,9 @@
 import Link from "next/link";
 import {
+  resumirRecebimentosDelivery,
+  situacaoRecebimentoDelivery
+} from "../../../../lib/recebimentosDelivery";
+import {
   resumoPagamentos,
   descricaoPagamento
 } from "../../../../lib/pdvResumoMisto";
@@ -185,9 +189,12 @@ export default async function ResumoFechamento({ searchParams }: Props) {
   }
 
   const totalBalcao = total(balcao);
-  const totalEntregasPagas = total(pagos);
-  const totalPendente = total(pendentes);
-  const totalEntregas = total(entregas);
+  const resumoDeliveryPago =
+    resumirRecebimentosDelivery(entregas);
+
+  const totalEntregasPagas = resumoDeliveryPago.recebido;
+  const totalPendente = resumoDeliveryPago.pendente;
+  const totalEntregas = resumoDeliveryPago.vendido;
 
   const totalVendido = Math.round(
     (totalBalcao + totalEntregas) * 100
@@ -214,7 +221,7 @@ export default async function ResumoFechamento({ searchParams }: Props) {
   ];
 
   const resumoBalcaoMisto = resumoPagamentos(balcao);
-  const resumoDeliveryPago = resumoPagamentos(pagos);
+
 
   const linhas = [
     ...balcao.map((v) => ({
@@ -234,9 +241,7 @@ export default async function ResumoFechamento({ searchParams }: Props) {
       situacao:
         p.status === "cancelado"
           ? "Cancelado - conferir estorno se pago"
-          : p.pagamento_confirmado
-            ? "Pagamento confirmado"
-            : "Pagamento pendente",
+          : situacaoRecebimentoDelivery(p),
       total: valor(p.total),
       destino: `/admin/pedidos/${p.id}`,
     })),
@@ -341,7 +346,7 @@ export default async function ResumoFechamento({ searchParams }: Props) {
                 ["TOTAL COM PAGAMENTO CONFIRMADO", totalConfirmado],
                 ["DELIVERY A RECEBER", totalPendente],
                 ["Balcao recebido", totalBalcao],
-                ["Delivery com pagamento confirmado", totalEntregasPagas],
+                ["Delivery recebido (inclui parcial)", totalEntregasPagas],
                 ["Total vendido em delivery", totalEntregas],
                 ["Dinheiro inicial do turno", valor(turno.valor_inicial)],
                 ["Dinheiro contado ao fechar", turno.valor_contado === null ? null : valor(turno.valor_contado)],
@@ -386,10 +391,10 @@ export default async function ResumoFechamento({ searchParams }: Props) {
                   Entregas nao canceladas: {entregas.length} pedido(s)
                 </h2>
                 <p className="mt-2">
-                  Pagos: {pagos.length} - {moeda(totalEntregasPagas)}
+                  Quitados: {pagos.length} | Recebido: {moeda(totalEntregasPagas)}
                 </p>
                 <p className="mt-2">
-                  Pendentes: {pendentes.length} - {moeda(totalPendente)}
+                  Nao quitados: {pendentes.length} | A receber: {moeda(totalPendente)}
                 </p>
                 <p className="mt-2">
                   Cancelados: {cancelados.length}
@@ -446,9 +451,9 @@ export default async function ResumoFechamento({ searchParams }: Props) {
             </div>
 
             <p className="mt-5 text-xs leading-6 text-zinc-400">
-              Relatorio operacional somente de leitura. Entregas
-              estao agrupadas pelo horario de criacao e incluem
-              pedidos do site e do PDV. O total confirmado
+              Relatorio operacional somente de leitura. Entregas estao agrupadas pela criacao do pedido,
+               nao pela data efetiva do recebimento.
+               Confira valores recebidos em outro turno antes do fechamento. O total confirmado
               nao representa, por si so, o saldo da gaveta.
               Valores pendentes nao foram somados como recebidos.
               Confira estornos e pagamentos na area Pedidos.

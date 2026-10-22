@@ -71,7 +71,7 @@ export async function POST(request: Request, contexto: Contexto) {
 
     const { data: pedido, error: erroConsulta } = await supabaseAdmin
       .from("pedidos")
-      .select("id, status, forma_pagamento, pagamento_confirmado")
+      .select("id, status, forma_pagamento, pagamento_confirmado, pagamentos_detalhes")
       .eq("id", id)
       .maybeSingle();
 
@@ -113,11 +113,40 @@ export async function POST(request: Request, contexto: Contexto) {
         ja_confirmado: true,
       });
     }
+    const detalhes = pedido.pagamentos_detalhes as {
+      parcelas?: Array<{
+        forma: string;
+        valor: number;
+        recebido?: boolean;
+      }>;
+      [chave: string]: unknown;
+    } | null;
+
+    const parcelasQuitadas =
+      Array.isArray(detalhes?.parcelas)
+        ? detalhes.parcelas.map((p) => ({
+            ...p,
+            recebido: true,
+          }))
+        : null;
+
+    const atualizacao = parcelasQuitadas
+      ? {
+          pagamento_confirmado: true,
+          pagamentos_detalhes: {
+            ...detalhes,
+            parcelas: parcelasQuitadas,
+            pago: true,
+          },
+        }
+      : { pagamento_confirmado: true };
+
+
 
     const { data: atualizado, error: erroAtualizacao } =
       await supabaseAdmin
         .from("pedidos")
-        .update({ pagamento_confirmado: true })
+        .update(atualizacao)
         .eq("id", id)
         .eq("status", pedido.status)
         .eq("forma_pagamento", pedido.forma_pagamento)

@@ -187,7 +187,7 @@ export async function GET() {
     // sangrias, suprimentos e diferenças de fechamento.
 
     const { data: resumos, error: erroResumo } = await supabaseAdmin.rpc(
-      "resumo_financeiro_turnos_pdv",
+      "resumo_financeiro_misto_turnos_pdv",
       {
         p_caixa_codigo: "principal",
         p_limite: 30,

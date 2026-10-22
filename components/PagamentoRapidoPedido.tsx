@@ -8,6 +8,8 @@ type Props = {
   status: string;
   formaPagamento: string;
   pagamentoConfirmado: boolean;
+  pagamentoDividido?: boolean;
+  saldoPendente?: number;
 };
 
 export default function PagamentoRapidoPedido({
@@ -15,6 +17,8 @@ export default function PagamentoRapidoPedido({
   status,
   formaPagamento,
   pagamentoConfirmado,
+pagamentoDividido = false,
+  saldoPendente = 0,
 }: Props) {
   const router = useRouter();
   const [salvando, setSalvando] = useState(false);
@@ -36,7 +40,10 @@ export default function PagamentoRapidoPedido({
 
   async function confirmar() {
     const mensagem =
-      formaPagamento === "pix"
+      pagamentoDividido
+        ? "Confirma que recebeu o saldo de R$ " +
+          saldoPendente.toFixed(2).replace(".", ",") + "?"
+        : formaPagamento === "pix"
         ? "O PIX realmente caiu na conta? Confirme no extrato antes de continuar."
         : "Voce realmente recebeu este pagamento? Confirme somente apos receber.";
 
@@ -75,7 +82,9 @@ export default function PagamentoRapidoPedido({
   }
 
   const nome =
-    formaPagamento === "pix"
+    pagamentoDividido
+      ? "CONFIRMAR SALDO RECEBIDO"
+      : formaPagamento === "pix"
       ? "CONFIRMAR PIX"
       : formaPagamento === "dinheiro"
         ? "MARCAR DINHEIRO PAGO"

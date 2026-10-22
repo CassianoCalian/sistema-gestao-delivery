@@ -9,6 +9,7 @@ type Forma = "pix" | "dinheiro" | "debito" | "credito";
 type Parcela = {
   forma: Forma;
   valor: number;
+  recebido?: boolean;
 };
 
 type Dados = {
@@ -110,18 +111,47 @@ export async function POST(request: Request) {
       );
     }
 
+    if (
+      parcelas.some(
+        (p) => p.recebido !== undefined &&
+          typeof p.recebido !== "boolean"
+      )
+    ) {
+      return erro("Confirmacao de parcela invalida.", 400);
+    }
+
+    const parcelasDetalhadas = parcelas.map((p) => ({
+      forma: p.forma,
+      valor: p.valor,
+      recebido:
+        body.tipo === "balcao" ||
+        body.pagamento_confirmado ||
+        p.recebido === true,
+    }));
+
+    const pagoIntegral = parcelasDetalhadas.every(
+      (p) => p.recebido
+    );
+
+    if (
+      pagoIntegral !==
+      (body.tipo === "balcao" || body.pagamento_confirmado)
+    ) {
+      return erro("Status de pagamento inconsistente.", 400);
+    }
+
     const detalhes = {
-      versao: 1,
+      versao: 2,
       origem: "pdv",
-      parcelas,
-      pago: body.pagamento_confirmado,
+      parcelas: parcelasDetalhadas,
+      pago: pagoIntegral,
     };
 
     const atualizacao =
       body.tipo === "entrega"
         ? {
             pagamentos_detalhes: detalhes,
-            pagamento_confirmado: body.pagamento_confirmado,
+            pagamento_confirmado: pagoIntegral,
           }
         : {
             pagamentos_detalhes: detalhes,
@@ -144,8 +174,8 @@ export async function POST(request: Request) {
       sucesso: true,
       registro_id: salvo.id,
       total: Number(registro.total),
-      pagamento_confirmado: body.pagamento_confirmado,
-      parcelas,
+      pagamento_confirmado: pagoIntegral,
+      parcelas: parcelasDetalhadas,
     });
   } catch (error) {
     console.error("Erro no pagamento do PDV:", error);

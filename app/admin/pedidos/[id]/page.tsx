@@ -221,12 +221,27 @@ opcoes_selecionadas
   const pontosFidelidadeUsados = Number(pedido.pontos_fidelidade_usados ?? 0);
 
   const detalhesPagamento = pedido.pagamentos_detalhes as {
-    parcelas?: { forma: string; valor: number }[];
+    parcelas?: { forma: string; valor: number; recebido?: boolean }[];
   } | null;
 
   const parcelasAdmin = Array.isArray(detalhesPagamento?.parcelas)
     ? detalhesPagamento.parcelas
     : [];
+
+  const recebidoPedido = parcelasAdmin.reduce(
+    (soma, p) =>
+      soma +
+      (pedido.pagamento_confirmado || p.recebido === true
+        ? Math.round(Number(p.valor) * 100)
+        : 0),
+    0
+  ) / 100;
+
+  const saldoPendentePedido = Math.max(
+    0,
+    Math.round(Number(pedido.total) * 100) -
+      Math.round(recebidoPedido * 100)
+  ) / 100;
 
   return (
     <>
@@ -256,7 +271,7 @@ opcoes_selecionadas
           pagamento_confirmado: Boolean(pedido.pagamento_confirmado),
 
           pagamentos_detalhes: pedido.pagamentos_detalhes as {
-            parcelas?: { forma: string; valor: number }[];
+            parcelas?: { forma: string; valor: number; recebido?: boolean }[];
             pago?: boolean;
           } | null,
         }}
@@ -540,7 +555,14 @@ opcoes_selecionadas
                     </div>
                   )}
 
-                  {pedido.forma_pagamento === "cartao_entrega" &&
+                  {parcelasAdmin.length > 1 && (
+                      <p className="mt-3 text-sm font-bold text-amber-300">
+                        Recebido: {formatarPreco(recebidoPedido)}
+                        {" | "}
+                        Cobrar: {formatarPreco(saldoPendentePedido)}
+                      </p>
+                    )}
+                    {pedido.forma_pagamento === "cartao_entrega" &&
                     taxaCartaoNumero > 0 && (
                       <div className="mt-4 rounded-[16px] border border-amber-400/10 bg-amber-400/[0.04] px-4 py-3">
                         <p className="text-[8px] font-black uppercase tracking-[0.1em] text-amber-400">
@@ -597,7 +619,7 @@ opcoes_selecionadas
                     </div>
                   )}
 
-                  {pedido.forma_pagamento !== "pix" && (
+                  {(pedido.forma_pagamento !== "pix" || parcelasAdmin.length > 1) && (
                     <div className="mt-5 flex items-center gap-2 border-t border-white/[0.05] pt-3">
                       <span className="h-1.5 w-1.5 rounded-full bg-cyan-400" />
 
@@ -622,6 +644,8 @@ opcoes_selecionadas
                       status={pedido.status}
                       formaPagamento={pedido.forma_pagamento}
                       pagamentoConfirmado={Boolean(pedido.pagamento_confirmado)}
+                      pagamentoDividido={parcelasAdmin.length > 1}
+                      saldoPendente={saldoPendentePedido}
                     />
                   </div>
                 )}

@@ -126,6 +126,7 @@ export default function PdvClient({ produtos, categorias, clientes }: Props) {
     useState<FormaPagamento | null>(null);
 
   const [valorPrimeiraParte, setValorPrimeiraParte] = useState("");
+  const [primeiraParcelaRecebida, setPrimeiraParcelaRecebida] = useState(false);
 
   const registroCriadoRef = useRef<{
     tipo: "entrega" | "balcao";
@@ -327,6 +328,7 @@ export default function PdvClient({ produtos, categorias, clientes }: Props) {
 
   function invalidarConfirmacao() {
     setPagamentoConfirmado(false);
+    setPrimeiraParcelaRecebida(false);
     setErroVenda("");
   }
 
@@ -458,6 +460,7 @@ export default function PdvClient({ produtos, categorias, clientes }: Props) {
     setModoDividido(false);
     setSegundaFormaPagamento(null);
     setValorPrimeiraParte("");
+    setPrimeiraParcelaRecebida(false);
     registroCriadoRef.current = null;
     setTrocoPara("");
     setErroVenda("");
@@ -717,7 +720,16 @@ export default function PdvClient({ produtos, categorias, clientes }: Props) {
         registro_id: registroId,
         total_esperado: total,
         pagamento_confirmado: tipo === "balcao" ? true : pagamentoConfirmado,
-        parcelas: parcelasPagamento,
+        parcelas: parcelasPagamento.map((p, indice) => ({
+          ...p,
+          recebido:
+            tipo === "balcao" ||
+            pagamentoConfirmado ||
+            (tipo === "entrega" &&
+              modoDividido &&
+              indice === 0 &&
+              primeiraParcelaRecebida),
+        })),
       }),
     });
 
@@ -1687,6 +1699,23 @@ export default function PdvClient({ produtos, categorias, clientes }: Props) {
                           </div>
                         </div>
 
+                        {tipoAtendimento === "entrega" && (
+                          <label className="flex items-center gap-3 rounded-lg border border-emerald-500/30 bg-emerald-500/10 p-3">
+                            <input
+                              type="checkbox"
+                              checked={primeiraParcelaRecebida || pagamentoConfirmado}
+                              disabled={finalizando || pagamentoConfirmado}
+                              onChange={(e) => {
+                                setPrimeiraParcelaRecebida(e.target.checked);
+                                setErroVenda("");
+                              }}
+                              className="h-5 w-5 accent-emerald-500"
+                            />
+                            <span className="text-sm font-bold text-emerald-300">
+                              Primeira parte ja recebida
+                            </span>
+                          </label>
+                        )}
                         <div className="rounded-lg bg-black/40 p-3">
                           <p className="text-xs text-zinc-400">
                             Restante calculado automaticamente

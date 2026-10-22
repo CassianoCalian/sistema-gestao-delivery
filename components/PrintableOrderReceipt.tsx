@@ -36,6 +36,7 @@ type PedidoImpressao = {
     parcelas?: {
       forma: string;
       valor: number;
+      recebido?: boolean;
     }[];
     pago?: boolean;
   } | null;
@@ -107,11 +108,29 @@ export default function PrintableOrderReceipt({
       ? pedido.pagamentos_detalhes.parcelas
       : [];
 
+  const valorRecebidoCentavos =
+    parcelasDivididas.reduce(
+      (soma, p) =>
+        soma +
+        (pedido.pagamento_confirmado || p.recebido === true
+          ? Math.round(Number(p.valor) * 100)
+          : 0),
+      0
+    );
+
+  const saldoReceberCentavos = Math.max(
+    0,
+    Math.round(Number(pedido.total) * 100) -
+      valorRecebidoCentavos
+  );
+
   const statusPagamento =
     parcelasDivididas.length > 0
       ? pedido.pagamento_confirmado
         ? "PAGO - CONFIRMADO"
-        : "PAGAMENTO PENDENTE"
+        : valorRecebidoCentavos > 0
+          ? "PAGAMENTO PARCIAL"
+          : "PAGAMENTO PENDENTE"
       : pedido.pagamento_confirmado
         ? pedido.forma_pagamento === "pix"
           ? "PIX PAGO - CONFIRMADO"
@@ -208,7 +227,11 @@ export default function PrintableOrderReceipt({
         {/* STATUS DO PAGAMENTO */}
         <div className="border-b border-dashed border-black py-1 text-center">
           <p className="text-[11px] font-black uppercase">
-            PAGAMENTO - {pedido.pagamento_confirmado ? "PAGO" : "PENDENTE"}
+            PAGAMENTO - {pedido.pagamento_confirmado
+              ? "PAGO"
+              : valorRecebidoCentavos > 0
+                ? "PARCIAL"
+                : "PENDENTE"}
           </p>
 
           <p className="mt-0 text-base font-black uppercase">
@@ -238,6 +261,12 @@ export default function PrintableOrderReceipt({
 
                   <span className="font-bold">
                     {formatarPreco(Number(parcela.valor))}
+
+                    <span className="block text-[10px]">
+                      {pedido.pagamento_confirmado || parcela.recebido === true
+                        ? "RECEBIDO"
+                        : "A RECEBER"}
+                    </span>
                   </span>
                 </div>
               ))}
@@ -250,7 +279,7 @@ export default function PrintableOrderReceipt({
               <p className="mt-1 text-center text-[11px] font-black">
                 {pedido.pagamento_confirmado
                   ? "VALOR INTEGRAL RECEBIDO"
-                  : "PAGAMENTO A CONFIRMAR"}
+                  : `COBRAR NA ENTREGA: ${formatarPreco(saldoReceberCentavos / 100)}`}
               </p>
             </div>
           )}
