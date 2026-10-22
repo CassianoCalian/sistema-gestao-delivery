@@ -3,6 +3,10 @@ import { redirect } from "next/navigation";
 
 import { verificarAdmin } from "../../lib/supabase/requireAdmin";
 import { supabaseAdmin } from "../../lib/supabaseAdmin";
+import {
+  carregarBalcaoDashboard,
+  buscarItensBalcaoDashboard
+} from "../../lib/dashboardBalcao";
 import AdminNavigation from "../../components/AdminNavigation";
 import AdminAutoRefresh from "../../components/AdminAutoRefresh";
 import ValorProtegido from "../../components/pdv/ValorProtegido";
@@ -175,7 +179,7 @@ export default async function AdminPage() {
     // ÚLTIMOS 7 DIAS
     supabaseAdmin
       .from("pedidos")
-      .select("id, created_at, total, status, forma_pagamento, bairro")
+      .select("id, created_at, total, status, forma_pagamento, bairro, pagamentos_detalhes")
       .gte("created_at", inicioUltimos7Dias.toISOString())
       .lt("created_at", fimHoje.toISOString()),
 
@@ -210,20 +214,26 @@ export default async function AdminPage() {
       .lt("created_at", inicioMesAtual.toISOString()),
   ]);
 
-  const ultimoPedidoId = Number(resultadoUltimoPedido.data?.id ?? 0);
-  const pedidosHoje = resultadoPedidosHoje.data ?? [];
+
+  // ZE_UNIFICADO_AST_V3
+  const balcaoDashboard = await carregarBalcaoDashboard({
+    inicioHoje, fimHoje, inicioUltimos7Dias,
+    inicio7DiasAnteriores, inicioMesAtual, inicioMesAnterior
+  });
+const ultimoPedidoId = Number(resultadoUltimoPedido.data?.id ?? 0);
+  const pedidosHoje = [...(resultadoPedidosHoje.data ?? []), ...balcaoDashboard.hoje];
   const pedidosAbertos = resultadoPedidosAbertos.data ?? [];
   const ultimosPedidos = resultadoUltimosPedidos.data ?? [];
   const produtos = resultadoProdutos.data ?? [];
-  const pedidosUltimos7Dias = resultadoPedidosUltimos7Dias.data ?? [];
-  const pedidos7DiasAnteriores = resultadoPedidos7DiasAnteriores.data ?? [];
+  const pedidosUltimos7Dias = [...(resultadoPedidosUltimos7Dias.data ?? []), ...balcaoDashboard.ultimos7];
+  const pedidos7DiasAnteriores = [...(resultadoPedidos7DiasAnteriores.data ?? []), ...balcaoDashboard.anteriores7];
   const pedidosClientes = resultadoPedidosClientes.data ?? [];
   const clientesCadastro = resultadoClientesCadastro.data ?? [];
-  const pedidosMesAtual = resultadoPedidosMesAtual.data ?? [];
-  const pedidosMesAnterior = resultadoPedidosMesAnterior.data ?? [];
+  const pedidosMesAtual = [...(resultadoPedidosMesAtual.data ?? []), ...balcaoDashboard.mesAtual];
+  const pedidosMesAnterior = [...(resultadoPedidosMesAnterior.data ?? []), ...balcaoDashboard.mesAnterior];
   const idsPedidosValidosUltimos7Dias = pedidosUltimos7Dias
-    .filter((pedido) => pedido.status !== "cancelado")
-    .map((pedido) => pedido.id);
+      .filter((p) => p.status !== "cancelado" && p.id > 0)
+      .map((p) => p.id);
 
   let itensUltimos7Dias: {
     produto_id: number;
@@ -244,7 +254,16 @@ export default async function AdminPage() {
   // 4. Calcula os indicadores
   // -----------------------------------------
 
-  const quantidadePedidosHoje = pedidosHoje.length;
+
+  itensUltimos7Dias.push(
+    ...await buscarItensBalcaoDashboard(
+      balcaoDashboard.ultimos7
+        .filter((v) => v.status !== "cancelado")
+        .map((v) => -v.id),
+      produtos
+    )
+  );
+const quantidadePedidosHoje = pedidosHoje.filter((p) => p.status !== "cancelado").length;
 
   const pedidosValidosHoje = pedidosHoje.filter(
     (pedido) => pedido.status !== "cancelado",
@@ -637,34 +656,92 @@ export default async function AdminPage() {
     (cliente) => cliente.ultimaCompra < inicioUltimos30Dias,
   ).length;
 
-  const quantidadePix7Dias = pedidosValidosUltimos7Dias.filter(
-    (pedido) => pedido.forma_pagamento === "pix",
-  ).length;
 
-  const quantidadeDinheiro7Dias = pedidosValidosUltimos7Dias.filter(
-    (pedido) => pedido.forma_pagamento === "dinheiro",
-  ).length;
+  const formasUnificadas = (() => {
+    const cents = { pix: 0, dinheiro: 0, cartao: 0 };
+    const qtd = { pix: 0, dinheiro: 0, cartao: 0 };
+    let geral = 0;
 
-  const quantidadeCartao7Dias = pedidosValidosUltimos7Dias.filter(
-    (pedido) => pedido.forma_pagamento === "cartao_entrega",
-  ).length;
+    for (const venda of pedidosValidosUltimos7Dias) {
+      const detalhes = venda.pagamentos_detalhes as {
+        parcelas?: Array<{ forma: string; valor: number }>;
+      } | null;
+
+      const parcelas = detalhes == null
+        ? [{
+            forma: venda.forma_pagamento,
+            valor: Number(venda.total)
+          }]
+        : detalhes.parcelas;
+
+      if (!Array.isArray(parcelas) ||
+          parcelas.length < 1 ||
+          parcelas.length > 2) {
+        throw Error("Parcelas invalidas no dashboard");
+      }
+
+      let soma = 0;
+      const usadas = new Set<string>();
+
+      for (const p of parcelas) {
+        const grupo = p.forma === "pix" ? "pix"
+          : p.forma === "dinheiro" ? "dinheiro"
+          : ["credito", "debito", "cartao_entrega"].includes(p.forma)
+            ? "cartao"
+            : null;
+
+        const valor = Number(p.valor);
+
+        if (!grupo || usadas.has(p.forma) ||
+            !Number.isFinite(valor) || valor < 0) {
+          throw Error("Pagamento invalido no dashboard");
+        }
+
+        usadas.add(p.forma);
+        soma += Math.round(valor * 100);
+        cents[grupo] += Math.round(valor * 100);
+        qtd[grupo]++;
+      }
+
+      const total = Math.round(Number(venda.total) * 100);
+
+      if (soma !== total) {
+        throw Error("Valores de pagamento divergentes");
+      }
+
+      geral += total;
+    }
+
+    return {
+      qtd,
+      valor: {
+        pix: cents.pix / 100,
+        dinheiro: cents.dinheiro / 100,
+        cartao: cents.cartao / 100
+      },
+      percentual: {
+        pix: geral ? cents.pix / geral * 100 : 0,
+        dinheiro: geral ? cents.dinheiro / geral * 100 : 0,
+        cartao: geral ? cents.cartao / geral * 100 : 0
+      }
+    };
+  })();
+const quantidadePix7Dias = formasUnificadas.qtd.pix;
+
+  const quantidadeDinheiro7Dias = formasUnificadas.qtd.dinheiro;
+
+  const quantidadeCartao7Dias = formasUnificadas.qtd.cartao;
 
   const totalPagamentos7Dias = pedidosValidosUltimos7Dias.length;
 
   const percentualPix7Dias =
-    totalPagamentos7Dias > 0
-      ? (quantidadePix7Dias / totalPagamentos7Dias) * 100
-      : 0;
+    formasUnificadas.percentual.pix;
 
   const percentualDinheiro7Dias =
-    totalPagamentos7Dias > 0
-      ? (quantidadeDinheiro7Dias / totalPagamentos7Dias) * 100
-      : 0;
+    formasUnificadas.percentual.dinheiro;
 
   const percentualCartao7Dias =
-    totalPagamentos7Dias > 0
-      ? (quantidadeCartao7Dias / totalPagamentos7Dias) * 100
-      : 0;
+    formasUnificadas.percentual.cartao;
 
   const vendasPorProduto = new Map<
     number,
@@ -674,17 +751,11 @@ export default async function AdminPage() {
     }
   >();
 
-  const faturamentoPix7Dias = pedidosValidosUltimos7Dias
-    .filter((pedido) => pedido.forma_pagamento === "pix")
-    .reduce((total, pedido) => total + Number(pedido.total), 0);
+  const faturamentoPix7Dias = formasUnificadas.valor.pix;
 
-  const faturamentoDinheiro7Dias = pedidosValidosUltimos7Dias
-    .filter((pedido) => pedido.forma_pagamento === "dinheiro")
-    .reduce((total, pedido) => total + Number(pedido.total), 0);
+  const faturamentoDinheiro7Dias = formasUnificadas.valor.dinheiro;
 
-  const faturamentoCartao7Dias = pedidosValidosUltimos7Dias
-    .filter((pedido) => pedido.forma_pagamento === "cartao_entrega")
-    .reduce((total, pedido) => total + Number(pedido.total), 0);
+  const faturamentoCartao7Dias = formasUnificadas.valor.cartao;
 
   for (const item of itensUltimos7Dias) {
     const produtoAtual = vendasPorProduto.get(item.produto_id);
@@ -738,7 +809,8 @@ export default async function AdminPage() {
   const pedidosPorBairro = new Map<string, number>();
 
   for (const pedido of pedidosValidosUltimos7Dias) {
-    const bairro = pedido.bairro?.trim() || "Não informado";
+        if (pedido.id < 0) continue;
+const bairro = pedido.bairro?.trim() || "Não informado";
 
     pedidosPorBairro.set(bairro, (pedidosPorBairro.get(bairro) ?? 0) + 1);
   }
@@ -834,7 +906,7 @@ export default async function AdminPage() {
               </div>
 
               <p className="mt-5 text-[10px] font-black uppercase tracking-[0.13em] text-zinc-500">
-                Pedidos recebidos
+                Vendas e pedidos
               </p>
 
               <p className="mt-1 text-4xl font-black tracking-[-0.05em] text-white">
@@ -842,7 +914,7 @@ export default async function AdminPage() {
               </p>
 
               <p className="mt-2 text-xs text-zinc-600">
-                pedidos registrados hoje
+                balcao + delivery, sem cancelados
               </p>
             </div>
 
