@@ -248,6 +248,12 @@ opcoes_selecionadas
       <main className="print:hidden min-h-screen bg-zinc-950 px-6 py-12 text-white">
         <div className="mx-auto max-w-5xl">
           <Link
+            href="/admin/pdv"
+            className="mb-4 inline-flex rounded-xl border border-amber-400/40 px-4 py-3 font-bold text-amber-400"
+          >
+            Voltar ao PDV
+          </Link>
+          <Link
             href="/admin/pedidos"
             className="group/voltar inline-flex items-center gap-2 rounded-full border border-white/[0.06] bg-white/[0.025] px-4 py-2 text-[9px] font-black uppercase tracking-[0.1em] text-zinc-500 transition duration-300 hover:border-amber-400/25 hover:bg-amber-400/[0.05] hover:text-amber-400"
           >

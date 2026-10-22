@@ -106,6 +106,9 @@ export default function PdvClient({ produtos, categorias, clientes }: Props) {
   const [avisoSucesso, setAvisoSucesso] = useState(false);
   const [erroVenda, setErroVenda] = useState("");
   const [finalizando, setFinalizando] = useState(false);
+  const [pedidoParaImpressao, setPedidoParaImpressao] = useState<number | null>(null);
+  const [comandaCarregada, setComandaCarregada] = useState(false);
+  const iframePedidoRef = useRef<HTMLIFrameElement | null>(null);
 
   const [formaPagamento, setFormaPagamento] = useState<FormaPagamento | null>(
     null,
@@ -492,6 +495,72 @@ export default function PdvClient({ produtos, categorias, clientes }: Props) {
     }
   }
 
+  async function consultarCepEntrega(cep: string, identificador: number) {
+    setCarregandoEndereco(true);
+    setMensagemEndereco("Consultando CEP...");
+
+    try {
+      const resposta = await fetch(`/api/cep/${cep}`, {
+        cache: "no-store",
+        signal: AbortSignal.timeout(8000),
+      });
+
+      const dados = (await resposta.json()) as {
+        rua?: string;
+        bairro?: string;
+        cidade?: string;
+        uf?: string;
+        erro?: string;
+      };
+
+      if (identificador !== buscaEnderecoAtualRef.current) return;
+
+      if (!resposta.ok) {
+        throw new Error(dados.erro ?? "Falha ao consultar CEP.");
+      }
+
+      setEnderecoEntrega((atual) => {
+        if (atual.cep.replace(/\D/g, "") !== cep) return atual;
+
+        return {
+          ...atual,
+          rua: dados.rua?.trim() ?? "",
+          bairro: dados.bairro?.trim() ?? "",
+        };
+      });
+
+      const normalizar = (texto: string) =>
+        texto.normalize("NFD")
+          .replace(/[\u0300-\u036f]/g, "")
+          .toLowerCase()
+          .trim();
+
+      const areaPermitida =
+        normalizar(dados.cidade ?? "") === "nova iguacu" &&
+        (dados.uf ?? "").toUpperCase() === "RJ" &&
+        ["jardim pernambuco", "jardim nova era"].includes(
+          normalizar(dados.bairro ?? "")
+        );
+
+      setMensagemEndereco(
+        !areaPermitida
+          ? "Confira o bairro: CEP fora da area habitual de entrega."
+          : "Endereco preenchido. Confirme rua, bairro e numero."
+      );
+    } catch (erro) {
+      if (identificador !== buscaEnderecoAtualRef.current) return;
+
+      setMensagemEndereco(
+        erro instanceof Error
+          ? erro.message + " Preencha manualmente se necessario."
+          : "CEP indisponivel. Preencha manualmente."
+      );
+    } finally {
+      if (identificador === buscaEnderecoAtualRef.current) {
+        setCarregandoEndereco(false);
+      }
+    }
+  }
   function selecionarCliente(cliente: PdvCliente) {
     setClienteSelecionado(cliente);
     setModalClienteAberto(false);
@@ -660,7 +729,8 @@ export default function PdvClient({ produtos, categorias, clientes }: Props) {
           true,
         );
 
-        router.push(`/admin/pedidos/${dados.pedido_id}`);
+        setComandaCarregada(false);
+        setPedidoParaImpressao(dados.pedido_id);
       } catch (error) {
         setErroVenda(
           error instanceof Error
@@ -1270,12 +1340,35 @@ export default function PdvClient({ produtos, categorias, clientes }: Props) {
                         type="text"
                         value={enderecoEntrega[campo]}
                         onChange={(event) => {
-                          setEnderecoEntrega((anterior) => ({
-                            ...anterior,
-                            [campo]: event.target.value,
-                          }));
+                          if (campo === "cep") {
+                            const cep = event.target.value
+                              .replace(/\D/g, "")
+                              .slice(0, 8);
+
+                            const id = ++buscaEnderecoAtualRef.current;
+
+                            setEnderecoEntrega((anterior) => ({
+                              ...anterior,
+                              cep,
+                              rua: "",
+                              bairro: "",
+                            }));
+
+                            setMensagemEndereco("");
+
+                            if (cep.length === 8) {
+                              void consultarCepEntrega(cep, id);
+                            }
+                          } else {
+                            setEnderecoEntrega((anterior) => ({
+                              ...anterior,
+                              [campo]: event.target.value,
+                            }));
+                          }
                           setErroVenda("");
                         }}
+                        inputMode={campo === "cep" ? "numeric" : "text"}
+                        maxLength={campo === "cep" ? 8 : undefined}
                         disabled={finalizando || carregandoEndereco}
                         placeholder={titulo}
                         aria-label={titulo}
@@ -1480,6 +1573,62 @@ export default function PdvClient({ produtos, categorias, clientes }: Props) {
           onFechar={() => setProdutoEmSelecao(null)}
           onSalvar={salvarProdutoComSabores}
         />
+      )}
+      {pedidoParaImpressao !== null && (
+        <div className="fixed inset-0 z-[80] flex items-center justify-center bg-black/85 p-3">
+          <div
+            role="dialog"
+            aria-modal="true"
+            aria-label="Imprimir pedido"
+            className="flex max-h-[96dvh] w-full max-w-4xl flex-col rounded-2xl border border-amber-400/30 bg-zinc-950 p-4 text-white"
+          >
+            <h2 className="text-xl font-black text-emerald-300">
+              Entrega #{pedidoParaImpressao} registrada!
+            </h2>
+
+            <p className="mt-2 text-sm text-zinc-400">
+              Pedido salvo. Imprima a comanda ou continue atendendo.
+            </p>
+
+            <div className="my-4 flex flex-wrap gap-3">
+              <button
+                type="button"
+                disabled={!comandaCarregada}
+                onClick={() => {
+                  const janela = iframePedidoRef.current?.contentWindow;
+                  if (janela) {
+                    janela.focus();
+                    janela.print();
+                  }
+                }}
+                className="rounded-xl bg-amber-400 px-5 py-3 font-black text-black disabled:opacity-40"
+              >
+                Imprimir comanda
+              </button>
+
+              <button
+                type="button"
+                onClick={() => {
+                  setPedidoParaImpressao(null);
+                  setComandaCarregada(false);
+                  router.refresh();
+                }}
+                className="rounded-xl border border-white/20 px-5 py-3 font-bold"
+              >
+                Nova venda - Continuar no PDV
+              </button>
+            </div>
+
+            <iframe
+              ref={iframePedidoRef}
+              title={`Comanda do pedido ${pedidoParaImpressao}`}
+              src={`/admin/pedidos/${pedidoParaImpressao}`}
+              onLoad={() => setComandaCarregada(true)}
+              className="min-h-0 w-full flex-1 rounded-xl border border-white/10 bg-zinc-900"
+              style={{ height: "55dvh", minHeight: "250px" }}
+            />
+          </div>
+        </div>
       )}
       {/* MODAL DE CLIENTES */}
       {modalClienteAberto && (
