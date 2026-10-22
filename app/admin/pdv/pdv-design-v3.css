@@ -1,0 +1,568 @@
+/* ========================================
+   DEPOSITO DO ZE - PDV DESIGN V3
+   Mudancas somente de aparencia
+   ======================================== */
+
+.ze-pdv-v3 {
+  --ze-ouro: #ffc32b;
+  --ze-fundo: #0c0e13;
+  --ze-card: #1c222d;
+  --ze-borda: #343d4b;
+  --ze-texto: #f7f8fb;
+  background:
+    radial-gradient(
+      ellipse at 65% 0%,
+      rgba(255,190,11,.055),
+      transparent 48%
+    ), #0c0e13 !important;
+  color: var(--ze-texto);
+}
+
+/* CABECALHO */
+
+.ze-pdv-v3 section:has(h1) {
+  background: linear-gradient(
+    120deg,#1d222d,#12151c
+  ) !important;
+  border: 1px solid #39414e !important;
+  border-radius: 17px;
+  box-shadow: 0 8px 24px #0003;
+  padding: 16px 18px;
+}
+
+.ze-pdv-v3 section:has(h1) h1 {
+  font-size: clamp(21px,1.7vw,27px);
+  letter-spacing: -.5px;
+}
+
+.ze-pdv-v3 section:has(h1) button {
+  min-height: 42px;
+  border-radius: 10px;
+  font-size: 12px;
+}
+
+.ze-pdv-v3 section:has(h1) button:hover {
+  filter: brightness(1.15);
+}
+
+/* CATALOGO */
+
+.ze-pdv-v3 section:has(input[placeholder*="Buscar produto"]) {
+  background: #151a23 !important;
+  border: 1px solid #374151 !important;
+  border-radius: 18px;
+  padding: 15px;
+  box-shadow: 0 8px 26px #0003;
+}
+
+/* CABECALHO DA BUSCA */
+
+.ze-pdv-v3
+section:has(input[placeholder*="Buscar produto"])
+> div:has(> input[placeholder*="Buscar produto"]) {
+  display: grid !important;
+  grid-template-columns: minmax(0,1fr) auto;
+  align-items: stretch;
+  gap: 10px;
+}
+
+.ze-pdv-v3
+section:has(input[placeholder*="Buscar produto"])
+> div:has(> input[placeholder*="Buscar produto"])::before {
+  content: "BUSCA RAPIDA DE PRODUTOS";
+  display: block;
+  grid-column: 1 / -1;
+  color: #ffd055;
+  font-size: 13px;
+  font-weight: 900;
+  letter-spacing: .8px;
+  margin-bottom: 1px;
+}
+
+/* CAMPO DE BUSCA COM CONTRASTE MAXIMO */
+
+.ze-pdv-v3 input[placeholder*="Buscar produto"] {
+  width: 100%;
+  min-width: 0;
+  height: 61px !important;
+  background: #f8fafc !important;
+  color: #111827 !important;
+  border: 2px solid #ffc32b !important;
+  border-radius: 13px !important;
+  padding: 0 18px !important;
+  font-size: 17px !important;
+  font-weight: 700 !important;
+  caret-color: #111827;
+  box-shadow: 0 0 0 3px #ffc32b17;
+  transition:
+    border-color .15s,
+    box-shadow .15s;
+}
+
+.ze-pdv-v3
+input[placeholder*="Buscar produto"]::placeholder {
+  color: #566273 !important;
+  opacity: 1 !important;
+  font-weight: 500;
+}
+
+.ze-pdv-v3 input[placeholder*="Buscar produto"]:focus {
+  outline: none !important;
+  border-color: #e6a900 !important;
+  box-shadow:
+    0 0 0 4px #ffc32b35,
+    0 6px 18px #0002;
+}
+
+/* LIMPAR FILTROS */
+
+.ze-pdv-v3
+section:has(input[placeholder*="Buscar produto"])
+> div:has(> input[placeholder*="Buscar produto"])
+> button {
+  min-height: 61px;
+  padding: 0 18px;
+  border-radius: 12px;
+  background: #2b3441 !important;
+  color: #f3f5f9 !important;
+  border: 1px solid #4b5565 !important;
+  font-size: 13px;
+  font-weight: 800;
+}
+
+.ze-pdv-v3
+section:has(input[placeholder*="Buscar produto"])
+> div:has(> input[placeholder*="Buscar produto"])
+> button:hover {
+  background: #3a4655 !important;
+}
+
+/* CATEGORIAS */
+
+.ze-pdv-v3
+section:has(input[placeholder*="Buscar produto"])
+> div:nth-child(2) {
+  padding-top: 12px;
+  padding-bottom: 13px;
+  border-bottom: 1px solid #343c49;
+  scrollbar-width: thin;
+}
+
+.ze-pdv-v3
+section:has(input[placeholder*="Buscar produto"])
+> div:nth-child(2) button {
+  min-height: 39px;
+  padding: 9px 13px;
+  border-radius: 9px;
+  font-size: 12px;
+  font-weight: 800;
+  white-space: nowrap;
+}
+
+.ze-pdv-v3
+section:has(input[placeholder*="Buscar produto"])
+> div:nth-child(2) button:hover {
+  filter: brightness(1.18);
+}
+
+/* TITULO E RESULTADOS */
+
+.ze-pdv-v3
+section:has(input[placeholder*="Buscar produto"]) h2 {
+  font-size: 20px;
+  letter-spacing: -.3px;
+}
+
+.ze-pdv-v3
+section:has(input[placeholder*="Buscar produto"])
+p.text-zinc-500 {
+  color: #b2bdcd !important;
+}
+
+/* GRADE DE PRODUTOS */
+
+.ze-pdv-v3
+div.grid:has(> button[aria-label^="Adicionar "]) {
+  gap: 12px;
+  padding-bottom: 8px;
+}
+
+/* CARTOES DE PRODUTOS */
+
+.ze-pdv-v3 button[aria-label^="Adicionar "] {
+  background: #1c232e !important;
+  border: 1px solid #3b4655;
+  border-radius: 14px;
+  min-height: 207px;
+  overflow: hidden;
+  box-shadow: 0 4px 12px #0003;
+  transition:
+    transform .16s,
+    border-color .16s,
+    box-shadow .16s;
+}
+
+.ze-pdv-v3 button[aria-label^="Adicionar "]:hover {
+  transform: translateY(-2px);
+  border-color: #ffc32b !important;
+  box-shadow: 0 10px 25px #0005;
+}
+
+.ze-pdv-v3 button[aria-label^="Adicionar "]:active {
+  transform: scale(.985);
+}
+
+/* IMAGEM */
+
+.ze-pdv-v3
+button[aria-label^="Adicionar "] > div:first-child {
+  height: 119px !important;
+  background: radial-gradient(
+    circle at 50% 45%,
+    #344152,
+    #202733 75%
+  ) !important;
+  border-bottom: 1px solid #ffffff12;
+}
+
+.ze-pdv-v3 button[aria-label^="Adicionar "] img {
+  object-fit: contain;
+  padding: 9px;
+}
+
+/* NOME, PRECO E ESTOQUE */
+
+.ze-pdv-v3
+button[aria-label^="Adicionar "] > div:last-child {
+  padding: 12px;
+}
+
+.ze-pdv-v3
+button[aria-label^="Adicionar "]
+> div:last-child > p:first-child {
+  font-size: 13px;
+  line-height: 1.5;
+  font-weight: 850;
+  color: #f5f7fc;
+  min-height: 39px;
+}
+
+.ze-pdv-v3
+button[aria-label^="Adicionar "]
+p[class*="text-amber-400"] {
+  color: #ffcd43 !important;
+  font-size: 18px !important;
+  font-weight: 900;
+  font-variant-numeric: tabular-nums;
+}
+
+.ze-pdv-v3
+button[aria-label^="Adicionar "]
+span[class*="emerald"] {
+  font-size: 10px;
+  padding: 5px 7px;
+  border-radius: 7px;
+}
+
+/* PAINEL LATERAL */
+
+.ze-pdv-v3 aside:has(#pagamento-pdv) > div {
+  background: #181e27 !important;
+  border: 1px solid #394350 !important;
+  border-radius: 18px !important;
+  box-shadow: 0 10px 28px #0004;
+}
+
+.ze-pdv-v3 aside:has(#pagamento-pdv) h2 {
+  font-size: 21px;
+  letter-spacing: -.4px;
+}
+
+.ze-pdv-v3
+aside:has(#pagamento-pdv) p.text-zinc-500 {
+  color: #acb8c9 !important;
+}
+
+/* ITENS DO CARRINHO */
+
+.ze-pdv-v3
+aside:has(#pagamento-pdv)
+div[class*="bg-black/20"][class*="rounded-xl"] {
+  border-color: #3b4552;
+}
+
+/* FORMA DE PAGAMENTO */
+
+.ze-pdv-v3 #pagamento-pdv > p:first-child {
+  color: #d2d9e5 !important;
+  font-size: 12px;
+}
+
+.ze-pdv-v3 #pagamento-pdv > div.grid button {
+  min-height: 49px;
+  font-size: 13px;
+  border-radius: 11px;
+}
+
+.ze-pdv-v3 #pagamento-pdv button:hover:not(:disabled) {
+  filter: brightness(1.14);
+}
+
+/* CAMPOS DE VALOR */
+
+.ze-pdv-v3
+#pagamento-pdv input[inputmode="decimal"] {
+  min-height: 49px;
+  font-size: 17px;
+  font-weight: 750;
+  border-color: #737b88;
+}
+
+.ze-pdv-v3
+#pagamento-pdv input[inputmode="decimal"]:focus {
+  border-color: #ffc32b;
+  outline: 2px solid #ffc32b40;
+}
+
+/* TOTAL E FINALIZAR */
+
+.ze-pdv-v3 aside:has(#pagamento-pdv) p.text-4xl {
+  font-size: clamp(30px,2.5vw,40px);
+  letter-spacing: -1px;
+  color: #ffffff;
+  font-variant-numeric: tabular-nums;
+}
+
+.ze-pdv-v3
+aside:has(#pagamento-pdv)
+button[class*="bg-emerald-500"] {
+  min-height: 53px;
+  font-size: 15px;
+  font-weight: 900;
+  border-radius: 12px;
+}
+
+.ze-pdv-v3
+aside:has(#pagamento-pdv)
+button:disabled {
+  cursor: not-allowed;
+}
+
+/* ACESSIBILIDADE */
+
+.ze-pdv-v3 button:focus-visible,
+.ze-pdv-v3 a:focus-visible {
+  outline: 2px solid #ffc32b;
+  outline-offset: 3px;
+}
+
+/* LAYOUT PARA TELAS GRANDES */
+
+@media (min-width: 1280px) {
+  .ze-pdv-v3
+  div:has(
+    > section:has(input[placeholder*="Buscar produto"]) + aside
+  ) {
+    grid-template-columns: minmax(0,1fr) 390px;
+  }
+}
+
+/* CELULARES */
+
+@media (max-width: 640px) {
+  .ze-pdv-v3
+  section:has(input[placeholder*="Buscar produto"]) {
+    padding: 11px;
+  }
+
+  .ze-pdv-v3
+  section:has(input[placeholder*="Buscar produto"])
+  > div:has(> input[placeholder*="Buscar produto"]) {
+    grid-template-columns: minmax(0,1fr);
+  }
+
+  .ze-pdv-v3 input[placeholder*="Buscar produto"] {
+    height: 56px !important;
+    font-size: 15px !important;
+  }
+
+  .ze-pdv-v3
+  section:has(input[placeholder*="Buscar produto"])
+  > div:has(> input[placeholder*="Buscar produto"])
+  > button {
+    min-height: 43px;
+  }
+
+  .ze-pdv-v3
+  div.grid:has(> button[aria-label^="Adicionar "]) {
+    gap: 8px;
+  }
+
+  .ze-pdv-v3 button[aria-label^="Adicionar "] {
+    min-height: 193px;
+  }
+
+  .ze-pdv-v3
+  button[aria-label^="Adicionar "] > div:first-child {
+    height: 105px !important;
+  }
+
+  .ze-pdv-v3
+  button[aria-label^="Adicionar "]
+  > div:last-child > p:first-child {
+    font-size: 12px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ze-pdv-v3 button[aria-label^="Adicionar "] {
+    transition: none;
+  }
+
+  .ze-pdv-v3 button[aria-label^="Adicionar "]:hover {
+    transform: none;
+  }
+}
+
+
+/* ZE_FIX_TOPO_LOGO_V4 */
+
+/* Topo sem o espaco alto causado pelos alertas */
+.ze-pdv-v3 > div > div:first-child {
+  display: flex !important;
+  flex-direction: row !important;
+  align-items: center !important;
+  justify-content: flex-end !important;
+  flex-wrap: wrap !important;
+  gap: 8px !important;
+  min-height: 0 !important;
+  padding: 3px 0 8px;
+}
+
+.ze-pdv-v3 > div > div:first-child > :first-child {
+  margin-right: auto;
+}
+
+/* Monitor compacto */
+.ze-pdv-v3 .ze-pdv-monitor-compact {
+  position: relative;
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+  width: auto;
+  max-width: 100%;
+  margin: 0;
+  z-index: 80;
+}
+
+.ze-pdv-v3 .ze-pdv-monitor-toggle {
+  min-height: 44px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  padding: 10px 13px;
+  color: #ffcd58;
+  background: #322616;
+  border: 1px solid #b78629;
+  border-radius: 11px;
+  font-size: 12px;
+  font-weight: 800;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.ze-pdv-v3 .ze-pdv-monitor-toggle:hover {
+  background: #49371f;
+}
+
+.ze-pdv-v3 .ze-pdv-monitor-toggle span:last-child {
+  font-size: 10px;
+  color: #f1f5f9;
+}
+
+/* Alertas flutuantes: nao ocupam espaco no topo */
+.ze-pdv-v3 .ze-pdv-monitor-popup {
+  position: absolute;
+  top: calc(100% + 10px);
+  right: 0;
+  z-index: 200;
+  display: flex;
+  flex-direction: column;
+  gap: 9px;
+  width: min(390px, calc(100vw - 24px));
+  max-height: min(75vh, 520px);
+  overflow-y: auto;
+  padding: 11px;
+  border: 1px solid #604b2d;
+  background: #121720;
+  border-radius: 14px;
+  box-shadow: 0 20px 55px rgba(0,0,0,.7);
+}
+
+.ze-pdv-v3 .ze-pdv-monitor-popup > div {
+  margin-bottom: 0;
+}
+
+.ze-pdv-v3 .ze-pdv-monitor-compact > div:last-child {
+  margin: 0;
+  padding: 7px 10px;
+  gap: 10px;
+  min-height: 44px;
+  border-radius: 11px;
+}
+
+.ze-pdv-v3 .ze-pdv-monitor-compact > div:last-child button {
+  white-space: nowrap;
+}
+
+/* Logo real no lugar do icone de recibo.
+   O HTML original permanece intacto. */
+.ze-pdv-v3 section:has(h1)
+  > div > div:first-child > div:first-child {
+  width: 105px !important;
+  height: 70px !important;
+  min-width: 105px !important;
+  flex-shrink: 0;
+  border: 0 !important;
+  border-radius: 12px;
+  background-color: rgba(255,190,11,.025) !important;
+  background-image: url("/logo-deposito-ze.png") !important;
+  background-position: center !important;
+  background-repeat: no-repeat !important;
+  background-size: contain !important;
+  font-size: 0 !important;
+  color: transparent !important;
+  box-shadow: none !important;
+}
+
+/* Telas menores */
+@media (max-width: 900px) {
+  .ze-pdv-v3 .ze-pdv-monitor-compact {
+    flex-wrap: wrap;
+  }
+
+  .ze-pdv-v3 .ze-pdv-monitor-popup {
+    right: 0;
+  }
+}
+
+@media (max-width: 600px) {
+  .ze-pdv-v3 .ze-pdv-monitor-compact {
+    width: 100%;
+  }
+
+  .ze-pdv-v3 .ze-pdv-monitor-popup {
+    right: auto;
+    left: 0;
+  }
+
+  .ze-pdv-v3 section:has(h1)
+    > div > div:first-child > div:first-child {
+    width: 77px !important;
+    min-width: 77px !important;
+    height: 57px !important;
+  }
+}

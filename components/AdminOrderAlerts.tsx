@@ -44,6 +44,13 @@ export default function AdminOrderAlerts({
 
   const [atrasados, setAtrasados] = useState<number[]>([]);
   const [aguardando, setAguardando] = useState<number[]>([]);
+  const [painelAberto, setPainelAberto] = useState(false);
+
+  useEffect(() => {
+    if (embutido && novosIds.length > 0) {
+      setPainelAberto(true);
+    }
+  }, [embutido, novosIds.length]);
 
   const tocarAviso = useCallback(() => {
     const contexto = audioRef.current;
@@ -295,11 +302,47 @@ export default function AdminOrderAlerts({
     <aside
       className={
         embutido
-          ? "relative z-10 mb-3 ml-auto w-full max-w-sm"
+          ? "ze-pdv-monitor-compact relative z-[80] ml-auto flex w-auto items-center gap-2"
           : "fixed bottom-4 right-4 z-[90] w-[calc(100%-2rem)] max-w-sm"
       }
       aria-live="polite"
     >
+      {embutido && (
+        <button
+          type="button"
+          className="ze-pdv-monitor-toggle"
+          aria-expanded={painelAberto}
+          aria-controls="ze-pdv-monitor-detalhes"
+          onClick={() => setPainelAberto((valor) => !valor)}
+        >
+          <span>
+            {falha
+              ? "Monitor sem conexao"
+              : atrasados.length > 0
+                ? atrasados.length + " pedido(s) atrasado(s)"
+                : novosIds.length > 0
+                  ? novosIds.length + " novo(s) pedido(s)"
+                  : aguardando.length > 0
+                    ? aguardando.length + " aguardando"
+                    : "Pedidos em dia"}
+          </span>
+          <span aria-hidden="true">
+            {painelAberto ? "Fechar" : "Abrir"}
+          </span>
+        </button>
+      )}
+
+      <div
+        id={embutido ? "ze-pdv-monitor-detalhes" : undefined}
+        className={
+          embutido
+            ? painelAberto
+              ? "ze-pdv-monitor-popup"
+              : "hidden"
+            : "contents"
+        }
+      >
+
       {aguardando.length > 0 &&
         atrasados.length === 0 &&
         novosIds.length === 0 && (
@@ -383,6 +426,7 @@ export default function AdminOrderAlerts({
         </div>
       )}
 
+      </div>
       <div className="flex items-center justify-between gap-3 rounded-xl border border-white/15 bg-zinc-900 px-4 py-3 text-white shadow-xl">
         <span className="text-xs font-semibold">
           {falha
