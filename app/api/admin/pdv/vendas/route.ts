@@ -266,11 +266,22 @@ export async function POST(request: Request) {
       );
     }
 
+    const { count: numeroTurno, error: erroNumeroTurno } = await supabaseAdmin
+      .from("pdv_vendas")
+      .select("id", { count: "exact", head: true })
+      .eq("turno_id", resultado.id_turno)
+      .lte("id", resultado.id_venda);
+
+    if (erroNumeroTurno) {
+      console.error("Erro na numeracao do turno:", erroNumeroTurno);
+    }
+
     return NextResponse.json(
       {
         sucesso: true,
         venda_id: resultado.id_venda,
         turno_id: resultado.id_turno,
+        numero_turno: numeroTurno,
         subtotal: Number(resultado.valor_subtotal),
         taxa_cartao: Number(resultado.valor_taxa_cartao),
         total: Number(resultado.valor_total),

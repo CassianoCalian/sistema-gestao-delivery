@@ -40,6 +40,7 @@ type RespostaCliente = {
 type RespostaVenda = {
   sucesso?: boolean;
   venda_id?: number;
+  numero_turno?: number | null;
   total?: number;
   erro?: string;
 };
@@ -60,6 +61,11 @@ function formatarPreco(valor: number) {
     style: "currency",
     currency: "BRL",
   });
+}
+
+function rotuloVendaTurno(numero?: number | null) {
+  if (numero == null || numero <= 0) return "Venda";
+  return `Venda #${String(numero).padStart(3, "0")} do turno`;
 }
 
 function precoAtual(produto: PdvProduto) {
@@ -132,6 +138,7 @@ export default function PdvClient({ produtos, categorias, clientes }: Props) {
     tipo: "entrega" | "balcao";
     id: number;
     total: number;
+    numeroTurno?: number | null;
   } | null>(null);
 
   const [trocoPara, setTrocoPara] = useState("");
@@ -958,13 +965,14 @@ export default function PdvClient({ produtos, categorias, clientes }: Props) {
     try {
       if (registroCriadoRef.current?.tipo === "balcao") {
         const vendaId = registroCriadoRef.current.id;
+        const numeroTurno = registroCriadoRef.current.numeroTurno;
 
         await salvarPagamentoDoPdv("balcao", vendaId);
 
         limparVenda();
 
         mostrarAviso(
-          `Venda #${vendaId} concluída com pagamento registrado.`,
+          `${rotuloVendaTurno(numeroTurno)} concluída com pagamento registrado.`,
           true,
         );
 
@@ -1003,6 +1011,7 @@ export default function PdvClient({ produtos, categorias, clientes }: Props) {
       }
 
       const numeroVenda = dados.venda_id;
+      const numeroTurno = dados.numero_turno;
       const totalVenda = dados.total ?? total;
 
       if (!numeroVenda) {
@@ -1015,6 +1024,7 @@ export default function PdvClient({ produtos, categorias, clientes }: Props) {
         tipo: "balcao",
         id: numeroVenda,
         total: totalVenda,
+        numeroTurno,
       };
 
       await salvarPagamentoDoPdv("balcao", numeroVenda);
@@ -1022,7 +1032,7 @@ export default function PdvClient({ produtos, categorias, clientes }: Props) {
       limparVenda();
 
       mostrarAviso(
-        `Venda #${numeroVenda} registrada! Total: ${formatarPreco(totalVenda)}.`,
+        `${rotuloVendaTurno(numeroTurno)} registrada! Total: ${formatarPreco(totalVenda)}.`,
         true,
       );
 
