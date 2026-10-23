@@ -313,7 +313,7 @@ export default function PdvClient({ produtos, categorias, clientes }: Props) {
       : formaPagamento === "dinheiro" || pagamentoConfirmado);
 
   const enderecoPronto =
-    enderecoEntrega.cep.replace(/\D/g, "").length === 8 &&
+    (enderecoEntrega.cep.trim() === "" || enderecoEntrega.cep.replace(/\D/g, "").length === 8) &&
     enderecoEntrega.rua.trim().length > 0 &&
     enderecoEntrega.numero.trim().length > 0 &&
     enderecoEntrega.bairro.trim().length > 0;
@@ -853,7 +853,7 @@ export default function PdvClient({ produtos, categorias, clientes }: Props) {
       setFinalizando(true);
 
       try {
-        const resposta = await fetch("/api/pedidos", {
+        const resposta = await fetch("/api/admin/pdv/entregas", {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
@@ -1548,7 +1548,7 @@ export default function PdvClient({ produtos, categorias, clientes }: Props) {
                   <div className="grid grid-cols-2 gap-2">
                     {(
                       [
-                        ["cep", "CEP (8 dígitos)"],
+                        ["cep", "CEP (opcional)"],
                         ["numero", "Número"],
                         ["rua", "Rua"],
                         ["bairro", "Bairro"],
@@ -1938,9 +1938,7 @@ export default function PdvClient({ produtos, categorias, clientes }: Props) {
 
                 {tipoAtendimento === "entrega" && (
                   <p className="mt-4 rounded-xl border border-blue-500/20 bg-blue-500/10 p-3 text-sm text-blue-200">
-                    A entrega será registrada como pedido do site, com validação
-                    de CEP, pedido mínimo e estoque. Não será contabilizada como
-                    venda presencial no caixa.
+                    A entrega será registrada no painel de pedidos, com controle de estoque. No PDV, CEP opcional e sem pedido mínimo. Não será contabilizada como venda presencial no caixa.
                   </p>
                 )}
 
