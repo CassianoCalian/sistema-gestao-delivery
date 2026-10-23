@@ -40,12 +40,6 @@ function campo(valor: unknown) {
   return typeof valor === "string" ? valor.trim() : "";
 }
 
-function normalizar(valor: string) {
-  return valor.normalize("NFD")
-    .replace(/[\u0300-\u036f]/g, "")
-    .toLowerCase().trim();
-}
-
 export async function POST(request: Request) {
   let operador: Awaited<ReturnType<typeof requireAdmin>>;
 
@@ -64,7 +58,7 @@ export async function POST(request: Request) {
       return erro("Dados invalidos.");
     }
 
-    const nome = campo(body.nome);
+    const nome = campo(body.nome) || "Consumidor não identificado";
     const telefone = campo(body.telefone);
     const cepOriginal = campo(body.cep);
     const cep = cepOriginal.replace(/\D/g, "");
@@ -74,27 +68,12 @@ export async function POST(request: Request) {
     const pagamento = campo(body.forma_pagamento);
     const chave = campo(body.chave_idempotencia);
 
-    if (!nome || !telefone) {
-      return erro("Informe o cliente e telefone.");
-    }
-
-    if (!rua || !numero || !bairro) {
-      return erro("Informe rua, numero e bairro.");
+    if (!rua || !numero) {
+      return erro("Informe rua e numero.");
     }
 
     if (cepOriginal && !/^\d{8}$/.test(cep)) {
       return erro("CEP deve ter 8 numeros ou ficar vazio.");
-    }
-
-    const bairrosPermitidos = [
-      "jardim pernambuco",
-      "jardim nova era"
-    ];
-
-    if (!bairrosPermitidos.includes(normalizar(bairro))) {
-      return erro(
-        "Bairro fora da area habitual. Consulte o atendimento antes de registrar."
-      );
     }
 
     if (!["pix", "dinheiro", "cartao_entrega"].includes(pagamento)) {

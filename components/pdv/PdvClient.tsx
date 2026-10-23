@@ -315,8 +315,7 @@ export default function PdvClient({ produtos, categorias, clientes }: Props) {
   const enderecoPronto =
     (enderecoEntrega.cep.trim() === "" || enderecoEntrega.cep.replace(/\D/g, "").length === 8) &&
     enderecoEntrega.rua.trim().length > 0 &&
-    enderecoEntrega.numero.trim().length > 0 &&
-    enderecoEntrega.bairro.trim().length > 0;
+    enderecoEntrega.numero.trim().length > 0;
 
   const podeFinalizar =
     !finalizando &&
@@ -326,7 +325,7 @@ export default function PdvClient({ produtos, categorias, clientes }: Props) {
     !trocoInvalido &&
     (tipoAtendimento === "balcao"
       ? pagamentoPronto
-      : clienteSelecionado !== null && enderecoPronto);
+      : enderecoPronto);
 
   function mostrarAviso(mensagem: string, sucesso = false) {
     setAviso(mensagem);
@@ -762,13 +761,12 @@ export default function PdvClient({ produtos, categorias, clientes }: Props) {
 
     if (tipoAtendimento === "entrega") {
       if (
-        !clienteSelecionado ||
         !enderecoPronto ||
         carrinho.length === 0 ||
         !formaPagamento
       ) {
         setErroVenda(
-          "Selecione o cliente, informe o endereço completo, os produtos e o pagamento.",
+          "Informe rua e número, os produtos e a forma de pagamento.",
         );
         return;
       }
@@ -814,8 +812,8 @@ export default function PdvClient({ produtos, categorias, clientes }: Props) {
       const pagamentoEntrega = temCartao ? "cartao_entrega" : formaPagamento;
 
       const dadosPedido = {
-        nome: clienteSelecionado.nome,
-        telefone: clienteSelecionado.telefone,
+        nome: clienteSelecionado?.nome ?? "Consumidor não identificado",
+        telefone: clienteSelecionado?.telefone ?? "",
         cep: enderecoEntrega.cep.trim(),
         rua: enderecoEntrega.rua.trim(),
         numero: enderecoEntrega.numero.trim(),
@@ -1551,7 +1549,7 @@ export default function PdvClient({ produtos, categorias, clientes }: Props) {
                         ["cep", "CEP (opcional)"],
                         ["numero", "Número"],
                         ["rua", "Rua"],
-                        ["bairro", "Bairro"],
+                        ["bairro", "Bairro (opcional)"],
                         ["complemento", "Complemento"],
                         ["referencia", "Referência"],
                       ] as const
@@ -1600,7 +1598,7 @@ export default function PdvClient({ produtos, categorias, clientes }: Props) {
 
                   {!clienteSelecionado && (
                     <p className="text-xs text-amber-300">
-                      Selecione ou cadastre um cliente para esta entrega.
+                      Cliente cadastrado opcional. A entrega pode ser feita sem cadastro.
                     </p>
                   )}
                 </div>
@@ -1938,7 +1936,7 @@ export default function PdvClient({ produtos, categorias, clientes }: Props) {
 
                 {tipoAtendimento === "entrega" && (
                   <p className="mt-4 rounded-xl border border-blue-500/20 bg-blue-500/10 p-3 text-sm text-blue-200">
-                    A entrega será registrada no painel de pedidos, com controle de estoque. No PDV, CEP opcional e sem pedido mínimo. Não será contabilizada como venda presencial no caixa.
+                    A entrega será registrada no painel de pedidos. Apenas rua e número são obrigatórios no endereço. Cliente, CEP e bairro são opcionais. Confira a rota antes de enviar.
                   </p>
                 )}
 

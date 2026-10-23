@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
@@ -12,7 +12,8 @@ type IconType =
   | "categorias"
   | "estoque"
   | "clientes"
-  | "pdv";
+  | "pdv"
+  | "compras";
 
 function NavIcon({ type }: { type: IconType }) {
   const baseProps = {
@@ -79,6 +80,18 @@ function NavIcon({ type }: { type: IconType }) {
     );
   }
 
+  if (type === "compras") {
+    return (
+      <svg {...baseProps}>
+        <path d="M12 3v2" />
+        <path d="M5.6 5.6 7 7" />
+        <path d="M18.4 5.6 17 7" />
+        <path d="M9 15a5 5 0 1 1 6 0l-1 2h-4l-1-2Z" />
+        <path d="M10 21h4" />
+        <path d="M10 19h4" />
+      </svg>
+    );
+  }
   if (type === "pdv") {
     return (
       <svg {...baseProps}>
@@ -156,6 +169,13 @@ export default function AdminNavigation() {
       ativo: pathname.startsWith("/admin/estoque"),
     },
     {
+      href: "/admin/compras",
+      label: "Compras com IA",
+      descricao: "Previsao e reposicao",
+      icone: "compras",
+      ativo: pathname.startsWith("/admin/compras"),
+    },
+    {
       href: "/admin/clientes",
       label: "Clientes",
       descricao: "CRM",
@@ -218,7 +238,7 @@ export default function AdminNavigation() {
       </div>
 
       <nav className="relative p-3 sm:p-4">
-        <div className="grid grid-cols-2 gap-2 md:grid-cols-3 xl:grid-cols-7">
+        <div className="grid grid-cols-2 gap-2 md:grid-cols-3 xl:grid-cols-8">
           {itensNavegacao.map((item) => (
             <Link
               key={item.href}
