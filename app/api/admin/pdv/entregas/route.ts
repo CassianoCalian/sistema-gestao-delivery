@@ -8,6 +8,7 @@ export const dynamic = "force-dynamic";
 type Item = {
   id: number;
   quantidade: number;
+  preco_unitario_ajustado?: number;
   opcoes_selecionadas?: {
     opcao_id: number;
     quantidade: number;
@@ -27,6 +28,9 @@ type Corpo = {
   troco_para?: number | null;
   itens?: Item[];
   chave_idempotencia?: string;
+  taxa_entrega_ajustada?: number;
+  taxa_cartao_ajustada?: number;
+  total_esperado?: number;
 };
 
 function erro(mensagem: string, status = 400) {
@@ -122,8 +126,42 @@ export async function POST(request: Request) {
       return erro("Valor de troco invalido.");
     }
 
+    const ajustada =
+      body.taxa_entrega_ajustada !== undefined ||
+      body.taxa_cartao_ajustada !== undefined ||
+      body.itens.some(
+        (item) => item.preco_unitario_ajustado !== undefined,
+      );
+
+    const valorManualValido = (valor: unknown, maximo: number) =>
+      typeof valor === "number" &&
+      Number.isFinite(valor) &&
+      valor >= 0 &&
+      valor <= maximo &&
+      Math.abs(valor * 100 - Math.round(valor * 100)) < 0.000001;
+
+    if (
+      ajustada &&
+      (
+        !valorManualValido(body.taxa_entrega_ajustada, 999.99) ||
+        !valorManualValido(body.taxa_cartao_ajustada, 999.99) ||
+        !valorManualValido(body.total_esperado, 9999999.99) ||
+        body.itens.some(
+          (item) =>
+            item.preco_unitario_ajustado !== undefined &&
+            !valorManualValido(
+              item.preco_unitario_ajustado,
+              99999.99,
+            ),
+        )
+      )
+    ) {
+      return erro("Preco ou taxa ajustada invalida.");
+    }
     const { data, error } = await supabaseAdmin.rpc(
-      "criar_pedido_pdv_entrega",
+      ajustada
+        ? "criar_pedido_pdv_entrega_ajustado"
+        : "criar_pedido_pdv_entrega",
       {
         p_nome: nome,
         p_telefone: telefone,
@@ -136,7 +174,12 @@ export async function POST(request: Request) {
         p_forma_pagamento: pagamento,
         p_troco_para: troco,
         p_itens: body.itens,
-        p_chave_idempotencia: chave
+        p_chave_idempotencia: chave,
+        ...(ajustada ? {
+          p_taxa_entrega: body.taxa_entrega_ajustada,
+          p_taxa_cartao: body.taxa_cartao_ajustada,
+          p_total_esperado: body.total_esperado,
+        } : {}),
       }
     );
 

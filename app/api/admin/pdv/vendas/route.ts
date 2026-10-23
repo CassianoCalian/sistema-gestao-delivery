@@ -12,10 +12,12 @@ type CorpoVenda = {
   forma_pagamento?: string;
   troco_para?: number | null;
   total_esperado?: number;
+  taxa_cartao_ajustada?: number;
   pagamento_confirmado?: boolean;
   itens?: {
     id: number;
     quantidade: number;
+    preco_unitario_ajustado?: number;
     opcoes_selecionadas?: {
       opcao_id: number;
       quantidade: number;
@@ -155,13 +157,44 @@ export async function POST(request: Request) {
       return responderErro("Valor para troco inválido.", 400);
     }
 
+    const ajustada =
+      body.taxa_cartao_ajustada !== undefined ||
+      body.itens.some(
+        (item) => item.preco_unitario_ajustado !== undefined,
+      );
+
+    const valorManualValido = (valor: unknown, maximo: number) =>
+      typeof valor === "number" &&
+      Number.isFinite(valor) &&
+      valor >= 0 &&
+      valor <= maximo &&
+      Math.abs(valor * 100 - Math.round(valor * 100)) < 0.000001;
+
+    if (
+      ajustada &&
+      (
+        !valorManualValido(body.taxa_cartao_ajustada, 999.99) ||
+        body.itens.some(
+          (item) =>
+            item.preco_unitario_ajustado !== undefined &&
+            !valorManualValido(
+              item.preco_unitario_ajustado,
+              99999.99,
+            ),
+        )
+      )
+    ) {
+      return responderErro("Preco ou taxa ajustada invalida.", 400);
+    }
     // Registra a venda e associa ao turno aberto.
     // Operador e caixa sao definidos no servidor.
     // A funcao SQL utiliza a funcao original de venda,
     // preservando as regras atuais de preco e estoque.
 
     const { data, error } = await supabaseAdmin.rpc(
-      "registrar_venda_pdv_no_caixa",
+      ajustada
+        ? "registrar_venda_pdv_no_caixa_ajustado"
+        : "registrar_venda_pdv_no_caixa",
       {
         p_chave_idempotencia: chave,
         p_cliente_id: clienteId,
@@ -172,6 +205,9 @@ export async function POST(request: Request) {
         p_operador_uid: operador.id,
         p_operador_email: operador.email,
         p_caixa_codigo: "principal",
+        ...(ajustada ? {
+          p_taxa_cartao: body.taxa_cartao_ajustada,
+        } : {}),
       },
     );
 

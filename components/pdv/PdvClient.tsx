@@ -20,6 +20,7 @@ type ItemCarrinho = {
   id: number;
   nome: string;
   preco: number;
+  precoAlterado?: boolean;
   quantidade: number;
   estoque: number;
   opcoes_selecionadas?: {
@@ -106,6 +107,8 @@ export default function PdvClient({ produtos, categorias, clientes }: Props) {
   );
 
   const [carrinho, setCarrinho] = useState<ItemCarrinho[]>([]);
+  const [taxaEntregaManual, setTaxaEntregaManual] = useState<number | null>(null);
+  const [taxaCartaoManual, setTaxaCartaoManual] = useState<number | null>(null);
   const [produtoEmSelecao, setProdutoEmSelecao] = useState<PdvProduto | null>(
     null,
   );
@@ -242,9 +245,20 @@ export default function PdvClient({ produtos, categorias, clientes }: Props) {
       (segundaFormaPagamento === "credito" ||
         segundaFormaPagamento === "debito"));
 
-  const taxaCartao = tipoAtendimento === "entrega" && temCartao ? 2 : 0;
+  const taxaCartao = temCartao
+    ? (taxaCartaoManual ?? (tipoAtendimento === "entrega" ? 2 : 0))
+    : 0;
 
-  const total = arredondar(subtotal + taxaCartao);
+  const taxaEntrega = tipoAtendimento === "entrega"
+    ? (taxaEntregaManual ?? 0)
+    : 0;
+
+  const total = arredondar(subtotal + taxaCartao + taxaEntrega);
+
+  const temAjustePendente =
+    carrinho.some((item) => item.precoAlterado) ||
+    (tipoAtendimento === "entrega" && taxaEntregaManual !== null) ||
+    (temCartao && taxaCartaoManual !== null);
 
   // Divisão de pagamento
   const primeiraParte = modoDividido
@@ -319,6 +333,7 @@ export default function PdvClient({ produtos, categorias, clientes }: Props) {
 
   const podeFinalizar =
     !finalizando &&
+    total > 0 &&
     carrinho.length > 0 &&
     formaPagamento !== null &&
     divisaoValida &&
@@ -425,6 +440,90 @@ export default function PdvClient({ produtos, categorias, clientes }: Props) {
     mostrarAviso(`${produto.nome} adicionado ao carrinho.`, true);
   }
 
+  function lerValorManual(texto: string) {
+    const entrada = texto.trim();
+    const normalizado = entrada.includes(",")
+      ? entrada.replace(/\./g, "").replace(",", ".")
+      : entrada;
+
+    if (!/^\d+(\.\d{1,2})?$/.test(normalizado)) {
+      return null;
+    }
+
+    const valor = Number(normalizado);
+    if (!Number.isFinite(valor) || valor < 0 || valor > 99999.99) {
+      return null;
+    }
+
+    return arredondar(valor);
+  }
+
+  function editarPrecoProduto(item: ItemCarrinho) {
+    if (finalizando || registroCriadoRef.current) return;
+
+    const resposta = window.prompt(
+      `Novo preco unitario para ${item.nome}:`,
+      item.preco.toFixed(2).replace(".", ","),
+    );
+
+    if (resposta === null) return;
+
+    const valor = lerValorManual(resposta);
+
+    if (valor === null) {
+      mostrarAviso("Informe um valor valido com ate duas casas decimais.");
+      return;
+    }
+
+    const produto = produtos.find((p) => p.id === item.id);
+    const precoOriginal = produto ? precoAtual(produto) : item.preco;
+
+    setCarrinho((atual) =>
+      atual.map((produtoCarrinho) =>
+        produtoCarrinho.id === item.id
+          ? {
+              ...produtoCarrinho,
+              preco: valor,
+              precoAlterado: valor !== precoOriginal,
+            }
+          : produtoCarrinho,
+      ),
+    );
+
+    invalidarConfirmacao();
+    tentativaRef.current = null;
+    mostrarAviso("Valor atualizado na venda atual.", true);
+  }
+
+  function editarTaxa(tipo: "entrega" | "cartao") {
+    if (finalizando || registroCriadoRef.current) return;
+
+    const atual = tipo === "entrega" ? taxaEntrega : taxaCartao;
+
+    const resposta = window.prompt(
+      tipo === "entrega" ? "Nova taxa de entrega:" : "Nova taxa do cartao:",
+      atual.toFixed(2).replace(".", ","),
+    );
+
+    if (resposta === null) return;
+
+    const valor = lerValorManual(resposta);
+
+    if (valor === null || valor > 999.99) {
+      mostrarAviso("Informe uma taxa valida de ate R$ 999,99.");
+      return;
+    }
+
+    if (tipo === "entrega") {
+      setTaxaEntregaManual(valor);
+    } else {
+      setTaxaCartaoManual(valor);
+    }
+
+    invalidarConfirmacao();
+    tentativaRef.current = null;
+    mostrarAviso("Taxa ajustada nesta venda.", true);
+  }
   function alterarQuantidade(id: number, diferenca: 1 | -1) {
     const item = carrinho.find((atual) => atual.id === id);
 
@@ -461,6 +560,8 @@ export default function PdvClient({ produtos, categorias, clientes }: Props) {
 
   function limparVenda() {
     setCarrinho([]);
+    setTaxaEntregaManual(null);
+    setTaxaCartaoManual(null);
     setFormaPagamento(null);
     setPagamentoConfirmado(false);
     setModoDividido(false);
@@ -812,6 +913,11 @@ export default function PdvClient({ produtos, categorias, clientes }: Props) {
       const pagamentoEntrega = temCartao ? "cartao_entrega" : formaPagamento;
 
       const dadosPedido = {
+        ...(temAjustePendente ? {
+          taxa_entrega_ajustada: taxaEntrega,
+          taxa_cartao_ajustada: taxaCartao,
+          total_esperado: total,
+        } : {}),
         nome: clienteSelecionado?.nome ?? "Consumidor não identificado",
         telefone: clienteSelecionado?.telefone ?? "",
         cep: enderecoEntrega.cep.trim(),
@@ -828,6 +934,7 @@ export default function PdvClient({ produtos, categorias, clientes }: Props) {
         itens: carrinho.map((item) => ({
           id: item.id,
           quantidade: item.quantidade,
+          preco_unitario_ajustado: item.precoAlterado ? item.preco : undefined,
           opcoes_selecionadas:
             item.opcoes_selecionadas?.map((o) => ({
               opcao_id: o.opcao_id,
@@ -939,6 +1046,7 @@ export default function PdvClient({ produtos, categorias, clientes }: Props) {
       itens: carrinho.map((item) => ({
         id: item.id,
         quantidade: item.quantidade,
+        preco_unitario_ajustado: item.precoAlterado ? item.preco : undefined,
         opcoes_selecionadas:
           item.opcoes_selecionadas?.map((o) => ({
             opcao_id: o.opcao_id,
@@ -990,9 +1098,13 @@ export default function PdvClient({ produtos, categorias, clientes }: Props) {
           pagamento_confirmado: true,
           troco_para: formaPagamento === "dinheiro" ? valorRecebido : null,
           total_esperado: total,
+          ...(temAjustePendente ? {
+            taxa_cartao_ajustada: taxaCartao,
+          } : {}),
           itens: carrinho.map((item) => ({
             id: item.id,
             quantidade: item.quantidade,
+            preco_unitario_ajustado: item.precoAlterado ? item.preco : undefined,
             opcoes_selecionadas:
               item.opcoes_selecionadas?.map((o) => ({
                 opcao_id: o.opcao_id,
@@ -1416,6 +1528,19 @@ export default function PdvClient({ produtos, categorias, clientes }: Props) {
 
                           <p className="mt-1 text-xs text-zinc-500">
                             {formatarPreco(item.preco)} cada
+                            <button
+                              type="button"
+                              disabled={finalizando || registroCriadoRef.current !== null}
+                              onClick={() => editarPrecoProduto(item)}
+                              className="ml-2 rounded-md border border-amber-400/40 px-2 py-1 font-bold text-amber-300 disabled:opacity-30"
+                            >
+                              ✏️ Alterar preço
+                            </button>
+                            {item.precoAlterado && (
+                              <span className="ml-2 text-amber-300">
+                                (ajustado)
+                              </span>
+                            )}
                           </p>
                           {item.opcoes_selecionadas?.length ? (
                             <div className="mt-3 space-y-1 rounded-lg border border-amber-400/20 bg-amber-400/5 p-3">
@@ -1910,10 +2035,37 @@ export default function PdvClient({ produtos, categorias, clientes }: Props) {
                     <span>{formatarPreco(subtotal)}</span>
                   </div>
 
-                  {taxaCartao > 0 && (
+                  {tipoAtendimento === "entrega" && (
+                    <div className="flex justify-between gap-2 text-zinc-400">
+                      <span>Taxa de entrega</span>
+                      <span>
+                        {formatarPreco(taxaEntrega)}
+                        <button
+                          type="button"
+                          disabled={finalizando || registroCriadoRef.current !== null}
+                          onClick={() => editarTaxa("entrega")}
+                          className="ml-2 font-bold text-amber-300 disabled:opacity-30"
+                        >
+                          ✏️ Alterar
+                        </button>
+                      </span>
+                    </div>
+                  )}
+
+                  {temCartao && (
                     <div className="flex justify-between text-zinc-400">
                       <span>Taxa do cartão</span>
-                      <span>{formatarPreco(taxaCartao)}</span>
+                      <span>
+                        {formatarPreco(taxaCartao)}
+                        <button
+                          type="button"
+                          disabled={finalizando || registroCriadoRef.current !== null}
+                          onClick={() => editarTaxa("cartao")}
+                          className="ml-2 font-bold text-amber-300 disabled:opacity-30"
+                        >
+                          ✏️ Alterar
+                        </button>
+                      </span>
                     </div>
                   )}
                 </div>
@@ -1940,6 +2092,11 @@ export default function PdvClient({ produtos, categorias, clientes }: Props) {
                   </p>
                 )}
 
+                {temAjustePendente && (
+                  <p className="mt-3 rounded-lg border border-amber-400/30 bg-amber-400/10 p-3 text-xs text-amber-200">
+                    Confira os valores ajustados antes de finalizar a venda.
+                  </p>
+                )}
                 <button
                   type="button"
                   disabled={!podeFinalizar}
