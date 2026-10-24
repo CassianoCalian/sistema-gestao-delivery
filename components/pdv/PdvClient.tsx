@@ -154,6 +154,8 @@ export default function PdvClient({ produtos, categorias, clientes }: Props) {
     useState<PdvCliente | null>(null);
 
   const [modalClienteAberto, setModalClienteAberto] = useState(false);
+  const [pedidoRapido, setPedidoRapido] = useState(false);
+  const [nomePedidoRapido, setNomePedidoRapido] = useState("");
 
   const [modoNovoCliente, setModoNovoCliente] = useState(false);
 
@@ -573,6 +575,8 @@ export default function PdvClient({ produtos, categorias, clientes }: Props) {
     setErroVenda("");
     setAviso("");
     setClienteSelecionado(null);
+    setPedidoRapido(false);
+    setNomePedidoRapido("");
     limparEnderecoCliente();
     tentativaRef.current = null;
   }
@@ -918,8 +922,10 @@ export default function PdvClient({ produtos, categorias, clientes }: Props) {
           taxa_cartao_ajustada: taxaCartao,
           total_esperado: total,
         } : {}),
-        nome: clienteSelecionado?.nome ?? "Consumidor não identificado",
-        telefone: clienteSelecionado?.telefone ?? "",
+        nome: pedidoRapido
+          ? nomePedidoRapido.trim() || "Consumidor não identificado"
+          : clienteSelecionado?.nome ?? "Consumidor não identificado",
+        telefone: pedidoRapido ? "" : clienteSelecionado?.telefone ?? "",
         cep: enderecoEntrega.cep.trim(),
         rua: enderecoEntrega.rua.trim(),
         numero: enderecoEntrega.numero.trim(),
@@ -1462,6 +1468,10 @@ export default function PdvClient({ produtos, categorias, clientes }: Props) {
                     disabled={finalizando}
                     onClick={() => {
                       setTipoAtendimento(tipo);
+                      if (tipo === "balcao") {
+                        setPedidoRapido(false);
+                        setNomePedidoRapido("");
+                      }
                       invalidarConfirmacao();
                     }}
                     className={`h-11 rounded-xl text-xs font-black ${
@@ -1623,10 +1633,35 @@ export default function PdvClient({ produtos, categorias, clientes }: Props) {
 
             {/* CLIENTES E PAGAMENTO */}
             <div className="border-t border-white/10 bg-black/20 p-3">
+              {tipoAtendimento === "entrega" && (
+                <button
+                  type="button"
+                  disabled={finalizando || registroCriadoRef.current !== null}
+                  onClick={() => {
+                    setPedidoRapido(!pedidoRapido);
+                    setNomePedidoRapido("");
+                    setClienteSelecionado(null);
+                    limparEnderecoCliente();
+                    setModalClienteAberto(false);
+                    tentativaRef.current = null;
+                    invalidarConfirmacao();
+                  }}
+                  className={`mb-3 w-full rounded-xl border p-3 text-sm font-black ${
+                    pedidoRapido
+                      ? "border-emerald-400 bg-emerald-500 text-black"
+                      : "border-amber-400 bg-amber-400/10 text-amber-300"
+                  }`}
+                >
+                  {pedidoRapido
+                    ? "ENTREGA RAPIDA ATIVA - Voltar ao normal"
+                    : "PEDIDO RAPIDO - Sem cadastro"}
+                </button>
+              )}
               <button
                 type="button"
                 disabled={finalizando}
                 onClick={() => abrirCliente()}
+                style={{ display: pedidoRapido ? "none" : undefined }}
                 className="flex w-full items-center justify-between rounded-xl border border-white/10 bg-white/5 p-4 text-left disabled:opacity-50"
               >
                 <div>
@@ -1659,6 +1694,29 @@ export default function PdvClient({ produtos, categorias, clientes }: Props) {
                     Iguaçu. Outros bairros exigem consulta ao atendimento.
                   </p>
 
+                  {pedidoRapido && (
+                    <div className="rounded-xl border border-emerald-500/30 bg-emerald-500/10 p-3">
+                      <p className="mb-2 text-xs font-black text-emerald-300">
+                        ENTREGA RAPIDA - Sem telefone ou cadastro
+                      </p>
+                      <input
+                        type="text"
+                        value={nomePedidoRapido}
+                        maxLength={120}
+                        disabled={finalizando || registroCriadoRef.current !== null}
+                        onChange={(e) => {
+                          setNomePedidoRapido(e.target.value);
+                          setErroVenda("");
+                        }}
+                        placeholder="Nome (opcional)"
+                        aria-label="Nome opcional"
+                        className="w-full rounded-lg border border-white/10 bg-zinc-950 p-3 text-sm text-white"
+                      />
+                      <p className="mt-2 text-xs text-emerald-200">
+                        Preencha rua e numero abaixo para entregar.
+                      </p>
+                    </div>
+                  )}
                   {mensagemEndereco && (
                     <p
                       role="status"
@@ -1672,8 +1730,8 @@ export default function PdvClient({ produtos, categorias, clientes }: Props) {
                     {(
                       [
                         ["cep", "CEP (opcional)"],
-                        ["numero", "Número"],
-                        ["rua", "Rua"],
+                        ["numero", "Número *"],
+                        ["rua", "Rua *"],
                         ["bairro", "Bairro (opcional)"],
                         ["complemento", "Complemento"],
                         ["referencia", "Referência"],
