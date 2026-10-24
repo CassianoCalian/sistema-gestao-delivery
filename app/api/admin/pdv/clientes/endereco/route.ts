@@ -32,10 +32,8 @@ function normalizarTelefone(valor: string) {
 
 function possuiEndereco(pedido: PedidoEndereco) {
   return Boolean(
-    pedido.cep?.trim() &&
     pedido.rua?.trim() &&
-    pedido.numero?.trim() &&
-    pedido.bairro?.trim()
+    pedido.numero?.trim()
   );
 }
 
