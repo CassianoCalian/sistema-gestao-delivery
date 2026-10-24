@@ -92,6 +92,18 @@ export default function PrintableOrderReceipt({
   const taxaCartao = Number(pedido.taxa_cartao ?? 0);
   const taxaEntrega = Number(pedido.taxa_entrega ?? 0);
 
+  const valorParaTroco =
+    pedido.troco_para == null ? null : Number(pedido.troco_para);
+
+  const trocoCalculado =
+    pedido.forma_pagamento === "dinheiro" &&
+    valorParaTroco !== null &&
+    Number.isFinite(valorParaTroco) &&
+    valorParaTroco >= Number(pedido.total)
+      ? (Math.round(valorParaTroco * 100) -
+          Math.round(Number(pedido.total) * 100)) / 100
+      : null;
+
   const descontoFidelidade = Number(pedido.desconto_fidelidade ?? 0);
 
   const pontosFidelidadeUsados = Number(pedido.pontos_fidelidade_usados ?? 0);
@@ -298,6 +310,18 @@ export default function PrintableOrderReceipt({
               </p>
             )}
         </div>
+
+        {/* TROCO CALCULADO */}
+        {trocoCalculado !== null && trocoCalculado > 0 && (
+          <div className="border-b border-dashed border-black py-2 text-center">
+            <p className="text-[11px] font-black uppercase">
+              TROCO A DEVOLVER
+            </p>
+            <p className="mt-1 text-xl font-black">
+              {formatarPreco(trocoCalculado)}
+            </p>
+          </div>
+        )}
 
         {/* CLIENTE */}
         <div className="border-b border-dashed border-black py-1">
