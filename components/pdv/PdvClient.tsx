@@ -109,6 +109,10 @@ export default function PdvClient({ produtos, categorias, clientes }: Props) {
   const [carrinho, setCarrinho] = useState<ItemCarrinho[]>([]);
   const [taxaEntregaManual, setTaxaEntregaManual] = useState<number | null>(null);
   const [taxaCartaoManual, setTaxaCartaoManual] = useState<number | null>(null);
+  const [produtoEstoqueRapido, setProdutoEstoqueRapido] = useState<PdvProduto | null>(null);
+  const [quantidadeEstoqueRapido, setQuantidadeEstoqueRapido] = useState("");
+  const [salvandoEstoqueRapido, setSalvandoEstoqueRapido] = useState(false);
+  const [erroEstoqueRapido, setErroEstoqueRapido] = useState("");
   const [produtoEmSelecao, setProdutoEmSelecao] = useState<PdvProduto | null>(
     null,
   );
@@ -379,6 +383,65 @@ export default function PdvClient({ produtos, categorias, clientes }: Props) {
   }
   // ADICIONA PRODUTOS DIFERENTES E SOMA
   // QUANTIDADE SOMENTE QUANDO O ID FOR IGUAL.
+  async function registrarEstoqueRapido() {
+    const produto = produtoEstoqueRapido;
+    if (!produto || salvandoEstoqueRapido) return;
+
+    const quantidade = Number(quantidadeEstoqueRapido);
+
+    if (!Number.isSafeInteger(quantidade) || quantidade <= 0) {
+      setErroEstoqueRapido("Informe uma quantidade inteira maior que zero.");
+      return;
+    }
+
+    setSalvandoEstoqueRapido(true);
+    setErroEstoqueRapido("");
+
+    try {
+      const resposta = await fetch("/api/admin/estoque/entrada", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          produto_id: produto.id,
+          quantidade,
+          observacao: "Entrada rapida pelo PDV",
+        }),
+      });
+
+      const dados = await resposta.json();
+
+      if (!resposta.ok || !dados.sucesso ||
+          !Number.isFinite(Number(dados.estoque_novo))) {
+        throw new Error(dados.erro || "Nao foi possivel registrar a entrada.");
+      }
+
+      const estoqueNovo = Number(dados.estoque_novo);
+
+      setCarrinho((atual) =>
+        atual.map((item) =>
+          item.id === produto.id
+            ? { ...item, estoque: estoqueNovo }
+            : item
+        )
+      );
+
+      mostrarAviso(
+        `Estoque de ${produto.nome} atualizado para ${estoqueNovo} unidades.`,
+        true
+      );
+
+      setProdutoEstoqueRapido(null);
+      setQuantidadeEstoqueRapido("");
+      router.refresh();
+    } catch (error) {
+      setErroEstoqueRapido(
+        error instanceof Error ? error.message : "Erro ao salvar estoque."
+      );
+    } finally {
+      setSalvandoEstoqueRapido(false);
+    }
+  }
+
   function adicionarProduto(produto: PdvProduto) {
     const produtoId = Number(produto.id);
 
@@ -1347,13 +1410,13 @@ export default function PdvClient({ produtos, categorias, clientes }: Props) {
                         ?.quantidade ?? 0;
 
                     return (
+                      <div key={produto.id} className="relative min-w-0">
                       <button
-                        key={produto.id}
                         type="button"
                         disabled={finalizando}
                         onClick={() => adicionarProduto(produto)}
                         aria-label={`Adicionar ${produto.nome} ao carrinho`}
-                        className={`group relative min-w-0 overflow-hidden rounded-2xl border bg-zinc-900 text-left transition disabled:opacity-50 ${
+                        className={`group relative min-w-0 h-full w-full overflow-hidden rounded-2xl border bg-zinc-900 text-left transition disabled:opacity-50 ${
                           quantidadeNoCarrinho > 0
                             ? "border-amber-400/70"
                             : "border-white/10 hover:border-amber-400/40"
@@ -1429,6 +1492,22 @@ export default function PdvClient({ produtos, categorias, clientes }: Props) {
                           </div>
                         </div>
                       </button>
+                      {produto.estoque <= 5 && (
+                        <button
+                          type="button"
+                          disabled={finalizando || salvandoEstoqueRapido}
+                          onClick={() => {
+                            setProdutoEstoqueRapido(produto);
+                            setQuantidadeEstoqueRapido("");
+                            setErroEstoqueRapido("");
+                          }}
+                          title="Adicionar unidades ao estoque"
+                          className="absolute right-2 top-14 z-10 rounded-lg border border-amber-300/40 bg-amber-400 px-2 py-1 text-[10px] font-black text-zinc-950 shadow-md hover:bg-amber-300 disabled:opacity-40"
+                        >
+                          + Estoque
+                        </button>
+                      )}
+                      </div>
                     );
                   })}
                 </div>
@@ -2180,6 +2259,93 @@ export default function PdvClient({ produtos, categorias, clientes }: Props) {
           </div>
         </aside>
       </div>
+
+      {produtoEstoqueRapido && (
+        <div className="fixed inset-0 z-[90] flex items-center justify-center bg-black/80 p-4">
+          <div
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="titulo-estoque-rapido"
+            className="w-full max-w-md rounded-2xl border border-amber-400/30 bg-[#15191f] p-5 text-white shadow-2xl"
+          >
+            <div className="flex items-center justify-between gap-3">
+              <div>
+                <p className="text-xs font-black text-amber-400">
+                  PDV - ESTOQUE RAPIDO
+                </p>
+                <h2 id="titulo-estoque-rapido" className="mt-1 text-xl font-black">
+                  Adicionar unidades
+                </h2>
+              </div>
+              <button
+                type="button"
+                disabled={salvandoEstoqueRapido}
+                onClick={() => setProdutoEstoqueRapido(null)}
+                className="rounded-lg border border-white/10 px-3 py-2"
+              >
+                X
+              </button>
+            </div>
+
+            <p className="mt-5 text-sm font-bold">
+              {produtoEstoqueRapido.nome}
+            </p>
+
+            <div className="mt-3 rounded-xl border border-white/10 bg-black/20 p-4">
+              <p className="text-xs text-zinc-400">Estoque atual</p>
+              <p className="mt-1 text-2xl font-black text-amber-400">
+                {produtoEstoqueRapido.estoque} unidades
+              </p>
+            </div>
+
+            <form
+              className="mt-5 space-y-4"
+              onSubmit={(event) => {
+                event.preventDefault();
+                void registrarEstoqueRapido();
+              }}
+            >
+              <label className="block text-sm font-bold">
+                Quantas unidades deseja adicionar?
+                <input
+                  autoFocus
+                  type="number"
+                  min="1"
+                  step="1"
+                  required
+                  disabled={salvandoEstoqueRapido}
+                  value={quantidadeEstoqueRapido}
+                  onChange={(event) =>
+                    setQuantidadeEstoqueRapido(event.target.value)
+                  }
+                  placeholder="Ex.: 12"
+                  className="mt-2 h-12 w-full rounded-xl border border-amber-400/30 bg-zinc-950 px-4 text-lg text-white outline-none focus:border-amber-400"
+                />
+              </label>
+
+              <p className="text-xs text-zinc-400">
+                A quantidade sera somada ao estoque existente.
+              </p>
+
+              {erroEstoqueRapido && (
+                <p role="alert" className="rounded-lg bg-red-950/60 p-3 text-sm text-red-300">
+                  {erroEstoqueRapido}
+                </p>
+              )}
+
+              <button
+                type="submit"
+                disabled={salvandoEstoqueRapido}
+                className="h-12 w-full rounded-xl bg-emerald-500 text-sm font-black text-black hover:bg-emerald-400 disabled:opacity-40"
+              >
+                {salvandoEstoqueRapido
+                  ? "Salvando..."
+                  : "+ Adicionar estoque"}
+              </button>
+            </form>
+          </div>
+        </div>
+      )}
 
       {produtoEmSelecao && (
         <PdvSaboresModal
