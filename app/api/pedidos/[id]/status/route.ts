@@ -19,8 +19,8 @@ const STATUS_PERMITIDOS = [
 ];
 
 const TRANSICOES_PERMITIDAS: Record<string, string[]> = {
-  recebido: ["em_preparacao", "cancelado"],
-  em_preparacao: ["recebido", "saiu_entrega", "cancelado"],
+  recebido: ["em_preparacao", "entregue", "cancelado"],
+  em_preparacao: ["recebido", "saiu_entrega", "entregue", "cancelado"],
   saiu_entrega: ["em_preparacao", "entregue", "cancelado"],
   entregue: [],
   cancelado: [],

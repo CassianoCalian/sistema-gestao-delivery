@@ -117,12 +117,12 @@ export default function OrderStatusButtons({
   const pedidoEncerrado =
     statusAtual === "entregue" || statusAtual === "cancelado";
 
-  async function alterarStatus(novoStatus: string) {
+  async function alterarStatus(novoStatus: string, semConfirmacao = false) {
     if (novoStatus === statusAtual) {
       return;
     }
 
-    if (novoStatus === "entregue") {
+    if (novoStatus === "entregue" && !semConfirmacao) {
       const confirmou = window.confirm(
         "Confirmar que este pedido foi entregue ao cliente?",
       );
@@ -209,6 +209,18 @@ export default function OrderStatusButtons({
         </div>
       ) : (
         <>
+          <button
+            type="button"
+            disabled={
+              carregando ||
+              (formaPagamento === "pix" && !pagamentoConfirmado)
+            }
+            onClick={() => alterarStatus("entregue", true)}
+            className="mb-4 flex min-h-12 w-full items-center justify-center rounded-xl border border-emerald-300/30 bg-emerald-500 px-5 py-3 text-sm font-black text-zinc-950 transition hover:bg-emerald-400 disabled:cursor-not-allowed disabled:opacity-40"
+          >
+            {carregando ? "Finalizando..." : "✓ FINALIZAR DIRETO"}
+          </button>
+
           <p className="mb-3 text-sm font-bold text-zinc-400">Alterar status</p>
 
           <div className="flex flex-wrap gap-2">
