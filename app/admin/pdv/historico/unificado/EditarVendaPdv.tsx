@@ -1,6 +1,7 @@
 "use client";
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import BuscaClientePdv from "../../../../../components/pdv/BuscaClientePdv";
 
 type Endereco = {
   nome: string;
@@ -234,6 +235,9 @@ export default function EditarVendaPdv({ id }: { id: number }) {
                 <p className="text-sm font-black text-blue-200">
                   Endereco para entrega
                 </p>
+                <BuscaClientePdv onSelecionar={(cliente) =>
+                  setDados((atual) => ({ ...atual, ...cliente }))
+                } />
 
                 <div className="grid grid-cols-2 gap-3">
                   {campo("nome", "Nome")}
