@@ -38,6 +38,237 @@ const moeda = (valor: number) =>
     currency: "BRL"
   });
 
+function escaparHtmlComanda(valor: unknown): string {
+  const mapa: Record<string, string> = {
+    "&": "&amp;",
+    "<": "&lt;",
+    ">": "&gt;",
+    '"': "&quot;",
+    "'": "&#39;"
+  };
+
+  return String(valor ?? "").replace(
+    /[&<>"']/g,
+    (caractere) => mapa[caractere] ?? caractere
+  );
+}
+
+function imprimirComandaConvertida(
+  venda: Entrega,
+  produtos: Item[]
+) {
+  const janela = window.open(
+    "",
+    "_blank",
+    "width=430,height=750"
+  );
+
+  if (!janela) {
+    window.alert(
+      "Permita pop-ups para imprimir a comanda."
+    );
+    return;
+  }
+
+  const dados = venda.dados_entrega ?? {};
+  const seguro = escaparHtmlComanda;
+
+  const linha = (rotulo: string, valor: unknown) =>
+    valor
+      ? `<div><strong>${seguro(rotulo)}:</strong> ${seguro(valor)}</div>`
+      : "";
+
+  const data = new Date(venda.created_at).toLocaleString(
+    "pt-BR",
+    { timeZone: "America/Sao_Paulo" }
+  );
+
+  const status = dados.status_entrega || "recebido";
+
+  const linhasProdutos = produtos.map((produto) => `
+    <tr>
+      <td>
+        ${seguro(produto.quantidade)}x
+        ${seguro(produto.nome_produto)}
+      </td>
+      <td class="valor">
+        ${seguro(moeda(produto.subtotal))}
+      </td>
+    </tr>
+  `).join("");
+
+  const html = `
+    <!doctype html>
+    <html lang="pt-BR">
+    <head>
+      <meta charset="UTF-8">
+      <title>Comanda PDV ${seguro(venda.id)}</title>
+      <style>
+        @page {
+          margin: 3mm;
+        }
+
+        * {
+          box-sizing: border-box;
+        }
+
+        body {
+          width: 72mm;
+          max-width: 72mm;
+          margin: 0 auto;
+          padding: 2mm;
+          font-family: Arial, sans-serif;
+          color: #000;
+          font-size: 12px;
+        }
+
+        h1, h2, p {
+          margin: 0;
+        }
+
+        h1 {
+          text-align: center;
+          font-size: 19px;
+          font-weight: 900;
+        }
+
+        h2 {
+          text-align: center;
+          font-size: 14px;
+          margin: 5px 0;
+        }
+
+        .centro {
+          text-align: center;
+        }
+
+        .linha {
+          border-top: 1px dashed #000;
+          margin: 8px 0;
+        }
+
+        .dados {
+          line-height: 1.55;
+          overflow-wrap: anywhere;
+        }
+
+        table {
+          width: 100%;
+          border-collapse: collapse;
+          table-layout: fixed;
+        }
+
+        td {
+          padding: 4px 2px;
+          vertical-align: top;
+          overflow-wrap: anywhere;
+        }
+
+        td.valor {
+          width: 26mm;
+          text-align: right;
+          white-space: nowrap;
+        }
+
+        .total {
+          font-size: 18px;
+          font-weight: 900;
+          text-align: right;
+        }
+
+        .acoes {
+          text-align: center;
+          padding: 10px 0;
+        }
+
+        button {
+          padding: 10px 16px;
+          font-weight: bold;
+          cursor: pointer;
+        }
+
+        @media print {
+          .acoes {
+            display: none;
+          }
+          body {
+            width: 72mm;
+          }
+        }
+      </style>
+    </head>
+    <body>
+      <div class="acoes">
+        <button onclick="window.print()">IMPRIMIR</button>
+      </div>
+
+      <h1>DEPOSITO DO ZE</h1>
+      <h2>COMANDA DE ENTREGA</h2>
+
+      <p class="centro">
+        <strong>Entrega PDV #${seguro(venda.id)}</strong>
+      </p>
+
+      <p class="centro">${seguro(data)}</p>
+
+      <div class="linha"></div>
+
+      <div class="dados">
+        ${linha("Cliente", dados.nome || "Nao identificado")}
+        ${linha("Telefone", dados.telefone)}
+        ${linha("Rua", dados.rua)}
+        ${linha("Numero", dados.numero)}
+        ${linha("Bairro", dados.bairro)}
+        ${linha("Complemento", dados.complemento)}
+        ${linha("CEP", dados.cep)}
+        ${linha("Referencia", dados.referencia)}
+        ${linha("Observacoes", dados.observacoes)}
+      </div>
+
+      <div class="linha"></div>
+
+      <strong>PRODUTOS</strong>
+
+      <table>
+        <tbody>
+          ${
+            linhasProdutos ||
+            "<tr><td>Itens indisponiveis</td></tr>"
+          }
+        </tbody>
+      </table>
+
+      <div class="linha"></div>
+
+      <div class="total">
+        TOTAL: ${seguro(moeda(venda.total))}
+      </div>
+
+      <div class="dados">
+        ${linha("Pagamento original", venda.forma_pagamento)}
+        ${linha("Status da entrega", titulos[status] || status)}
+      </div>
+
+      <div class="linha"></div>
+
+      <p class="centro">VENDA JA REGISTRADA NO PDV</p>
+      <p class="centro">
+        Nao cobrar novamente se o pagamento ja foi recebido.
+      </p>
+    </body>
+    </html>
+  `;
+
+  janela.document.open();
+  janela.document.write(html);
+  janela.document.close();
+  janela.focus();
+
+  janela.setTimeout(() => {
+    janela.print();
+  }, 350);
+}
+
 export default function PedidosPdvConvertidos({
   idsPermitidos
 }: {
@@ -165,6 +396,16 @@ export default function PedidosPdvConvertidos({
             </details>
 
             <div className="mt-4 flex flex-wrap gap-2">
+              <button
+                type="button"
+                onClick={() => imprimirComandaConvertida(
+                  v,
+                  itens.filter((item) => item.venda_id === v.id)
+                )}
+                className="rounded-lg border border-amber-400/40 bg-amber-400 px-3 py-2 text-xs font-black text-zinc-950 hover:bg-amber-300"
+              >
+                Imprimir comanda
+              </button>
               {(proximos[status] || []).map(proximo =>
                 <button key={proximo} type="button"
                   disabled={ocupado === v.id}
