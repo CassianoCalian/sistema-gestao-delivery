@@ -1,3 +1,4 @@
+import ResumoCanaisFinanceiro from "../../components/pdv/ResumoCanaisFinanceiro";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 
@@ -825,6 +826,7 @@ const bairro = pedido.bairro?.trim() || "Não informado";
 
   return (
     <main className="relative min-h-screen overflow-hidden bg-zinc-950 text-white">
+      <ResumoCanaisFinanceiro modo="hoje" />
       {/* LUZES DE FUNDO */}
       <div
         aria-hidden="true"
