@@ -276,7 +276,26 @@ export default async function AdminPedidosPage({
     .gte("created_at", inicioHoje.toISOString())
     .lt("created_at", fimHoje.toISOString());
 
-  const faturamentoHoje =
+  // Faturamento das entregas convertidas do PDV.
+  // A venda original permanece unica no caixa.
+  const {
+    data: vendasConvertidasHoje,
+    error: erroFaturamentoPdv
+  } = await supabaseAdmin
+    .from("pdv_vendas")
+    .select("total")
+    .eq("tipo_atendimento", "delivery")
+    .eq("status", "concluida")
+    .gte("created_at", inicioHoje.toISOString())
+    .lt("created_at", fimHoje.toISOString());
+
+  const valorConvertidasPdvHoje =
+    (vendasConvertidasHoje ?? []).reduce(
+      (soma, venda) => soma + Number(venda.total ?? 0),
+      0
+    );
+
+  const faturamentoPedidosDelivery =
     pedidosHoje?.reduce((total, pedido) => {
       if (pedido.status === "cancelado") {
         return total;
@@ -284,6 +303,18 @@ export default async function AdminPedidosPage({
 
       return total + Number(pedido.total);
     }, 0) ?? 0;
+
+  // Somente para exibir o faturamento de Delivery.
+  // Nao registra outra venda nem movimenta estoque.
+  const faturamentoHoje =
+    faturamentoPedidosDelivery + valorConvertidasPdvHoje;
+
+  if (erroFaturamentoPdv) {
+    console.error(
+      "Erro ao consultar faturamento de entregas convertidas:",
+      erroFaturamentoPdv
+    );
+  }
 
   if (error) {
     console.error("Erro ao buscar pedidos:", error);
@@ -740,11 +771,11 @@ export default async function AdminPedidosPage({
               </div>
 
               <p className="mt-5 text-[9px] font-black uppercase tracking-[0.13em] text-emerald-400">
-                Faturamento
+                Faturamento Delivery
               </p>
 
               <p className="mt-1 truncate text-3xl font-black tracking-[-0.055em] text-white">
-                {formatarPreco(faturamentoHoje)}
+                {erroFaturamentoPdv ? "Indisponivel" : formatarPreco(faturamentoHoje)}
               </p>
 
               <p className="mt-2 text-[9px] text-zinc-600">
