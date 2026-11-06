@@ -323,7 +323,13 @@ export default async function HistoricoUnificado() {
                   <p className="mt-1 text-xs text-zinc-400">Pagamento: {v.forma_pagamento}</p>
                   <p className="mt-1 text-xs text-zinc-500">Venda original preservada. Sem nova baixa no estoque.</p>
                   {v.status === "concluida" && Number(v.turno_id) === turno.id && (
-                    <EditarVendaPdv id={Number(v.id)} />
+                    <div className="flex flex-wrap items-start gap-3">
+                      <EditarVendaPdv id={Number(v.id)} />
+                      <CancelarVendaBalcao
+                        id={Number(v.id)}
+                        total={Number(v.total)}
+                      />
+                    </div>
                   )}
                 </div>
               ))}
