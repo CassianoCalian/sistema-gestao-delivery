@@ -5,6 +5,7 @@ import PagamentoRapidoPedido from "../../../components/PagamentoRapidoPedido";
 import AdminOrderAlerts from "../../../components/AdminOrderAlerts";
 
 import AdminNavigation from "../../../components/AdminNavigation";
+import PedidosPdvConvertidos from "../../../components/pdv/PedidosPdvConvertidos";
 
 export const dynamic = "force-dynamic";
 
@@ -175,6 +176,68 @@ export default async function AdminPedidosPage({
     1,
     Math.ceil((totalPedidos ?? 0) / pedidosPorPagina),
   );
+  // Integra pedidos convertidos sem duplicar vendas ou estoque.
+  const { data: pdvConvertidas, error: erroPdvConvertidas } = await supabaseAdmin
+    .from("pdv_vendas")
+    .select("id,created_at,forma_pagamento,dados_entrega")
+    .eq("tipo_atendimento", "delivery")
+    .eq("status", "concluida")
+    .order("created_at", { ascending: false })
+    .limit(500);
+
+  if (erroPdvConvertidas) {
+    console.error("Falha nas entregas convertidas:", erroPdvConvertidas);
+  }
+
+  const convertidas = (pdvConvertidas ?? []).map((v) => {
+    const dados = (v.dados_entrega ?? {}) as {
+      status_entrega?: string;
+      nome?: string;
+      telefone?: string;
+    };
+
+    return {
+      id: Number(v.id),
+      status: dados.status_entrega || "recebido",
+      nome: dados.nome || "",
+      telefone: dados.telefone || "",
+      forma_pagamento: v.forma_pagamento || "",
+    };
+  });
+
+  const convertidasFiltradas = convertidas.filter((v) => {
+    const termo = busca.toLocaleLowerCase("pt-BR");
+
+    if (termo && !(
+      v.nome.toLocaleLowerCase("pt-BR").includes(termo) ||
+      (Number.isInteger(Number(busca)) && String(v.id) === busca) ||
+      v.telefone.includes(busca)
+    )) return false;
+
+    if (statusSelecionado === "ativos") {
+      if (!["recebido", "em_preparacao", "saiu_entrega"].includes(v.status))
+        return false;
+    } else if (statusSelecionado && v.status !== statusSelecionado) {
+      return false;
+    }
+
+    if (pagamentoSelecionado === "pix_pendente") return false;
+
+    if (pagamentoSelecionado === "pix_pago")
+      return v.forma_pagamento === "pix";
+
+    if (pagamentoSelecionado &&
+        v.forma_pagamento !== pagamentoSelecionado)
+      return false;
+
+    return true;
+  });
+
+  const totalPedidosIntegrados =
+    (totalPedidos ?? 0) + convertidasFiltradas.length;
+
+  const idsConvertidas = convertidasFiltradas.map((v) => v.id);
+
   // Resumo operacional.
   // Essas informações NÃO dependem dos filtros da tela.
 
@@ -184,16 +247,19 @@ export default async function AdminPedidosPage({
     .in("status", ["recebido", "em_preparacao", "saiu_entrega"]);
 
   const quantidadeRecebidos =
-    pedidosAbertosResumo?.filter((pedido) => pedido.status === "recebido")
-      .length ?? 0;
+    (pedidosAbertosResumo?.filter((pedido) => pedido.status === "recebido")
+      .length ?? 0) +
+    convertidas.filter((v) => v.status === "recebido").length;
 
   const quantidadePreparacao =
-    pedidosAbertosResumo?.filter((pedido) => pedido.status === "em_preparacao")
-      .length ?? 0;
+    (pedidosAbertosResumo?.filter((pedido) => pedido.status === "em_preparacao")
+      .length ?? 0) +
+    convertidas.filter((v) => v.status === "em_preparacao").length;
 
   const quantidadeSaiuEntrega =
-    pedidosAbertosResumo?.filter((pedido) => pedido.status === "saiu_entrega")
-      .length ?? 0;
+    (pedidosAbertosResumo?.filter((pedido) => pedido.status === "saiu_entrega")
+      .length ?? 0) +
+    convertidas.filter((v) => v.status === "saiu_entrega").length;
 
   // Início e fim do dia no horário de Brasília
   const dataHojeBrasil = new Intl.DateTimeFormat("en-CA", {
@@ -723,8 +789,8 @@ export default async function AdminPedidosPage({
                 </h2>
 
                 <span className="mb-0.5 rounded-full border border-amber-400/15 bg-amber-400/[0.06] px-2.5 py-1 text-[8px] font-black uppercase tracking-[0.1em] text-amber-400">
-                  {totalPedidos ?? 0}{" "}
-                  {totalPedidos === 1 ? "pedido" : "pedidos"}
+                  {totalPedidosIntegrados}{" "}
+                  {totalPedidosIntegrados === 1 ? "pedido" : "pedidos"}
                 </span>
               </div>
             </div>
@@ -753,7 +819,10 @@ export default async function AdminPedidosPage({
                       {inicioPagina + 1}–
                       {Math.min(fimPagina + 1, totalPedidos ?? 0)}
                     </span>{" "}
-                    de <span className="text-white">{totalPedidos}</span>
+                    de <span className="text-white">{totalPedidos}</span> comuns
+                    {convertidasFiltradas.length > 0 && (
+                      <span> + {convertidasFiltradas.length} PDV</span>
+                    )}
                   </p>
                 </div>
               )}
@@ -763,7 +832,17 @@ export default async function AdminPedidosPage({
           <div className="relative mt-4 h-px w-full bg-linear-to-r from-amber-400/15 via-white/[0.04] to-transparent" />
         </div>
 
-        {!pedidos || pedidos.length === 0 ? (
+        {erroPdvConvertidas && (
+          <p className="mt-4 rounded-xl border border-red-400/20 p-3 text-sm text-red-300">
+            Nao foi possivel carregar as entregas convertidas.
+          </p>
+        )}
+
+        {idsConvertidas.length > 0 && (
+          <PedidosPdvConvertidos idsPermitidos={idsConvertidas} />
+        )}
+
+        {!pedidos || (pedidos.length === 0 && idsConvertidas.length === 0) ? (
           <section className="relative mt-6 overflow-hidden rounded-[28px] border border-white/[0.06] bg-white/[0.02] px-6 py-12 text-center shadow-[0_20px_70px_rgba(0,0,0,0.18)]">
             <div
               aria-hidden="true"

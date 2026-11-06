@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 
 type Entrega = {
   id: number;
@@ -38,8 +38,13 @@ const moeda = (valor: number) =>
     currency: "BRL"
   });
 
-export default function PedidosPdvConvertidos() {
+export default function PedidosPdvConvertidos({
+  idsPermitidos
+}: {
+  idsPermitidos: number[];
+}) {
   const pathname = usePathname();
+  const router = useRouter();
   const [entregas, setEntregas] = useState<Entrega[]>([]);
   const [itens, setItens] = useState<Item[]>([]);
   const [carregando, setCarregando] = useState(false);
@@ -84,6 +89,7 @@ export default function PedidosPdvConvertidos() {
       const j = await r.json();
       if (!r.ok || !j.sucesso) throw Error(j.erro || "Falha");
       await carregar();
+      router.refresh();
     } catch (e) {
       setErro(e instanceof Error ? e.message : "Erro ao atualizar");
     } finally {
@@ -91,7 +97,9 @@ export default function PedidosPdvConvertidos() {
     }
   }
 
-  if (!nestaPagina) return null;
+  if (!nestaPagina || idsPermitidos.length === 0) return null;
+
+  const visiveis = entregas.filter((v) => idsPermitidos.includes(v.id));
 
   return <section className="bg-[#080808] px-4 pt-5 text-white">
     <div className="mx-auto max-w-7xl rounded-2xl border border-blue-400/30 bg-zinc-950 p-5">
@@ -114,7 +122,7 @@ export default function PedidosPdvConvertidos() {
       {erro && <p role="alert" className="mt-3 text-sm text-red-300">{erro}</p>}
 
       <div className="mt-4 grid gap-3 md:grid-cols-2">
-        {entregas.map(v => {
+        {visiveis.map(v => {
           const d = v.dados_entrega || {};
           const status = d.status_entrega || "recebido";
           const endereco = [d.rua, d.numero, d.bairro]
@@ -170,7 +178,7 @@ export default function PedidosPdvConvertidos() {
         })}
       </div>
 
-      {!carregando && !erro && entregas.length === 0 &&
+      {!carregando && !erro && visiveis.length === 0 &&
         <p className="mt-3 text-sm text-zinc-400">Nenhuma entrega convertida.</p>}
     </div>
   </section>;

@@ -24,7 +24,7 @@ export async function GET() {
     .eq("tipo_atendimento", "delivery")
     .eq("status", "concluida")
     .order("created_at", { ascending: false })
-    .limit(100);
+    .limit(500);
 
   if (r.error) {
     return NextResponse.json({ erro: "Erro ao consultar entregas" }, { status: 500 });
