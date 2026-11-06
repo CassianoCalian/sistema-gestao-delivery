@@ -1,4 +1,3 @@
-import ResumoCanaisFinanceiro from "../../../../components/pdv/ResumoCanaisFinanceiro";
 import Link from "next/link";
 import {
   resumirRecebimentosDelivery,
@@ -263,7 +262,6 @@ export default async function ResumoFechamento({ searchParams }: Props) {
 
   return (
     <main className="min-h-screen bg-[#090909] px-4 py-6 text-white sm:px-8">
-      <ResumoCanaisFinanceiro modo="turno" />
       <div className="mx-auto max-w-6xl">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div>

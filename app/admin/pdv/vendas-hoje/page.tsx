@@ -1,4 +1,3 @@
-import ResumoCanaisFinanceiro from "../../../../components/pdv/ResumoCanaisFinanceiro";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { verificarAdmin } from "../../../../lib/supabase/requireAdmin";
@@ -128,7 +127,6 @@ export default async function VendasHoje() {
 
   return (
     <main className="min-h-screen bg-zinc-950 px-4 py-8 text-white sm:px-6">
-      <ResumoCanaisFinanceiro modo="hoje" />
       <div className="mx-auto max-w-7xl">
         <AdminNavigation />
 

@@ -1,4 +1,3 @@
-import ResumoCanaisFinanceiro from "../../../components/pdv/ResumoCanaisFinanceiro";
 import Link from "next/link";
 import { supabaseAdmin } from "../../../lib/supabaseAdmin";
 import OrderStatusButtons from "../../../components/OrderStatusButtons";
@@ -357,7 +356,6 @@ export default async function AdminPedidosPage({
   }
   return (
     <main className="min-h-screen bg-zinc-950 px-6 py-12 text-white">
-      <ResumoCanaisFinanceiro modo="hoje" />
       <div className="mx-auto max-w-6xl">
         <AdminNavigation />
 

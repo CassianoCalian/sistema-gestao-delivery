@@ -1,4 +1,3 @@
-import ResumoCanaisFinanceiro from "../../../../../components/pdv/ResumoCanaisFinanceiro";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { requireAdmin } from "../../../../../lib/supabase/requireAdmin";
@@ -185,7 +184,6 @@ export default async function HistoricoUnificado() {
 
   return (
     <main className="min-h-screen bg-[#080808] p-4 text-white lg:p-8">
-      <ResumoCanaisFinanceiro modo="turno" />
       <div className="mx-auto max-w-7xl">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div>

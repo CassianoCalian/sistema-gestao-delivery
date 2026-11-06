@@ -1,5 +1,4 @@
 "use client";
-import ResumoCanaisFinanceiro from "../../../../components/pdv/ResumoCanaisFinanceiro";
 
 import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
@@ -339,7 +338,6 @@ export default function CaixaPdvPage() {
 
   return (
     <main className="min-h-screen bg-[#070707] px-4 py-6 text-white lg:px-8">
-      <ResumoCanaisFinanceiro modo="turno" />
       <div className="mx-auto max-w-6xl">
         <header className="rounded-[28px] border border-white/10 bg-zinc-950 p-6">
           <div className="flex flex-wrap items-center justify-between gap-5">
