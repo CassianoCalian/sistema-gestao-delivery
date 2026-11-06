@@ -4,6 +4,7 @@ import { requireAdmin } from "../../../../../lib/supabase/requireAdmin";
 import { supabaseAdmin } from "../../../../../lib/supabaseAdmin";
 import CancelarEntrega from "./CancelarEntrega";
 import CancelarVendaBalcao from "./CancelarVendaBalcao";
+import EditarVendaPdv from "./EditarVendaPdv";
 
 export const dynamic = "force-dynamic";
 
@@ -112,11 +113,11 @@ export default async function HistoricoUnificado() {
 
   // Balcao: vendas vinculadas ao turno atual.
   // Delivery: pedidos criados durante este turno.
-  const [vendasR, pedidosR, qtdBalcaoR, qtdDeliveryR] = await Promise.all([
+  const [vendasR, pedidosR, qtdBalcaoR, qtdDeliveryR, qtdEntregaPdvR] = await Promise.all([
     supabaseAdmin
       .from("pdv_vendas")
       .select(
-        "id,created_at,total,status,forma_pagamento,turno_id,pagamentos_detalhes",
+        "id,created_at,total,status,forma_pagamento,turno_id,pagamentos_detalhes,tipo_atendimento",
       )
       .eq("turno_id", turno.id)
       .order("id", { ascending: false })
@@ -136,7 +137,8 @@ export default async function HistoricoUnificado() {
       .from("pdv_vendas")
       .select("id", { count: "exact", head: true })
       .eq("turno_id", turno.id)
-      .eq("status", "concluida"),
+      .eq("status", "concluida")
+      .eq("tipo_atendimento", "balcao"),
 
     supabaseAdmin
       .from("pedidos")
@@ -144,6 +146,13 @@ export default async function HistoricoUnificado() {
       .gte("created_at", turno.aberto_em)
       .lte("created_at", agora)
       .neq("status", "cancelado"),
+
+    supabaseAdmin
+      .from("pdv_vendas")
+      .select("id", { count: "exact", head: true })
+      .eq("turno_id", turno.id)
+      .eq("status", "concluida")
+      .eq("tipo_atendimento", "delivery"),
   ]);
 
   if (
@@ -151,8 +160,10 @@ export default async function HistoricoUnificado() {
     pedidosR.error ||
     qtdBalcaoR.error ||
     qtdDeliveryR.error ||
+    qtdEntregaPdvR.error ||
     qtdBalcaoR.count === null ||
-    qtdDeliveryR.count === null
+    qtdDeliveryR.count === null ||
+    qtdEntregaPdvR.count === null
   ) {
     return (
       <main className="min-h-screen bg-black p-6 text-white">
@@ -167,7 +178,8 @@ export default async function HistoricoUnificado() {
     );
   }
 
-  const vendas = vendasR.data ?? [];
+  const vendas = (vendasR.data ?? []).filter((v) => v.tipo_atendimento !== "delivery");
+  const entregasPdv = (vendasR.data ?? []).filter((v) => v.tipo_atendimento === "delivery");
   const pedidos = pedidosR.data ?? [];
 
   return (
@@ -211,14 +223,14 @@ export default async function HistoricoUnificado() {
           <div className="rounded-2xl border border-blue-400/30 bg-zinc-950 p-5">
             <p className="text-sm text-zinc-400">Pedidos de delivery</p>
             <p className="mt-2 text-4xl font-black text-blue-300">
-              {qtdDeliveryR.count}
+              {qtdDeliveryR.count + qtdEntregaPdvR.count}
             </p>
           </div>
 
           <div className="rounded-2xl border border-emerald-400/30 bg-zinc-950 p-5">
             <p className="text-sm text-zinc-400">Total de atendimentos</p>
             <p className="mt-2 text-4xl font-black text-emerald-300">
-              {qtdBalcaoR.count + qtdDeliveryR.count}
+              {qtdBalcaoR.count + qtdDeliveryR.count + qtdEntregaPdvR.count}
             </p>
           </div>
         </section>
@@ -272,7 +284,10 @@ export default async function HistoricoUnificado() {
 
                   {v.status === "concluida" &&
                   Number(v.turno_id) === turno.id ? (
-                    <CancelarVendaBalcao id={v.id} total={Number(v.total)} />
+                    <div className="flex flex-wrap items-start gap-3">
+                      <EditarVendaPdv id={Number(v.id)} />
+                      <CancelarVendaBalcao id={v.id} total={Number(v.total)} />
+                    </div>
                   ) : (
                     <p className="mt-3 text-xs text-zinc-500">
                       {v.status === "cancelada"
@@ -291,10 +306,27 @@ export default async function HistoricoUnificado() {
             </h2>
 
             <div className="mt-4 space-y-3">
-              {pedidos.length === 0 && (
+              {pedidos.length === 0 && entregasPdv.length === 0 && (
                 <p className="text-zinc-400">Nenhum pedido registrado.</p>
               )}
 
+              {entregasPdv.map((v) => (
+                <div key={`pdv-${v.id}`} className="rounded-xl border border-blue-400/20 bg-black/30 p-4">
+                  <div className="flex items-start justify-between gap-3">
+                    <div>
+                      <p className="font-black">Entrega PDV - venda #{v.id}</p>
+                      <p className="mt-1 text-xs text-zinc-400">{horario(v.created_at)}</p>
+                    </div>
+                    <span className="text-xs font-bold text-blue-300">{v.status}</span>
+                  </div>
+                  <p className="mt-3 text-sm">Valor recebido: {moeda(v.total)}</p>
+                  <p className="mt-1 text-xs text-zinc-400">Pagamento: {v.forma_pagamento}</p>
+                  <p className="mt-1 text-xs text-zinc-500">Venda original preservada. Sem nova baixa no estoque.</p>
+                  {v.status === "concluida" && Number(v.turno_id) === turno.id && (
+                    <EditarVendaPdv id={Number(v.id)} />
+                  )}
+                </div>
+              ))}
               {pedidos.map((pedido) => {
                 const cancelavel =
                   true &&
