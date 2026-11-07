@@ -5,7 +5,7 @@ import PagamentoRapidoPedido from "../../../components/PagamentoRapidoPedido";
 import AdminOrderAlerts from "../../../components/AdminOrderAlerts";
 
 import AdminNavigation from "../../../components/AdminNavigation";
-import PedidosPdvConvertidos from "../../../components/pdv/PedidosPdvConvertidos";
+import PedidoPdvIntegrado from "../../../components/pdv/PedidoPdvIntegrado";
 
 export const dynamic = "force-dynamic";
 
@@ -169,13 +169,10 @@ export default async function AdminPedidosPage({
       .eq("forma_pagamento", "pix")
       .eq("pagamento_confirmado", true);
   }
-  consultaPedidos = consultaPedidos.range(inicioPagina, fimPagina);
+  consultaPedidos = consultaPedidos.range(0, fimPagina);
 
   const { data: pedidos, error, count: totalPedidos } = await consultaPedidos;
-  const totalPaginas = Math.max(
-    1,
-    Math.ceil((totalPedidos ?? 0) / pedidosPorPagina),
-  );
+  
   // Integra pedidos convertidos sem duplicar vendas ou estoque.
   const { data: pdvConvertidas, error: erroPdvConvertidas } = await supabaseAdmin
     .from("pdv_vendas")
@@ -236,7 +233,83 @@ export default async function AdminPedidosPage({
   const totalPedidosIntegrados =
     (totalPedidos ?? 0) + convertidasFiltradas.length;
 
-  const idsConvertidas = convertidasFiltradas.map((v) => v.id);
+  const idsConvertidas = convertidasFiltradas.map((v) => Number(v.id));
+
+  // A lista anterior possui somente dados resumidos.
+  // Buscamos os detalhes reais da venda pelo ID.
+  const resultadoDetalhesPdv = idsConvertidas.length
+    ? await supabaseAdmin
+        .from("pdv_vendas")
+        .select("id,created_at,total,forma_pagamento,dados_entrega")
+        .in("id", idsConvertidas)
+    : null;
+
+  if (resultadoDetalhesPdv?.error) {
+    throw new Error("Falha ao consultar detalhes das entregas PDV.");
+  }
+
+  const detalhesConvertidas = resultadoDetalhesPdv?.data ?? [];
+
+  if (detalhesConvertidas.length !== idsConvertidas.length) {
+    throw new Error("Algumas entregas PDV nao foram encontradas no banco.");
+  }
+
+  const detalhesPorId = new Map(
+    detalhesConvertidas.map((venda) => [
+      Number(venda.id),
+      venda
+    ] as const)
+  );
+
+  const totalPaginas = Math.max(
+    1,
+    Math.ceil(totalPedidosIntegrados / pedidosPorPagina)
+  );
+
+  // Junta as origens somente para exibicao.
+  // Nenhuma venda e recriada ou somada ao caixa.
+  const filaIntegrada = [
+    ...(pedidos ?? []).map((pedido) => ({
+      origem: "site" as const,
+      horario: String(pedido.created_at),
+      pedido
+    })),
+    ...convertidasFiltradas.map((venda) => ({
+      origem: "pdv" as const,
+      horario: String(
+        detalhesPorId.get(Number(venda.id))?.created_at ?? ""
+      ),
+      venda
+    }))
+  ].sort(
+    (a, b) =>
+      new Date(b.horario).getTime() -
+      new Date(a.horario).getTime()
+  );
+
+  const pedidosVisiveis = filaIntegrada.slice(
+    inicioPagina,
+    fimPagina + 1
+  );
+
+  const idsPdvVisiveis = pedidosVisiveis.flatMap((entrada) =>
+    entrada.origem === "pdv"
+      ? [Number(entrada.venda.id)]
+      : []
+  );
+
+  const resultadoProdutosPdv = idsPdvVisiveis.length
+    ? await supabaseAdmin
+        .from("pdv_venda_itens")
+        .select("venda_id,nome_produto,quantidade,subtotal")
+        .in("venda_id", idsPdvVisiveis)
+    : null;
+
+  if (resultadoProdutosPdv?.error) {
+    throw new Error("Falha ao consultar os produtos das entregas PDV.");
+  }
+
+  const produtosPdv = resultadoProdutosPdv?.data ?? [];
 
   // Resumo operacional.
   // Essas informações NÃO dependem dos filtros da tela.
@@ -840,7 +913,7 @@ export default async function AdminPedidosPage({
                 Pedidos ativos
               </Link>
 
-              {(totalPedidos ?? 0) > 0 && (
+              {totalPedidosIntegrados > 0 && (
                 <div className="flex items-center gap-3 rounded-full border border-white/[0.05] bg-black/20 px-4 py-2">
                   <span className="h-1.5 w-1.5 rounded-full bg-cyan-400" />
 
@@ -848,12 +921,9 @@ export default async function AdminPedidosPage({
                     Mostrando{" "}
                     <span className="text-zinc-300">
                       {inicioPagina + 1}–
-                      {Math.min(fimPagina + 1, totalPedidos ?? 0)}
+                      {Math.min(fimPagina + 1, totalPedidosIntegrados)}
                     </span>{" "}
-                    de <span className="text-white">{totalPedidos}</span> comuns
-                    {convertidasFiltradas.length > 0 && (
-                      <span> + {convertidasFiltradas.length} PDV</span>
-                    )}
+                    de <span className="text-white">{totalPedidosIntegrados}</span> pedidos
                   </p>
                 </div>
               )}
@@ -869,11 +939,9 @@ export default async function AdminPedidosPage({
           </p>
         )}
 
-        {idsConvertidas.length > 0 && (
-          <PedidosPdvConvertidos idsPermitidos={idsConvertidas} />
-        )}
+        
 
-        {!pedidos || (pedidos.length === 0 && idsConvertidas.length === 0) ? (
+        {pedidosVisiveis.length === 0 ? (
           <section className="relative mt-6 overflow-hidden rounded-[28px] border border-white/[0.06] bg-white/[0.02] px-6 py-12 text-center shadow-[0_20px_70px_rgba(0,0,0,0.18)]">
             <div
               aria-hidden="true"
@@ -911,7 +979,60 @@ export default async function AdminPedidosPage({
           </section>
         ) : (
           <div className="mt-6 grid gap-4">
-            {pedidos.map((pedido) => {
+            {pedidosVisiveis.map((entrada) => {
+
+              if (entrada.origem === "pdv") {
+
+                const venda = entrada.venda;
+                const detalhe = detalhesPorId.get(Number(venda.id));
+
+                if (!detalhe) {
+                  return null;
+                }
+
+                const dados = (
+                  detalhe.dados_entrega ?? {}
+                ) as Record<string, unknown>;
+
+                const endereco = [
+                  dados.rua,
+                  dados.numero,
+                  dados.complemento,
+                  dados.bairro,
+                  dados.referencia
+                ]
+                  .filter(Boolean)
+                  .map(String)
+                  .join(", ");
+
+                const itensVenda = produtosPdv
+                  .filter(
+                    (item) =>
+                      Number(item.venda_id) === Number(venda.id)
+                  )
+                  .map((item) => ({
+                    nome: String(item.nome_produto ?? ""),
+                    quantidade: Number(item.quantidade ?? 0),
+                    subtotal: Number(item.subtotal ?? 0)
+                  }));
+
+                return (
+                  <PedidoPdvIntegrado
+                    key={`pdv-${venda.id}`}
+                    id={Number(venda.id)}
+                    criadoEm={String(detalhe.created_at)}
+                    nome={String(venda.nome ?? "Cliente nao identificado")}
+                    telefone={String(venda.telefone ?? "")}
+                    endereco={endereco}
+                    status={String(venda.status ?? "recebido")}
+                    pagamento={String(detalhe.forma_pagamento ?? "")}
+                    total={Number(detalhe.total ?? 0)}
+                    produtos={itensVenda}
+                  />
+                );
+              }
+
+              const pedido = entrada.pedido;
               const recebido = pedido.status === "recebido";
               const preparando = pedido.status === "em_preparacao";
               const saiuEntrega = pedido.status === "saiu_entrega";
