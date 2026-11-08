@@ -29,8 +29,10 @@ export default function PdvOfflineBootstrap() {
   }
 
   return (
-    <main className="ze-pdv-v3 min-h-screen bg-[#070707] p-3 text-white lg:p-4">
-      <PdvClient produtos={foto.produtos} categorias={foto.categorias} clientes={[]} />
+    <main className="ze-pdv-v3 min-h-screen w-full bg-[#070707] text-white xl:h-[100dvh] xl:min-h-0 xl:overflow-hidden">
+      <div className="flex min-h-screen w-full flex-col p-3 lg:p-4 xl:h-full xl:min-h-0 xl:gap-2 xl:overflow-hidden">
+        <PdvClient produtos={foto.produtos} categorias={foto.categorias} clientes={[]} />
+      </div>
     </main>
   );
 }
