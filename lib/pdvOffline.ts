@@ -227,6 +227,7 @@ export async function registrarVendaLocal(venda: VendaOffline): Promise<Resultad
       throw new Error("Identificador já existe com dados diferentes. Verifique as pendências.");
     }
     if (!existente) await guardar("vendas", venda);
+    if (existente?.estado === "revisar") return { estado: "revisar", mensagem: existente.mensagem };
     return executar(existente ?? venda);
   });
 }
