@@ -1,8 +1,13 @@
 "use client";
 
-import { useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import PdvSaboresModal from "./PdvSaboresModal";
+import {
+  carregarFotoCatalogo, observarFilaOffline, registrarVendaLocal,
+  salvarFotoCatalogo, sincronizarVendasOffline, vendasPendentes,
+  type VendaOffline,
+} from "../../lib/pdvOffline";
 
 import type {
   PdvCategoria,
@@ -95,8 +100,112 @@ function converterDinheiro(valor: string) {
   return Number.isFinite(numero) && numero > 0 ? numero : null;
 }
 
-export default function PdvClient({ produtos, categorias, clientes }: Props) {
+export default function PdvClient({ produtos: produtosRecebidos, categorias, clientes }: Props) {
   const router = useRouter();
+  const [pendentesLocais, setPendentesLocais] = useState<VendaOffline[]>([]);
+  const [semInternet, setSemInternet] = useState(false);
+  const [offlinePreparado, setOfflinePreparado] = useState(false);
+  const [sincronizando, setSincronizando] = useState(false);
+  const [erroFila, setErroFila] = useState("");
+  const produtos = useMemo(() => {
+    const pendenciasEstoque = new Map<number, number>();
+    for (const venda of pendentesLocais) {
+      const itens = venda.corpo.itens as { id: number; quantidade: number }[] | undefined;
+      for (const item of itens ?? []) {
+        pendenciasEstoque.set(item.id, (pendenciasEstoque.get(item.id) ?? 0) + item.quantidade);
+      }
+    }
+    return produtosRecebidos.map((produto) => ({
+      ...produto,
+      estoque: Math.max(0, produto.estoque - (pendenciasEstoque.get(produto.id) ?? 0)),
+    }));
+  }, [produtosRecebidos, pendentesLocais]);
+
+  useEffect(() => {
+    let ativo = true;
+    let sincronizandoAgora = false;
+    const atualizarFila = async () => {
+      try {
+        const fila = await vendasPendentes();
+        if (ativo) {
+          setPendentesLocais(fila);
+          setErroFila(fila.find((venda) => venda.estado === "revisar")?.mensagem ?? "");
+        }
+      } catch (erro) {
+        if (ativo) setErroFila(erro instanceof Error ? erro.message : "Falha ao ler vendas salvas.");
+      }
+    };
+    const atualizarRede = () => { if (ativo) setSemInternet(!navigator.onLine); };
+    const sincronizar = async () => {
+      if (!navigator.onLine || sincronizandoAgora) return;
+      sincronizandoAgora = true;
+      if (ativo) setSincronizando(true);
+      try {
+        const concluidas = await sincronizarVendasOffline();
+        await atualizarFila();
+        if (concluidas > 0) router.refresh();
+      } catch (erro) {
+        if (ativo) setErroFila(erro instanceof Error ? erro.message : "Falha ao sincronizar.");
+      } finally {
+        sincronizandoAgora = false;
+        if (ativo) setSincronizando(false);
+      }
+    };
+    const reconectar = () => { atualizarRede(); void sincronizar(); };
+    const desligar = observarFilaOffline(() => { void atualizarFila(); });
+    atualizarRede();
+    if (location.pathname.includes("/offline")) setOfflinePreparado(true);
+    void atualizarFila();
+    window.addEventListener("online", reconectar);
+    window.addEventListener("offline", atualizarRede);
+    const intervalo = window.setInterval(() => { void sincronizar(); }, 30000);
+
+    // Salva somente catálogo obtido após autenticação na página online do PDV.
+    if (location.pathname.replace(/\/$/, "") === "/admin/pdv" && navigator.onLine) {
+      void (async () => {
+        try {
+          const resposta = await fetch("/api/admin/pdv/contador-turno", { cache: "no-store" });
+          if (!resposta.ok) throw new Error("Não foi possível confirmar o turno do caixa.");
+          const dados = await resposta.json() as { turno?: number | null };
+          await salvarFotoCatalogo({
+            produtos: produtosRecebidos, categorias,
+            atualizadoEm: new Date().toISOString(),
+            turnoId: typeof dados.turno === "number" ? dados.turno : null,
+          });
+
+          if (!("serviceWorker" in navigator)) throw new Error("Este navegador não permite modo offline.");
+          // O arquivo está na raiz: o escopo cobre o PDV, mas o worker só intercepta
+          // navegações do PDV e arquivos estáticos do Next, nunca chamadas de API.
+          await navigator.serviceWorker.register("/pdv-sw.js", { scope: "/" });
+          await navigator.serviceWorker.ready;
+          if (!ativo) return;
+
+          // Abre a página reserva discretamente para guardar seus scripts e estilos.
+          const frame = document.createElement("iframe");
+          frame.setAttribute("aria-hidden", "true");
+          frame.tabIndex = -1;
+          frame.style.cssText = "position:absolute;width:0;height:0;border:0;visibility:hidden";
+          frame.onload = () => {
+            if (ativo) setOfflinePreparado(true);
+            window.setTimeout(() => frame.remove(), 1200);
+          };
+          frame.src = "/admin/pdv/offline?preparar=1";
+          document.body.appendChild(frame);
+        } catch (erro) {
+          if (ativo) setErroFila(erro instanceof Error ? erro.message : "Falha no preparo offline.");
+        }
+      })();
+    }
+    void sincronizar();
+
+    return () => {
+      ativo = false;
+      desligar();
+      window.clearInterval(intervalo);
+      window.removeEventListener("online", reconectar);
+      window.removeEventListener("offline", atualizarRede);
+    };
+  }, [produtosRecebidos, categorias, router]);
 
   const [busca, setBusca] = useState("");
   const [categoria, setCategoria] = useState<number | null>(null);
@@ -921,305 +1030,130 @@ export default function PdvClient({ produtos, categorias, clientes }: Props) {
     }
   }
 
-  // FINALIZAÇÃO
+  // FINALIZAÇÃO: primeiro persiste a venda no navegador; depois envia ao servidor.
   async function finalizarVenda() {
     if (finalizando) return;
-
     setErroVenda("");
-
-    if (tipoAtendimento === "entrega") {
-      if (
-        !enderecoPronto ||
-        carrinho.length === 0 ||
-        !formaPagamento
-      ) {
-        setErroVenda(
-          "Informe rua e número, os produtos e a forma de pagamento.",
-        );
-        return;
-      }
-
-      if (trocoInvalido) {
-        setErroVenda(
-          "O valor informado para troco é menor que o total dos produtos.",
-        );
-        return;
-      }
-
-      if (registroCriadoRef.current?.tipo === "entrega") {
-        const pedidoId = registroCriadoRef.current.id;
-
-        setFinalizando(true);
-
-        try {
-          await salvarPagamentoDoPdv("entrega", pedidoId);
-
-          limparVenda();
-          setTipoAtendimento("balcao");
-
-          mostrarAviso(
-            `Entrega #${pedidoId} registrada com pagamento atualizado.`,
-            true,
-          );
-
-          setComandaCarregada(false);
-          setPedidoParaImpressao(pedidoId);
-        } catch (error) {
-          setErroVenda(
-            error instanceof Error
-              ? error.message
-              : "Não foi possível atualizar o pagamento.",
-          );
-        } finally {
-          setFinalizando(false);
-        }
-
-        return;
-      }
-
-      const pagamentoEntrega = temCartao ? "cartao_entrega" : formaPagamento;
-
-      const dadosPedido = {
-        ...(temAjustePendente ? {
-          taxa_entrega_ajustada: taxaEntrega,
-          taxa_cartao_ajustada: taxaCartao,
-          total_esperado: total,
-        } : {}),
-        nome: pedidoRapido
-          ? nomePedidoRapido.trim() || "Consumidor não identificado"
-          : clienteSelecionado?.nome ?? "Consumidor não identificado",
-        telefone: pedidoRapido ? "" : clienteSelecionado?.telefone ?? "",
-        cep: enderecoEntrega.cep.trim(),
-        rua: enderecoEntrega.rua.trim(),
-        numero: enderecoEntrega.numero.trim(),
-        bairro: enderecoEntrega.bairro.trim(),
-        complemento: enderecoEntrega.complemento.trim(),
-        referencia: enderecoEntrega.referencia.trim(),
-        forma_pagamento: pagamentoEntrega,
-        troco_para:
-          formaPagamento === "dinheiro" && trocoEntrega === "com"
-            ? valorRecebido
-            : null,
-        itens: carrinho.map((item) => ({
-          id: item.id,
-          quantidade: item.quantidade,
-          preco_unitario_ajustado: item.precoAlterado ? item.preco : undefined,
-          opcoes_selecionadas:
-            item.opcoes_selecionadas?.map((o) => ({
-              opcao_id: o.opcao_id,
-              quantidade: o.quantidade,
-            })) ?? [],
-        })),
-      };
-
-      const assinatura = JSON.stringify({
-        tipo: "entrega",
-        ...dadosPedido,
-      });
-
-      if (tentativaRef.current?.assinatura !== assinatura) {
-        tentativaRef.current = {
-          assinatura,
-          chave: crypto.randomUUID(),
-        };
-      }
-
-      setFinalizando(true);
-
-      try {
-        const resposta = await fetch("/api/admin/pdv/entregas", {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({
-            ...dadosPedido,
-            chave_idempotencia: tentativaRef.current.chave,
-          }),
-        });
-
-        const dados = (await resposta.json()) as {
-          sucesso?: boolean;
-          pedido_id?: number;
-          erro?: string;
-        };
-
-        if (!resposta.ok || !dados.sucesso || !dados.pedido_id) {
-          throw new Error(
-            dados.erro ?? "Não foi possível registrar a entrega.",
-          );
-        }
-
-        registroCriadoRef.current = {
-          tipo: "entrega",
-          id: dados.pedido_id,
-          total,
-        };
-
-        await salvarPagamentoDoPdv("entrega", dados.pedido_id);
-
-        limparVenda();
-
-        setEnderecoEntrega({
-          cep: "",
-          rua: "",
-          numero: "",
-          bairro: "",
-          complemento: "",
-          referencia: "",
-        });
-
-        setTipoAtendimento("balcao");
-
-        mostrarAviso(
-          "Pedido de entrega registrado. Confira os dados no painel.",
-          true,
-        );
-
-        setComandaCarregada(false);
-        setPedidoParaImpressao(dados.pedido_id);
-      } catch (error) {
-        setErroVenda(
-          error instanceof Error
-            ? error.message
-            : "Não foi possível registrar o pedido.",
-        );
-      } finally {
-        setFinalizando(false);
-      }
-
+    if (!podeFinalizar) {
+      setErroVenda(tipoAtendimento === "entrega"
+        ? "Confira endereço, carrinho, valores e pagamento."
+        : "Confira carrinho, valores e confirmação do pagamento.");
       return;
     }
 
-    if (carrinho.length === 0) {
-      setErroVenda("Adicione produtos ao carrinho.");
-      return;
-    }
+    const entrega = tipoAtendimento === "entrega";
+    const itens = carrinho.map((item) => ({
+      id: item.id,
+      quantidade: item.quantidade,
+      preco_unitario_ajustado: item.precoAlterado ? item.preco : undefined,
+      opcoes_selecionadas: item.opcoes_selecionadas?.map((opcao) => ({
+        opcao_id: opcao.opcao_id, quantidade: opcao.quantidade,
+      })) ?? [],
+    }));
 
-    if (!formaPagamento) {
-      setErroVenda("Selecione uma forma de pagamento.");
-      return;
-    }
-
-    if (!pagamentoPronto) {
-      setErroVenda("Confirme o recebimento do pagamento.");
-      return;
-    }
-
-    if (trocoInvalido) {
-      setErroVenda("O valor recebido não pode ser menor que o total.");
-      return;
-    }
-
-    const assinatura = JSON.stringify({
-      itens: carrinho.map((item) => ({
-        id: item.id,
-        quantidade: item.quantidade,
-        preco_unitario_ajustado: item.precoAlterado ? item.preco : undefined,
-        opcoes_selecionadas:
-          item.opcoes_selecionadas?.map((o) => ({
-            opcao_id: o.opcao_id,
-            quantidade: o.quantidade,
-          })) ?? [],
-      })),
+    const corpo = entrega ? {
+      ...(temAjustePendente ? {
+        taxa_entrega_ajustada: taxaEntrega,
+        taxa_cartao_ajustada: taxaCartao,
+        total_esperado: total,
+      } : {}),
+      nome: pedidoRapido ? nomePedidoRapido.trim() || "Consumidor não identificado"
+        : clienteSelecionado?.nome ?? "Consumidor não identificado",
+      telefone: pedidoRapido ? "" : clienteSelecionado?.telefone ?? "",
+      cep: enderecoEntrega.cep.trim(),
+      rua: enderecoEntrega.rua.trim(),
+      numero: enderecoEntrega.numero.trim(),
+      bairro: enderecoEntrega.bairro.trim(),
+      complemento: enderecoEntrega.complemento.trim(),
+      referencia: enderecoEntrega.referencia.trim(),
+      forma_pagamento: temCartao ? "cartao_entrega" : formaPagamento,
+      troco_para: formaPagamento === "dinheiro" && trocoEntrega === "com" ? valorRecebido : null,
+      itens,
+    } : {
       cliente_id: clienteSelecionado?.id ?? null,
       forma_pagamento: formaPagamento,
+      pagamento_confirmado: true,
       troco_para: formaPagamento === "dinheiro" ? valorRecebido : null,
-      total,
-    });
+      total_esperado: total,
+      ...(temAjustePendente ? { taxa_cartao_ajustada: taxaCartao } : {}),
+      itens,
+    };
 
+    const assinatura = JSON.stringify({
+      tipo: tipoAtendimento, corpo, total, parcelasPagamento,
+      pagamentoConfirmado, primeiraParcelaRecebida,
+    });
     if (tentativaRef.current?.assinatura !== assinatura) {
-      tentativaRef.current = {
-        assinatura,
-        chave: crypto.randomUUID(),
-      };
+      tentativaRef.current = { assinatura, chave: crypto.randomUUID() };
     }
 
     setFinalizando(true);
-
     try {
-      if (registroCriadoRef.current?.tipo === "balcao") {
-        const vendaId = registroCriadoRef.current.id;
-        const numeroTurno = registroCriadoRef.current.numeroTurno;
+      const foto = await carregarFotoCatalogo();
+      let turnoId = foto?.turnoId ?? null;
+      if (!entrega && navigator.onLine) {
+        // Confirma sempre o turno atual antes de gravar uma venda online.
+        try {
+          const respostaTurno = await fetch("/api/admin/pdv/contador-turno", {
+            cache: "no-store", signal: AbortSignal.timeout(12000),
+          });
+          if (respostaTurno.ok) {
+            const dados = await respostaTurno.json() as { turno?: number | null };
+            turnoId = typeof dados.turno === "number" ? dados.turno : null;
+          }
+        } catch { /* Uma queda real ainda permite usar o último turno conhecido. */ }
+      }
+      if (!entrega && turnoId === null) {
+        throw new Error("Turno do caixa não preparado. Abra o turno e acesse o PDV com internet antes de vender offline.");
+      }
 
-        await salvarPagamentoDoPdv("balcao", vendaId);
+      const pagamento: VendaOffline["pagamento"] = {
+        tipo: entrega ? "entrega" : "balcao",
+        total_esperado: total,
+        pagamento_confirmado: entrega ? pagamentoConfirmado : true,
+        parcelas: parcelasPagamento.map((parcela, indice) => ({
+          ...parcela,
+          recebido: !entrega || pagamentoConfirmado ||
+            (modoDividido && indice === 0 && primeiraParcelaRecebida),
+        })),
+      };
+      const id = tentativaRef.current.chave;
+      const resultado = await registrarVendaLocal({
+        id, tipo: entrega ? "entrega" : "balcao",
+        corpo: { ...corpo, chave_idempotencia: id },
+        pagamento,
+        criadaEm: new Date().toISOString(), turnoId,
+        etapa: "registro", estado: "pendente",
+      });
 
-        limparVenda();
-
-        mostrarAviso(
-          `${rotuloVendaTurno(numeroTurno)} concluída com pagamento registrado.`,
-          true,
-        );
-
-        router.refresh();
+      if (resultado.estado === "revisar") {
+        setErroVenda("Venda salva neste computador, mas requer conferência: " +
+          (resultado.mensagem ?? "erro do servidor") + ". Não crie outra venda igual.");
         return;
       }
 
-      const resposta = await fetch("/api/admin/pdv/vendas", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          chave_idempotencia: tentativaRef.current.chave,
-          cliente_id: clienteSelecionado?.id ?? null,
-          forma_pagamento: formaPagamento,
-          pagamento_confirmado: true,
-          troco_para: formaPagamento === "dinheiro" ? valorRecebido : null,
-          total_esperado: total,
-          ...(temAjustePendente ? {
-            taxa_cartao_ajustada: taxaCartao,
-          } : {}),
-          itens: carrinho.map((item) => ({
-            id: item.id,
-            quantidade: item.quantidade,
-            preco_unitario_ajustado: item.precoAlterado ? item.preco : undefined,
-            opcoes_selecionadas:
-              item.opcoes_selecionadas?.map((o) => ({
-                opcao_id: o.opcao_id,
-                quantidade: o.quantidade,
-              })) ?? [],
-          })),
-        }),
-      });
-
-      const dados = (await resposta.json()) as RespostaVenda;
-
-      if (!resposta.ok || !dados.sucesso) {
-        throw new Error(dados.erro ?? "Não foi possível finalizar a venda.");
+      if (resultado.estado === "pendente") {
+        limparVenda();
+        if (entrega) setTipoAtendimento("balcao");
+        mostrarAviso("VENDA SALVA NO COMPUTADOR, aguardando sincronização. Não feche o turno nem limpe os dados do navegador.", true);
+        return;
       }
 
-      const numeroVenda = dados.venda_id;
-      const numeroTurno = dados.numero_turno;
-      const totalVenda = dados.total ?? total;
-
-      if (!numeroVenda) {
-        throw new Error(
-          "Venda registrada sem identificador. Confira o histórico.",
-        );
-      }
-
-      registroCriadoRef.current = {
-        tipo: "balcao",
-        id: numeroVenda,
-        total: totalVenda,
-        numeroTurno,
-      };
-
-      await salvarPagamentoDoPdv("balcao", numeroVenda);
-
+      const totalVenda = total;
       limparVenda();
-
-      mostrarAviso(
-        `${rotuloVendaTurno(numeroTurno)} registrada! Total: ${formatarPreco(totalVenda)}.`,
-        true,
-      );
-
+      if (entrega) {
+        setTipoAtendimento("balcao");
+        if (resultado.registroId) {
+          setComandaCarregada(false);
+          setPedidoParaImpressao(resultado.registroId);
+        }
+        mostrarAviso("Entrega registrada com pagamento atualizado.", true);
+      } else {
+        mostrarAviso(`${rotuloVendaTurno(resultado.numeroTurno)} registrada! Total: ${formatarPreco(totalVenda)}.`, true);
+      }
       router.refresh();
-    } catch (error) {
-      setErroVenda(
-        error instanceof Error ? error.message : "Erro ao finalizar a venda.",
-      );
+    } catch (erro) {
+      setErroVenda(erro instanceof Error ? erro.message : "Erro ao guardar a venda com segurança.");
     } finally {
       setFinalizando(false);
     }
@@ -1250,7 +1184,28 @@ export default function PdvClient({ produtos, categorias, clientes }: Props) {
             </div>
           </div>
 
-          <div className="flex flex-wrap gap-1.5">
+          <div className="flex flex-wrap items-center gap-2">
+            <span className={`rounded-lg border px-2 py-1.5 text-xs font-bold ${semInternet ? "border-amber-400/40 text-amber-300" : "border-emerald-400/30 text-emerald-300"}`}>
+              {semInternet ? "● Sem internet" : offlinePreparado ? "● Online · offline preparado" : "● Online · preparando offline"}
+            </span>
+            {pendentesLocais.length > 0 && (
+              <button type="button" disabled={sincronizando || semInternet}
+                onClick={async () => {
+                  setSincronizando(true);
+                  try {
+                    const concluidas = await sincronizarVendasOffline();
+                    setPendentesLocais(await vendasPendentes());
+                    if (concluidas) router.refresh();
+                  } catch (erro) {
+                    setErroFila(erro instanceof Error ? erro.message : "Falha ao sincronizar.");
+                  } finally { setSincronizando(false); }
+                }}
+                className="rounded-lg border border-amber-400/40 px-2 py-1.5 text-xs font-bold text-amber-300 disabled:opacity-60"
+                title="Tentar sincronizar vendas pendentes">
+                {pendentesLocais.length} pendente(s) · {sincronizando ? "Sincronizando" : "Sincronizar"}
+              </button>
+            )}
+            {erroFila && <span className="max-w-48 truncate text-xs text-red-300" title={erroFila}>Atenção: {erroFila}</span>}
             <button
               type="button"
               onClick={() => router.push("/admin")}
