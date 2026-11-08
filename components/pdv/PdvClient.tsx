@@ -110,6 +110,8 @@ export default function PdvClient({ produtos: produtosRecebidos, categorias, cli
   const produtos = useMemo(() => {
     const pendenciasEstoque = new Map<number, number>();
     for (const venda of pendentesLocais) {
+      // Estoque já foi debitado no Supabase quando falta apenas atualizar pagamentos.
+      if (venda.etapa !== "registro") continue;
       const itens = venda.corpo.itens as { id: number; quantidade: number }[] | undefined;
       for (const item of itens ?? []) {
         pendenciasEstoque.set(item.id, (pendenciasEstoque.get(item.id) ?? 0) + item.quantidade);
