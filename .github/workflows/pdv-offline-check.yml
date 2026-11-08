@@ -1,0 +1,36 @@
+name: Validar PDV offline
+
+on:
+  push:
+    branches:
+      - feature/pdv-offline-seguro
+  pull_request:
+    paths:
+      - 'components/pdv/**'
+      - 'app/admin/pdv/**'
+      - 'lib/pdvOffline.ts'
+      - 'public/pdv-sw.js'
+      - '.github/workflows/pdv-offline-check.yml'
+
+jobs:
+  verificar:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - run: npm ci
+      - name: Conferir sintaxe do service worker
+        run: node --check public/pdv-sw.js
+      - name: Conferir TypeScript
+        run: npx tsc --noEmit
+      - name: Compilar aplicação com credenciais fictícias
+        run: npm run build
+        env:
+          NEXT_PUBLIC_SUPABASE_URL: https://example.supabase.co
+          NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: chave-teste-sem-acesso
+          SUPABASE_SECRET_KEY: chave-teste-sem-acesso
+          ADMIN_EMAILS: teste@example.com
