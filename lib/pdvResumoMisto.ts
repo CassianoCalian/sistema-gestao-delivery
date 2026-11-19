@@ -1,4 +1,6 @@
+import { createHash } from "node:crypto";
 import { supabaseAdmin } from "./supabaseAdmin";
+import { resumirRecebimentosDelivery } from "./recebimentosDelivery";
 
 export type VendaPagamento = {
   id: number;
@@ -153,4 +155,112 @@ export async function vendasPorTurnos(ids: number[]) {
   }
 
   throw Error("Limite de vendas excedido. Confira os turnos.");
+}
+
+
+// Consolida o dinheiro recebido ao confirmar pagamento de um pedido.
+// Usa o "suprimento" já existente: não cria tabelas, campos ou elementos visuais.
+// Não infere recebimento pelo status "entregue" ou pela data da venda.
+export async function conciliarDinheiroDeliveryNoCaixa(
+  pedidoId: number,
+  operador: { id: string; email?: string }
+): Promise<void> {
+  if (!Number.isSafeInteger(pedidoId) || pedidoId <= 0 || !operador.email) {
+    throw Error("Identificacao invalida para conciliar o caixa.");
+  }
+
+  const { data: pedido, error: erroPedido } = await supabaseAdmin
+    .from("pedidos")
+    .select("id,total,status,forma_pagamento,pagamento_confirmado,pagamentos_detalhes")
+    .eq("id", pedidoId)
+    .maybeSingle();
+
+  if (erroPedido || !pedido) {
+    throw Error("Nao foi possivel conferir o recebimento do pedido.");
+  }
+
+  const dinheiroConfirmado = centavos(
+    resumirRecebimentosDelivery([pedido]).totais.dinheiro
+  );
+
+  // A ausência de dinheiro confirmado não altera a gaveta.
+  if (dinheiroConfirmado === 0) return;
+
+  // Consulta o histórico inteiro (inclusive o registro manual que existiu
+  // temporariamente no Controle de Caixa) para não somar um mesmo pedido duas vezes.
+  const { data: existentes, error: erroMovimentos } = await supabaseAdmin
+    .from("pdv_caixa_movimentacoes")
+    .select("id,tipo,valor,motivo")
+    .ilike("motivo", `%pedido #${pedidoId}%`)
+    .order("id", { ascending: true })
+    .limit(1000);
+
+  if (erroMovimentos || !existentes || existentes.length === 1000) {
+    throw Error("Nao foi possivel conferir os lancamentos anteriores.");
+  }
+
+  const corresponde = new RegExp(`pedido #${pedidoId}(?!\\d)`, "i");
+  const jaRegistrado = existentes
+    .filter((m) => typeof m.motivo === "string" && corresponde.test(m.motivo))
+    .reduce(
+      (soma, m) =>
+        soma + (m.tipo === "suprimento" ? centavos(m.valor) : -centavos(m.valor)),
+      0
+    );
+
+  const diferenca = dinheiroConfirmado - jaRegistrado;
+  if (diferenca === 0) return;
+
+  // Nunca cria sangria automática: uma alteração de pagamento não prova
+  // que houve saída física de dinheiro da gaveta.
+  if (diferenca < 0) {
+    throw Error("O dinheiro registrado excede o confirmado. Confira o pedido e o caixa.");
+  }
+
+  const { data: caixa, error: erroCaixa } = await supabaseAdmin
+    .from("pdv_caixas")
+    .select("id")
+    .eq("codigo", "principal")
+    .maybeSingle();
+
+  if (erroCaixa || !caixa) {
+    throw Error("Caixa principal indisponivel.");
+  }
+
+  const { data: turno, error: erroTurno } = await supabaseAdmin
+    .from("pdv_turnos")
+    .select("id")
+    .eq("caixa_id", caixa.id)
+    .eq("status", "aberto")
+    .maybeSingle();
+
+  if (erroTurno || !turno) {
+    throw Error("Nao ha turno aberto para registrar o dinheiro confirmado.");
+  }
+
+  // A chave depende do pedido e do total confirmado.
+  // Reenvios e confirmações concorrentes do mesmo valor não geram duplicata.
+  const hash = createHash("sha256")
+    .update(`ze:delivery-confirmado:${pedidoId}:${dinheiroConfirmado}`)
+    .digest("hex");
+  const chave =
+    `${hash.slice(0, 8)}-${hash.slice(8, 12)}-5${hash.slice(13, 16)}` +
+    `-a${hash.slice(17, 20)}-${hash.slice(20, 32)}`;
+
+  const { error } = await supabaseAdmin.rpc("movimentar_caixa_pdv", {
+    p_turno_id: turno.id,
+    p_tipo: "suprimento",
+    p_valor: diferenca / 100,
+    p_motivo: `Dinheiro de delivery confirmado - pedido #${pedidoId}`,
+    p_operador_uid: operador.id,
+    p_operador_email: operador.email,
+    p_chave: chave,
+  });
+
+  if (error) {
+    throw Error(
+      "Dinheiro confirmado no pedido, mas nao conciliado no caixa. " +
+      "Confira o turno antes de repetir a confirmacao."
+    );
+  }
 }
