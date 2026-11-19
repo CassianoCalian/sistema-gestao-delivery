@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { requireAdmin } from "../../../../../lib/supabase/requireAdmin";
 import { supabaseAdmin } from "../../../../../lib/supabaseAdmin";
+import { conciliarDinheiroDeliveryNoCaixa } from "../../../../../lib/pdvResumoMisto";
 
 export const runtime = "nodejs";
 
@@ -31,8 +32,9 @@ function centavos(valor: number) {
 }
 
 export async function POST(request: Request) {
+  let operador;
   try {
-    await requireAdmin();
+    operador = await requireAdmin();
   } catch {
     return erro("Acesso não autorizado.", 401);
   }
@@ -168,6 +170,18 @@ export async function POST(request: Request) {
     if (erroSalvar || !salvo) {
       console.error("Erro ao salvar pagamento:", erroSalvar);
       return erro("Não foi possível salvar o pagamento.", 500);
+    }
+
+    if (body.tipo === "entrega" &&
+        parcelasDetalhadas.some((p) => p.forma === "dinheiro" && p.recebido)) {
+      try {
+        await conciliarDinheiroDeliveryNoCaixa(body.registro_id, operador);
+      } catch (e) {
+        return erro(
+          e instanceof Error ? e.message : "Pagamento salvo, mas conciliacao do caixa falhou.",
+          409
+        );
+      }
     }
 
     return NextResponse.json({
