@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
-import { verificarAdmin } from "../../../../../../lib/supabase/requireAdmin";
+import { requireAdmin } from "../../../../../../lib/supabase/requireAdmin";
 import { supabaseAdmin } from "../../../../../../lib/supabaseAdmin";
+import { conciliarDinheiroDeliveryNoCaixa } from "../../../../../../lib/pdvResumoMisto";
 
 export const dynamic = "force-dynamic";
 
@@ -10,9 +11,8 @@ type Contexto = {
 
 export async function POST(request: Request, contexto: Contexto) {
   try {
-    const autorizado = await verificarAdmin();
-
-    if (!autorizado) {
+    let operador;
+    try { operador = await requireAdmin(); } catch {
       return NextResponse.json(
         { erro: "Nao autorizado." },
         { status: 401 },
@@ -108,6 +108,17 @@ export async function POST(request: Request, contexto: Contexto) {
     }
 
     if (pedido.pagamento_confirmado === true) {
+      if (pedido.forma_pagamento === "dinheiro" ||
+          (pedido.pagamentos_detalhes && typeof pedido.pagamentos_detalhes === "object")) {
+        try {
+          await conciliarDinheiroDeliveryNoCaixa(id, operador);
+        } catch (e) {
+          return NextResponse.json(
+            { erro: e instanceof Error ? e.message : "Falha na conciliacao do caixa." },
+            { status: 409 }
+          );
+        }
+      }
       return NextResponse.json({
         sucesso: true,
         ja_confirmado: true,
@@ -168,6 +179,18 @@ export async function POST(request: Request, contexto: Contexto) {
         },
         { status: 409 },
       );
+    }
+
+    if (pedido.forma_pagamento === "dinheiro" ||
+        (pedido.pagamentos_detalhes && typeof pedido.pagamentos_detalhes === "object")) {
+      try {
+        await conciliarDinheiroDeliveryNoCaixa(id, operador);
+      } catch (e) {
+        return NextResponse.json(
+          { erro: e instanceof Error ? e.message : "Pagamento salvo, mas a conciliacao falhou." },
+          { status: 409 }
+        );
+      }
     }
 
     return NextResponse.json({
