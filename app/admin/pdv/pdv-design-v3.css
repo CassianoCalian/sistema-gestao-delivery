@@ -428,7 +428,7 @@ button:disabled {
 /* ZE_FIX_TOPO_LOGO_V4 */
 
 /* Topo sem o espaco alto causado pelos alertas */
-.ze-pdv-v3 > div > div:first-child {
+.ze-pdv-v3 > div > .ze-pdv-topo-online {
   display: flex !important;
   flex-direction: row !important;
   align-items: center !important;
@@ -439,7 +439,7 @@ button:disabled {
   padding: 3px 0 8px;
 }
 
-.ze-pdv-v3 > div > div:first-child > :first-child {
+.ze-pdv-v3 > div > .ze-pdv-topo-online > :first-child {
   margin-right: auto;
 }
 

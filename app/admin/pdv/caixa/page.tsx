@@ -168,8 +168,6 @@ export default function CaixaPdvPage() {
   const [motivo, setMotivo] = useState("");
   const [valorFechamento, setValorFechamento] = useState("");
   const [observacao, setObservacao] = useState("");
-  const [pedidoDeliveryCaixa, setPedidoDeliveryCaixa] = useState("");
-  const [recebendoDeliveryCaixa, setRecebendoDeliveryCaixa] = useState(false);
 
   const tentativaRef = useRef<{
     assinatura: string;
@@ -283,56 +281,6 @@ export default function CaixaPdvPage() {
     }
   }
 
-  async function registrarRecebimentoDelivery() {
-    const pedidoId = Number(pedidoDeliveryCaixa);
-
-    if (
-      !Number.isSafeInteger(pedidoId) ||
-      pedidoId <= 0 ||
-      recebendoDeliveryCaixa
-    ) {
-      setSucesso(false);
-      setMensagem("Informe um numero de pedido valido.");
-      return;
-    }
-
-    setRecebendoDeliveryCaixa(true);
-    setMensagem("");
-
-    try {
-      const resposta = await fetch(
-        "/api/admin/pdv/receber-delivery-caixa",
-        {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ pedido_id: pedidoId })
-        }
-      );
-
-      const resultado = await resposta.json();
-
-      if (!resposta.ok || !resultado.sucesso) {
-        throw new Error(
-          resultado.erro ?? "Falha ao registrar recebimento."
-        );
-      }
-
-      setPedidoDeliveryCaixa("");
-      setSucesso(true);
-      setMensagem(
-        `Pedido #${pedidoId}: ${moeda(resultado.valor)} adicionados ao caixa.`
-      );
-
-      await carregar();
-    } catch (erro) {
-      setSucesso(false);
-      setMensagem(
-        erro instanceof Error ? erro.message : "Falha no recebimento."
-      );
-    } finally {
-      setRecebendoDeliveryCaixa(false);
-    }
-  }
   const turno = dados?.turno_aberto ?? null;
   const movimentos = dados?.movimentacoes ?? [];
 
@@ -745,49 +693,6 @@ export default function CaixaPdvPage() {
                   </form>
                 </section>
 
-                <section className="mt-5 rounded-[24px] border border-emerald-500/25 bg-zinc-950 p-6">
-                  <h2 className="text-xl font-black text-emerald-300">
-                    Dinheiro recebido do delivery
-                  </h2>
-
-                  <p className="mt-2 text-sm text-zinc-400">
-                    Registre somente quando o dinheiro entrar fisicamente
-                    na gaveta. Confirme primeiro o pagamento em Pedidos.
-                    Nao registre valores ja incluidos como suprimento.
-                  </p>
-
-                  <form
-                    className="mt-4 flex flex-col gap-3 sm:flex-row"
-                    onSubmit={(evento) => {
-                      evento.preventDefault();
-                      void registrarRecebimentoDelivery();
-                    }}
-                  >
-                    <input
-                      type="number"
-                      min="1"
-                      step="1"
-                      required
-                      value={pedidoDeliveryCaixa}
-                      onChange={(evento) =>
-                        setPedidoDeliveryCaixa(evento.target.value)
-                      }
-                      placeholder="Numero do pedido"
-                      disabled={recebendoDeliveryCaixa || operando}
-                      className="h-12 flex-1 rounded-xl border border-white/10 bg-black/30 px-4"
-                    />
-
-                    <button
-                      type="submit"
-                      disabled={recebendoDeliveryCaixa || operando}
-                      className="h-12 rounded-xl bg-emerald-500 px-5 font-black text-black disabled:opacity-50"
-                    >
-                      {recebendoDeliveryCaixa
-                        ? "Registrando..."
-                        : "Dinheiro entrou na gaveta"}
-                    </button>
-                  </form>
-                </section>
                 <section className="mt-5 rounded-[24px] border border-white/10 bg-zinc-950 p-6">
                   <h2 className="text-xl font-black">
                     Movimentações deste turno

@@ -1,6 +1,6 @@
 /* Depósito do Zé - cache apenas da interface do PDV e de scripts estáticos.
  * NUNCA cachear respostas de API ou dados autenticados do servidor. */
-const VERSION = "deposito-ze-pdv-shell-v1";
+const VERSION = "deposito-ze-pdv-shell-v2";
 const OFFLINE = "/admin/pdv/offline";
 
 self.addEventListener("install", (event) => {
